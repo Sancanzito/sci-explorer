@@ -1,6 +1,6 @@
 // App.jsx - CORRECTED VERSION
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useParams } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import AIAssistant from './components/Ai';
 import { useTheme } from './ThemeProvider';
