@@ -1,4 +1,4 @@
-// Navbar.jsx - Updated with animated theme toggle
+// Navbar.jsx - Updated with Tools navbar and Unit Converter
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,6 +6,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 const Navbar = ({ isDarkMode, toggleTheme }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [isUnitConverterOpen, setIsUnitConverterOpen] = useState(false);
+  const [converterValues, setConverterValues] = useState({
+    fromUnit: 'meters',
+    toUnit: 'feet',
+    fromValue: 1,
+    toValue: 3.28084
+  });
   const location = useLocation();
 
   useEffect(() => {
@@ -34,9 +41,117 @@ const Navbar = ({ isDarkMode, toggleTheme }) => {
     }
   ];
 
-  const chatLinks = [
-    { name: 'Research Lab Assistant', path: '/chat/research', emoji: '🔬', description: 'Analyze DNA lab data' },
-    { name: 'Physics Tutor', path: '/chat/physics', emoji: '📐', description: 'Solve circuit & thermal problems' }
+  // Unit conversion definitions
+  const unitCategories = {
+    length: {
+      meters: 1,
+      kilometers: 1000,
+      centimeters: 0.01,
+      millimeters: 0.001,
+      miles: 1609.344,
+      yards: 0.9144,
+      feet: 0.3048,
+      inches: 0.0254
+    },
+    mass: {
+      kilograms: 1,
+      grams: 0.001,
+      milligrams: 0.000001,
+      pounds: 0.453592,
+      ounces: 0.0283495,
+      tons: 1000
+    },
+    temperature: {
+      celsius: 'celsius',
+      fahrenheit: 'fahrenheit',
+      kelvin: 'kelvin'
+    }
+  };
+
+  const [selectedCategory, setSelectedCategory] = useState('length');
+  const [conversionResult, setConversionResult] = useState(null);
+
+  const handleUnitConversion = (value, fromUnit, toUnit, category) => {
+    if (category === 'temperature') {
+      let celsius = 0;
+      if (fromUnit === 'celsius') celsius = value;
+      else if (fromUnit === 'fahrenheit') celsius = (value - 32) * 5/9;
+      else if (fromUnit === 'kelvin') celsius = value - 273.15;
+      
+      let result = 0;
+      if (toUnit === 'celsius') result = celsius;
+      else if (toUnit === 'fahrenheit') result = celsius * 9/5 + 32;
+      else if (toUnit === 'kelvin') result = celsius + 273.15;
+      
+      return result;
+    } else {
+      const baseValue = value * unitCategories[category][fromUnit];
+      return baseValue / unitCategories[category][toUnit];
+    }
+  };
+
+  const updateConversion = (field, value) => {
+    if (field === 'fromValue') {
+      const result = handleUnitConversion(
+        parseFloat(value) || 0,
+        converterValues.fromUnit,
+        converterValues.toUnit,
+        selectedCategory
+      );
+      setConverterValues({
+        ...converterValues,
+        fromValue: value,
+        toValue: result
+      });
+      setConversionResult(result);
+    } else if (field === 'toValue') {
+      const result = handleUnitConversion(
+        parseFloat(value) || 0,
+        converterValues.toUnit,
+        converterValues.fromUnit,
+        selectedCategory
+      );
+      setConverterValues({
+        ...converterValues,
+        toValue: value,
+        fromValue: result
+      });
+      setConversionResult(result);
+    } else if (field === 'fromUnit') {
+      const result = handleUnitConversion(
+        parseFloat(converterValues.fromValue) || 0,
+        value,
+        converterValues.toUnit,
+        selectedCategory
+      );
+      setConverterValues({
+        ...converterValues,
+        fromUnit: value,
+        toValue: result
+      });
+      setConversionResult(result);
+    } else if (field === 'toUnit') {
+      const result = handleUnitConversion(
+        parseFloat(converterValues.fromValue) || 0,
+        converterValues.fromUnit,
+        value,
+        selectedCategory
+      );
+      setConverterValues({
+        ...converterValues,
+        toUnit: value,
+        toValue: result
+      });
+      setConversionResult(result);
+    }
+  };
+
+  // Tools menu items
+  const toolsLinks = [
+    { name: 'Unit Converter', icon: '📐', action: 'converter', hasDropdown: true },
+    { name: 'Scientific Calculator', path: '/tools/calculator', icon: '🧮', description: 'Advanced scientific calculations' },
+    { name: 'Periodic Table', path: '/tools/periodic-table', icon: '⚗️', description: 'Interactive element explorer' },
+    { name: 'Graph Plotter', path: '/tools/graph-plotter', icon: '📈', description: 'Plot mathematical functions' }
   ];
 
   const navigationLinks = [
@@ -109,6 +224,193 @@ const Navbar = ({ isDarkMode, toggleTheme }) => {
                   </AnimatePresence>
                 </div>
               ))}
+              
+              {/* Tools Menu */}
+              <div 
+                className="relative" 
+                onMouseEnter={() => setActiveDropdown('tools')} 
+                onMouseLeave={() => {
+                  setActiveDropdown(null);
+                  setIsUnitConverterOpen(false);
+                }}
+              >
+                <button className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">
+                  🛠️ Tools
+                  <motion.span animate={{ rotate: activeDropdown === 'tools' ? 180 : 0 }}>
+                    ▾
+                  </motion.span>
+                </button>
+                
+                <AnimatePresence>
+                  {activeDropdown === 'tools' && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl overflow-hidden"
+                    >
+                      {toolsLinks.map((tool) => (
+                        <div key={tool.name}>
+                          {tool.action === 'converter' ? (
+                            <>
+                              <button
+                                onClick={() => setIsUnitConverterOpen(!isUnitConverterOpen)}
+                                className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
+                              >
+                                <span className="text-xl">{tool.icon}</span>
+                                <div className="flex-1">
+                                  <div className="text-sm font-medium text-gray-900 dark:text-white">{tool.name}</div>
+                                </div>
+                                <motion.span
+                                  animate={{ rotate: isUnitConverterOpen ? 180 : 0 }}
+                                  className="text-gray-400"
+                                >
+                                  ▼
+                                </motion.span>
+                              </button>
+                              
+                              {/* Unit Converter Collapsible Panel */}
+                              <AnimatePresence>
+                                {isUnitConverterOpen && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50"
+                                  >
+                                    <div className="p-4 space-y-3">
+                                      {/* Category Selector */}
+                                      <div>
+                                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">Category</label>
+                                        <div className="flex gap-2">
+                                          {['length', 'mass', 'temperature'].map((cat) => (
+                                            <button
+                                              key={cat}
+                                              onClick={() => {
+                                                setSelectedCategory(cat);
+                                                const units = Object.keys(unitCategories[cat]);
+                                                const newFromUnit = units[0];
+                                                const newToUnit = units[1] || units[0];
+                                                updateConversion('fromUnit', newFromUnit);
+                                                setConverterValues({
+                                                  ...converterValues,
+                                                  fromUnit: newFromUnit,
+                                                  toUnit: newToUnit
+                                                });
+                                              }}
+                                              className={`text-xs px-2 py-1 rounded-md transition-colors ${
+                                                selectedCategory === cat
+                                                  ? 'bg-cyan-500 text-white'
+                                                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                                              }`}
+                                            >
+                                              {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      
+                                      {/* From Unit */}
+                                      <div>
+                                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">From</label>
+                                        <div className="flex gap-2">
+                                          <select
+                                            value={converterValues.fromUnit}
+                                            onChange={(e) => updateConversion('fromUnit', e.target.value)}
+                                            className="flex-1 px-2 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-white"
+                                          >
+                                            {Object.keys(unitCategories[selectedCategory]).map((unit) => (
+                                              <option key={unit} value={unit}>
+                                                {unit.charAt(0).toUpperCase() + unit.slice(1)}
+                                              </option>
+                                            ))}
+                                          </select>
+                                          <input
+                                            type="number"
+                                            value={converterValues.fromValue}
+                                            onChange={(e) => updateConversion('fromValue', e.target.value)}
+                                            className="flex-1 px-2 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-white"
+                                          />
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Swap Button */}
+                                      <div className="flex justify-center">
+                                        <button
+                                          onClick={() => {
+                                            const tempUnit = converterValues.fromUnit;
+                                            const tempValue = converterValues.fromValue;
+                                            updateConversion('fromUnit', converterValues.toUnit);
+                                            setConverterValues({
+                                              ...converterValues,
+                                              fromUnit: converterValues.toUnit,
+                                              toUnit: tempUnit,
+                                              fromValue: converterValues.toValue,
+                                              toValue: tempValue
+                                            });
+                                          }}
+                                          className="text-gray-500 hover:text-cyan-500 transition-colors"
+                                        >
+                                          🔄 Swap
+                                        </button>
+                                      </div>
+                                      
+                                      {/* To Unit */}
+                                      <div>
+                                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">To</label>
+                                        <div className="flex gap-2">
+                                          <select
+                                            value={converterValues.toUnit}
+                                            onChange={(e) => updateConversion('toUnit', e.target.value)}
+                                            className="flex-1 px-2 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-white"
+                                          >
+                                            {Object.keys(unitCategories[selectedCategory]).map((unit) => (
+                                              <option key={unit} value={unit}>
+                                                {unit.charAt(0).toUpperCase() + unit.slice(1)}
+                                              </option>
+                                            ))}
+                                          </select>
+                                          <input
+                                            type="number"
+                                            value={converterValues.toValue}
+                                            onChange={(e) => updateConversion('toValue', e.target.value)}
+                                            className="flex-1 px-2 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-white"
+                                          />
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Result Display */}
+                                      {conversionResult !== null && (
+                                        <div className="text-center pt-2 border-t border-gray-200 dark:border-gray-700">
+                                          <p className="text-xs text-gray-500 dark:text-gray-400">Result</p>
+                                          <p className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">
+                                            {converterValues.fromValue} {converterValues.fromUnit} = {converterValues.toValue.toFixed(6)} {converterValues.toUnit}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </>
+                          ) : (
+                            <Link
+                              to={tool.path}
+                              className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            >
+                              <span className="text-xl">{tool.icon}</span>
+                              <div>
+                                <div className="text-sm font-medium text-gray-900 dark:text-white">{tool.name}</div>
+                                <div className="text-[10px] text-gray-500 dark:text-gray-400">{tool.description}</div>
+                              </div>
+                            </Link>
+                          )}
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
               
               {/* Animated Theme Toggle Button */}
               <motion.button
@@ -215,35 +517,6 @@ const Navbar = ({ isDarkMode, toggleTheme }) => {
                   </motion.span>
                 </motion.div>
               </motion.button>
-              
-              {/* AI Trigger */}
-              <div className="relative" onMouseEnter={() => setActiveDropdown('chat')} onMouseLeave={() => setActiveDropdown(null)}>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  className="px-4 py-2 bg-cyan-50 dark:bg-cyan-600/20 border border-cyan-200 dark:border-cyan-500/50 text-cyan-700 dark:text-cyan-400 rounded-lg text-sm font-medium"
-                >
-                  AI Assistant
-                </motion.button>
-                <AnimatePresence>
-                  {activeDropdown === 'chat' && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-2 shadow-xl"
-                    >
-                      {chatLinks.map((link) => (
-                        <Link key={link.name} to={link.path} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg">
-                          <span className="text-lg">{link.emoji}</span>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">{link.name}</div>
-                            <div className="text-[10px] text-gray-500 dark:text-gray-400">{link.description}</div>
-                          </div>
-                        </Link>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
             </div>
           </div>
         </div>

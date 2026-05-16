@@ -4,6 +4,7 @@ import { HashRouter as Router, Routes, Route, useParams } from 'react-router-dom
 import Navbar from './components/Navbar';
 import AIAssistant from './components/Ai';
 import { useTheme } from './ThemeProvider';
+import ScientificCalculator from './components/ScientificCalculator';
 
 
 const HomePage = () => (
@@ -83,6 +84,8 @@ function App() {
           <Route path="/simulations" element={<SimulationsPage />} />
           <Route path="/quizzes" element={<QuizzesPage />} />
           <Route path="/chat/:context" element={<ChatPage />} />
+          <Route path="/tools/calculator" element={<ScientificCalculator />} />
+          
         </Routes>
       </Router>
        {/* Add AI Assistant component - it will appear on all pages */}
