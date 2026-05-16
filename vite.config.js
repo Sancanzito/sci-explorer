@@ -4,5 +4,5 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/sci-hub/', // Replace with your actual repo name
+  base: '/', // Must be '/' for Vercel
 })
