@@ -12,8 +12,11 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "bootstrap": "^5.3.8",
+    "convert": "^7.0.0",
+    "convert-units": "^2.3.4",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.16.0",
+    "mathjs": "^15.2.0",
     "pyodide": "^0.29.4",
     "react": "^19.2.6",
     "react-bootstrap": "^2.10.10",
