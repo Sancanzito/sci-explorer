@@ -1,5 +1,5 @@
 // SolarSystemCardData.jsx
-import { planets } from '../SolarSystemData';
+import { planets } from './SolarSystemData';
 
 const NATURAL_IMAGES = {
   Mercury: "https://upload.wikimedia.org/wikipedia/commons/4/4a/Mercury_in_true_color.jpg",

@@ -2,10 +2,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import WelcomeSection from './HomeComponents/WelcomeSection';
-import TriviaWidget from './HomeComponents/TriviaWidget';
+import TriviaWidget from './HomeComponents/TriviaWidget/TriviaWidget';
 import FactBox from './HomeComponents/FactBox';
 import FormulaWidget from './HomeComponents/FormulaWidget';
-import SolarSystemModel from './HomeComponents/SolarSystemModel';
+import SolarSystemModel from './HomeComponents/SolarSystem/SolarSystemModel';
 import DiscoveryTimeline from './HomeComponents/DiscoveryTimeline';
 import ArticleLibrary from './HomeComponents/ArticleLibrary';
 import ConceptReview from './HomeComponents/ConceptReview';
