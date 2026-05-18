@@ -7,5 +7,8 @@ export default defineConfig({
   define: {
     global: 'globalThis',
   },
-  base: '/', // Must be '/' for Vercel
+  base: './', // Change to relative path or keep as '/' if using a custom domain
+  build: {
+    outDir: 'dist',
+  }
 })

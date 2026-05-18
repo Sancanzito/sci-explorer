@@ -17,6 +17,8 @@
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.16.0",
     "mathjs": "^15.2.0",
+    "periodic-table": "^0.0.8",
+    "periodic-table-data": "^1.1.1",
     "pyodide": "^0.29.4",
     "react": "^19.2.6",
     "react-bootstrap": "^2.10.10",

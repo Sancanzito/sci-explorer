@@ -11,7 +11,6 @@ import ArticleLibrary from './HomeComponents/ArticleLibrary';
 import ConceptReview from './HomeComponents/ConceptReview';
 import NewsFeed from './HomeComponents/NewsFeed';
 import QuoteofDay from './HomeComponents/QuoteofDay';
-import { Quote } from 'lucide-react';
 
 const HomePage = () => {
   return (
@@ -23,50 +22,54 @@ const HomePage = () => {
     >
       <div className="max-w-7xl mx-auto px-4 py-8">
         
-        {/* Grid Layout */}
-        <div className="grid grid-cols-6 grid-rows-12 gap-4 min-h-screen">
+        {/* 
+          Mobile: 1 Column (Stays stacked naturally)
+          Tablet (md): 2 Columns 
+          Desktop (lg): Clean 6-Column Bento Layout
+        */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           
-          {/* Row 1-4: Hero Zone */}
-          <div className="col-span-2 row-span-2">
+          {/* --- HERO ZONE --- */}
+          <div className="lg:col-span-2">
             <WelcomeSection />
           </div>
           
-          <div className="col-span-2 row-span-4 col-start-5 row-start-1">
-            <SolarSystemModel />
-          </div>
-          
-          <div className="col-span-2 row-span-2 col-start-3 row-start-1">
+          <div className="lg:col-span-2">
             <TriviaWidget />
           </div>
           
-          <div className="col-span-2 row-span-2 row-start-3">
+          <div className="md:col-span-2 lg:col-span-2 lg:row-span-2">
+            <SolarSystemModel />
+          </div>
+          
+          <div className="lg:col-span-2">
             <FactBox />
           </div>
           
-          <div className="col-span-2 row-span-2 col-start-3 row-start-3">
+          <div className="lg:col-span-2">
             <FormulaWidget />
           </div>
           
-          {/* Row 5-6: Mega Feature Banner */}
-          <div className="col-span-6 row-span-2 row-start-5">
+          {/* --- MEGA FEATURE --- */}
+          <div className="md:col-span-2 lg:col-span-6">
             <DiscoveryTimeline />
           </div>
           
-          {/* Row 7-11: Deep Dive Zone */}
-          <div className="col-span-3 row-span-5 row-start-7">
+          {/* --- DEEP DIVE ZONE --- */}
+          <div className="md:col-span-1 lg:col-span-3">
             <ArticleLibrary />
           </div>
           
-          <div className="col-span-3 row-span-5 col-start-4 row-start-7">
+          <div className="md:col-span-1 lg:col-span-3">
             <ConceptReview />
           </div>
           
-          {/* Row 12: Footer Zone */}
-          <div className="col-span-3 row-start-12">
+          {/* --- FOOTER ZONE --- */}
+          <div className="md:col-span-1 lg:col-span-3">
             <NewsFeed />
           </div>
           
-          <div className="col-span-3 col-start-4 row-start-12">
+          <div className="md:col-span-1 lg:col-span-3">
             <QuoteofDay />
           </div>
           

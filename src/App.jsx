@@ -5,13 +5,13 @@ import Navbar from './components/Navbar/Navbar';
 import AIAssistant from './components/AI/Ai';
 import { useTheme } from './ThemeProvider';
 import ScientificCalculator from './components/Calculator/ScientificCalculator';
+import PeriodicTable from './components/Tools/PeriodicTable';;
 
 // Import all page components
 import HomePage from './pages/HomePage';
 import ArticlesPage from './pages/ArticlesPage';
 import SimulationsPage from './pages/SimulationsPage';
 import QuizzesPage from './pages/QuizzesPage';
-// import ChatPage from './pages/ChatPage';  // ❌ REMOVE THIS
 
 function App() {
   const { isDarkMode, toggleTheme } = useTheme();
@@ -26,7 +26,7 @@ function App() {
           <Route path="/articles/*" element={<ArticlesPage />} />
           <Route path="/simulations" element={<SimulationsPage />} />
           <Route path="/quizzes" element={<QuizzesPage />} />
-          {/* <Route path="/chat/:context" element={<ChatPage />} />  ❌ REMOVE THIS */}
+          <Route path="/tools/periodic-table" element={<PeriodicTable />} />
           <Route path="/tools/calculator" element={<ScientificCalculator />} />
         </Routes>
       </Router>

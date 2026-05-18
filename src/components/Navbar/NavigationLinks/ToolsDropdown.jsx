@@ -6,7 +6,7 @@ import UnitConverter from '../UnitConverter';
 
 const toolsData = [
   { name: 'Scientific Calculator', path: '/tools/calculator', icon: '🧮', description: 'Advanced scientific calculations', color: 'from-blue-500 to-cyan-500' },
-  { name: 'Periodic Table', path: '/tools/periodic-table', icon: '⚗️', description: 'Interactive element explorer', color: 'from-purple-500 to-pink-500' },
+  { name: 'Periodic Table', path: '/tools/periodic-table',icon: '⚗️', description: 'Interactive element explorer', color: 'from-purple-500 to-pink-500'},
   { name: 'Graph Plotter', path: '/tools/graph-plotter', icon: '📈', description: 'Plot mathematical functions', color: 'from-green-500 to-teal-500' },
   { name: 'Equation Solver', path: '/tools/equation-solver', icon: '📐', description: 'Solve complex equations', color: 'from-orange-500 to-red-500' }
 ];
