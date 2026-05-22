@@ -30,3 +30,105 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+html {
+  overflow-y: scroll; /* Force one consistent scrollbar */
+}
+
+/* Add this to your index.css */
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Add this to the bottom of your index.css file */
+/* Add this to the bottom of your index.css */
+
+@media print {
+  /* 1. Strip out global app Chrome components from React Router context */
+  nav,
+  header,
+  footer:not(#academic-print-footer),
+  aside,
+  #ai-assistant-root, /* Overrides the floating AIAssistant if wrapper has an ID */
+  button,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* 2. Reset layout variables for uniform document pages */
+  body, 
+  .min-h-screen {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-size: 12pt !important;
+  }
+
+  /* 3. Target your main container layout */
+  main, 
+  article {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* 4. Prevent broken sections, split cards, or clipped table rows mid-page */
+  section, 
+  tr, 
+  li,
+  .bg-white,
+  .dark\:bg-gray-800 {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  /* 5. Clean up interactive dark-mode components into crisp ink-friendly contrasts */
+  p, span, h1, h2, h3, h4, td, th {
+    color: #000000 !important;
+  }
+
+  .bg-gradient-to-r,
+  .bg-gradient-to-br {
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+  }
+}
+
+/* Forces hidden sections to appear instantly when generating the PDF */
+[data-printing="true"], 
+[data-printing="true"] section,
+[data-printing="true"] [style*="opacity: 0"],
+[data-printing="true"] .motion-div {
+  opacity: 1 !important;
+  transform: none !important;
+  visibility: visible !important;
+}

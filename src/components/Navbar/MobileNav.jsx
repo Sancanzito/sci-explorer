@@ -1,15 +1,24 @@
 // components/Navbar/MobileNav.jsx
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from './ThemeToggle';
-import ArticlesDropdown from './NavigationLinks/ArticlesDropdown';
-import SimulationsDropdown from './NavigationLinks/SimulationsDropdown';
-import QuizzesDropdown from './NavigationLinks/QuizzesDropdown';
 import ToolsDropdown from './NavigationLinks/ToolsDropdown';
 
 const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
   const [mobileDropdown, setMobileDropdown] = useState(null);
+  const location = useLocation();
+
+  const toggleMobileDropdown = (type) => {
+    setMobileDropdown(mobileDropdown === type ? null : type);
+  };
+
+  const getMobileLinkClass = (path) => {
+    const baseClass = "block p-3 text-base font-semibold rounded-xl transition-all";
+    return location.pathname.startsWith(path)
+      ? `${baseClass} text-cyan-600 dark:text-cyan-400 bg-cyan-50/60 dark:bg-cyan-950/20 font-bold`
+      : `${baseClass} text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60`;
+  };
 
   const mobileMenuVariants = {
     hidden: { opacity: 0, height: 0 },
@@ -21,7 +30,8 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
     <div className="lg:hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="text-gray-600 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 p-2"
+        className="text-gray-600 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 p-2 focus:outline-none"
+        aria-label="Toggle Menu"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           {isOpen ? (
@@ -39,137 +49,44 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
             animate="visible"
             exit="exit"
             variants={mobileMenuVariants}
-            transition={{ duration: 0.3 }}
-            className="absolute top-16 left-0 right-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-xl max-h-[calc(100vh-4rem)] overflow-y-auto"
+            transition={{ duration: 0.2 }}
+            className="absolute top-16 left-0 right-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-xl z-40 max-h-[calc(100vh-4rem)] overflow-y-auto"
           >
-            <div className="p-4 space-y-2">
-              {/* Articles Section */}
-              <div className="border-b border-gray-200 dark:border-gray-800 pb-2">
-                <button
-                  onClick={() => setMobileDropdown(mobileDropdown === 'articles' ? null : 'articles')}
-                  className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <span>📚</span>
-                    <span className="font-medium text-gray-900 dark:text-white">Articles</span>
-                  </div>
-                  <motion.span animate={{ rotate: mobileDropdown === 'articles' ? 180 : 0 }}>
-                    ▼
-                  </motion.span>
-                </button>
-                <AnimatePresence>
-                  {mobileDropdown === 'articles' && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="pl-6 space-y-2 mt-2">
-                        <Link to="/articles/biology/dna-isolation" className="block p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                          🧬 DNA Isolation Protocols
-                        </Link>
-                        <Link to="/articles/biology/proteins" className="block p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                          🧬 Protein Folding
-                        </Link>
-                        <Link to="/articles/physics/thermal" className="block p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                          ⚛️ Thermodynamics Lab
-                        </Link>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+            <div className="px-4 pt-3 pb-6 space-y-2">
+              
+              {/* Direct Page Route Links */}
+              <Link 
+                to="/articles" 
+                onClick={() => setIsOpen(false)}
+                className={getMobileLinkClass('/articles')}
+              >
+                📚 Articles Catalog
+              </Link>
 
-              {/* Simulations Section */}
-              <div className="border-b border-gray-200 dark:border-gray-800 pb-2">
-                <button
-                  onClick={() => setMobileDropdown(mobileDropdown === 'simulations' ? null : 'simulations')}
-                  className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <span>💻</span>
-                    <span className="font-medium text-gray-900 dark:text-white">Simulations</span>
-                  </div>
-                  <motion.span animate={{ rotate: mobileDropdown === 'simulations' ? 180 : 0 }}>
-                    ▼
-                  </motion.span>
-                </button>
-                <AnimatePresence>
-                  {mobileDropdown === 'simulations' && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="pl-6 space-y-2 mt-2">
-                        <Link to="/simulations/physics/projectile" className="block p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                          🎯 Projectile Motion
-                        </Link>
-                        <Link to="/simulations/chemistry/molecules" className="block p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                          ⚛️ Molecular Builder
-                        </Link>
-                        <Link to="/simulations/biology/cell-division" className="block p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                          🔬 Cell Division
-                        </Link>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <Link 
+                to="/simulations" 
+                onClick={() => setIsOpen(false)}
+                className={getMobileLinkClass('/simulations')}
+              >
+                🎮 Virtual Simulations
+              </Link>
 
-              {/* Quizzes Section */}
-              <div className="border-b border-gray-200 dark:border-gray-800 pb-2">
-                <button
-                  onClick={() => setMobileDropdown(mobileDropdown === 'quizzes' ? null : 'quizzes')}
-                  className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <span>✏️</span>
-                    <span className="font-medium text-gray-900 dark:text-white">Quizzes</span>
-                  </div>
-                  <motion.span animate={{ rotate: mobileDropdown === 'quizzes' ? 180 : 0 }}>
-                    ▼
-                  </motion.span>
-                </button>
-                <AnimatePresence>
-                  {mobileDropdown === 'quizzes' && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="pl-6 space-y-2 mt-2">
-                        <Link to="/quizzes/biology/basics" className="block p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                          🌱 Basic Biology
-                        </Link>
-                        <Link to="/quizzes/physics/fundamentals" className="block p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                          ⚡ Physics Fundamentals
-                        </Link>
-                        <Link to="/quizzes/chemistry/101" className="block p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                          🧪 Chemistry 101
-                        </Link>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <Link 
+                to="/quizzes" 
+                onClick={() => setIsOpen(false)}
+                className={getMobileLinkClass('/quizzes')}
+              >
+                📝 Interactive Quizzes
+              </Link>
 
-              {/* Tools Section */}
-              <div className="border-b border-gray-200 dark:border-gray-800 pb-2">
+              {/* Collapsible Dropdown Structure: Tools Only */}
+              <div className="border-t border-gray-100 dark:border-gray-800/50 pt-2">
                 <button
-                  onClick={() => setMobileDropdown(mobileDropdown === 'tools' ? null : 'tools')}
-                  className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                  onClick={() => toggleMobileDropdown('tools')}
+                  className="w-full flex justify-between items-center p-3 text-base font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60 rounded-xl"
                 >
-                  <div className="flex items-center gap-2">
-                    <span>🛠️</span>
-                    <span className="font-medium text-gray-900 dark:text-white">Tools</span>
-                  </div>
-                  <motion.span animate={{ rotate: mobileDropdown === 'tools' ? 180 : 0 }}>
-                    ▼
-                  </motion.span>
+                  <span className="flex items-center gap-2">🛠️ Laboratory Tools</span>
+                  <span className={`text-xs transition-transform duration-200 ${mobileDropdown === 'tools' ? 'rotate-180' : ''}`}>▼</span>
                 </button>
                 <AnimatePresence>
                   {mobileDropdown === 'tools' && (
@@ -177,26 +94,19 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
+                      className="overflow-hidden bg-gray-50/50 dark:bg-gray-950/20 rounded-xl mx-2"
                     >
-                      <div className="pl-6 space-y-2 mt-2">
-                        <Link to="/tools/calculator" className="block p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                          🧮 Scientific Calculator
-                        </Link>
-                        <Link to="/tools/periodic-table" className="block p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                          ⚗️ Periodic Table
-                        </Link>
-                        <Link to="/tools/graph-plotter" className="block p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                          📈 Graph Plotter
-                        </Link>
+                      <div className="pl-4 pr-2 py-2 space-y-1">
+                        <Link to="/tools/calculator" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-cyan-500 rounded-lg">🧮 Scientific Calculator</Link>
+                        <Link to="/tools/periodic-table" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-cyan-500 rounded-lg">⚗️ Periodic Table</Link>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
 
-              {/* Theme Toggle in Mobile */}
-              <div className="pt-4 flex justify-center">
+              {/* Theme Toggle Area */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-800 flex justify-center">
                 <ThemeToggle isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
               </div>
             </div>

@@ -10,15 +10,25 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@google/generative-ai": "^0.24.1",
+    "@mui/material": "^9.0.1",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
     "@tanstack/react-query": "^5.100.11",
+    "@types/three": "^0.184.1",
     "bootstrap": "^5.3.8",
     "canvas-confetti": "^1.9.4",
     "convert": "^7.0.0",
     "convert-units": "^2.3.4",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.38.0",
+    "html-to-image": "^1.11.13",
+    "html2pdf.js": "^0.14.0",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.16.0",
+    "maath": "^0.10.8",
     "mathjs": "^15.2.0",
     "periodic-table": "^0.0.8",
     "periodic-table-data": "^1.1.1",
@@ -28,7 +38,9 @@
     "react-dom": "^19.2.6",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.15.1",
-    "remark-gfm": "^4.0.1"
+    "react-scrollspy-navigation": "^2.0.7",
+    "remark-gfm": "^4.0.1",
+    "three": "^0.184.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
