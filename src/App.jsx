@@ -1,27 +1,32 @@
-// App.jsx - REMOVED ChatPage
+// App.jsx
 import React from 'react';
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar/Navbar';
 import AIAssistant from './components/AI/Ai';
 import { useTheme } from './ThemeProvider';
 import ScientificCalculator from './components/Calculator/ScientificCalculator';
 import PeriodicTable from './components/Tools/PeriodicTable';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// Import GraphDashboard
+import GraphDashboard from './components/graph/GraphDashboard';
+
 // Import all page components
 import HomePage from './pages/HomePage';
 import ArticlesPage from './pages/ArticlePage/ArticlesPage';
 import SimulationsPage from './pages/SimulationsPage';
 import QuizzesPage from './pages/QuizzesPage';
 import ArticleReader from './pages/ArticlePage/ArticleReader';
+import ArticleNotFound from './pages/ArticlePage/ArticleNotFound';
 
-//import all Articles
+// Import All Custom Article Dashboards
 import ChemistryModelsPage from './Articles/UseofChemModels/ChemistryModelsPage';
+import ParticleModelDashboard from './Articles/ParticleModelofMatter/ParticleModelDashboard';
+import InvestigationPage from './Articles/Investigation/InvestigationPage';
 
-// Create a client instance outside the component
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Prevents aggressive background re-fetches while you debug
       refetchOnWindowFocus: false, 
     },
   },
@@ -31,25 +36,38 @@ function App() {
   const { isDarkMode, toggleTheme } = useTheme();
   
   return (
-    // 1. Wrap EVERYTHING inside the QueryClientProvider at the top layer
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-gray-50 dark:bg-dark-bg transition-colors duration-200 font-sans">
         <Router>
           <Navbar isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
-          <Routes>
-            <Route path="/" element={<HomePage />} />
+            <Routes>
+              <Route path="/" element={<HomePage />} />
 
-            <Route path="/articles/chem-models" element={<ChemistryModelsPage />} />  // Specific first
-            <Route path="/articles/:articleId" element={<ArticleReader />} />          // Dynamic second
-            <Route path="/articles" element={<ArticlesPage />} />                      // General last
+              {/* Custom dashboard routes */}
+              <Route path="/articles/chem-models" element={<ChemistryModelsPage />} />
+              <Route path="/articles/particle-model-matter" element={<ParticleModelDashboard />} />
+              <Route path="/articles/ScienceSkills" element={<InvestigationPage />} />
+              
+              {/* Scientific Visualization Dashboard */}
+              <Route path="/graph" element={<GraphDashboard />} />
+              
+              {/* Legacy route redirects */}
+              <Route path="/articles/particles" element={<Navigate to="/articles/particle-model-matter" replace />} />
 
-            <Route path="/simulations" element={<SimulationsPage />} />
-            <Route path="/quizzes" element={<QuizzesPage />} />
-            <Route path="/tools/periodic-table" element={<PeriodicTable />} />
-            <Route path="/tools/calculator" element={<ScientificCalculator />} />
+              {/* General article routes */}
+              <Route path="/articles/:articleId" element={<ArticleReader />} />          
+              <Route path="/articles" element={<ArticlesPage />} />                      
+
+              {/* Other routes */}
+              <Route path="/simulations" element={<SimulationsPage />} />
+              <Route path="/quizzes" element={<QuizzesPage />} />
+              <Route path="/tools/periodic-table" element={<PeriodicTable />} />
+              <Route path="/tools/calculator" element={<ScientificCalculator />} />
+              
+              {/* 404 catch-all route */}
+              <Route path="*" element={<ArticleNotFound />} />
           </Routes>
         </Router>
-        {/* AI Assistant appears on all pages as floating button */}
         <AIAssistant isDarkMode={isDarkMode} />
       </div>
     </QueryClientProvider>

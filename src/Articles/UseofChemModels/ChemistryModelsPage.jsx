@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import ScrollSpy from './ChemistryModelScroll';
 import MainContent from './MainContent';
-import Footer from './Footer';
+import Chemfooter from './Chemfooter';
 
 const ChemistryModelsPage = () => {
   const sections = [
@@ -110,7 +110,7 @@ const ChemistryModelsPage = () => {
 
       </div>
 
-      <Footer />
+      <Chemfooter />
 
       {/* Mobile Floating Bar */}
       <div className="lg:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">

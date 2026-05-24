@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 
-const Footer = () => {
+const Chemfooter = () => {
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Updated authoritative references: Britannica, Wikipedia, and BYJU'S
@@ -134,4 +134,4 @@ const Footer = () => {
   );
 };
 
-export default Footer;
+export default Chemfooter;

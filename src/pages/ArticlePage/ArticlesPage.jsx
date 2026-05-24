@@ -174,9 +174,7 @@ const ArticlesPage = () => {
                       </p>
                     )}
                   </div>
-
-                  {/* Action Buttons */}
-                  {/* Action Buttons */}
+{/* Action Buttons - Updated to use correct routing */}
 <div className="mt-8 flex gap-3 justify-end">
   <button
     onClick={() => setPreviewArticle(null)}
@@ -185,7 +183,6 @@ const ArticlesPage = () => {
     Close
   </button>
   
-  {/* FIXED: Changed from /article/ to /articles/ to match the App.jsx Routes */}
   <Link
     to={`/articles/${previewArticle.id}`}
     className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 rounded-xl transition-all text-center shadow-md shadow-cyan-500/20"
