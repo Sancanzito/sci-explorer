@@ -21,7 +21,7 @@ import ArticleNotFound from './pages/ArticlePage/ArticleNotFound';
 
 // Import All Custom Article Dashboards
 import ChemistryModelsPage from './Articles/UseofChemModels/ChemistryModelsPage';
-import ParticleModelDashboard from './Articles/ParticleModelofMatter/ParticleModelDashboard';
+import ParticleModelDashboard from './Articles/ParticleModelOfMatter/ParticleModelDashboard';
 import InvestigationPage from './Articles/Investigation/InvestigationPage';
 
 const queryClient = new QueryClient({
@@ -50,9 +50,6 @@ function App() {
               
               {/* Scientific Visualization Dashboard */}
               <Route path="/graph" element={<GraphDashboard />} />
-              
-              {/* Legacy route redirects */}
-              <Route path="/articles/particles" element={<Navigate to="/articles/particle-model-matter" replace />} />
 
               {/* General article routes */}
               <Route path="/articles/:articleId" element={<ArticleReader />} />          
