@@ -21,13 +21,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration
+# CORS configuration - ADDED your Vercel URL
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:3000",
         "https://sancanzito.github.io",
+        "https://sci-hub-five.vercel.app",  # ← ADD THIS LINE
         "https://sci-hub-backend.onrender.com"
     ],
     allow_credentials=True,
@@ -48,7 +49,7 @@ async def root():
         }
     }
 
-# Health check endpoint (must be BEFORE router to ensure it's found)
+# Health check endpoint
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "backend": "FastAPI", "version": "1.0.0"}
@@ -65,12 +66,38 @@ try:
     logger.info("✅ Graph router loaded successfully")
 except ModuleNotFoundError as e:
     logger.warning(f"⚠️ Graph router not loaded: {e}")
-    # Add a placeholder endpoint
+    # Add a full placeholder endpoint
     @app.post("/api/v1/graph/waveform")
     async def placeholder_waveform():
         return {
             "x_values": [0, 1, 2, 3, 4],
             "y_values": [0, 1, 0, 1, 0],
             "chart_image": "",
+            "metadata": {"status": "placeholder", "message": "Backend is working!"}
+        }
+    
+    @app.post("/api/v1/graph/matrix")
+    async def placeholder_matrix():
+        return {
+            "matrix": [[1, 0], [0, 1]],
+            "heatmap_image": "",
+            "metadata": {"status": "placeholder"}
+        }
+    
+    @app.post("/api/v1/graph/statistical")
+    async def placeholder_statistical():
+        return {
+            "data": [1, 2, 3, 4, 5],
+            "mean": 3,
+            "histogram_image": "",
+            "metadata": {"status": "placeholder"}
+        }
+    
+    @app.post("/api/v1/graph/filter")
+    async def placeholder_filter():
+        return {
+            "original_signal": [0, 1, 0, 1, 0],
+            "filtered_signal": [0, 0.5, 0, 0.5, 0],
+            "filter_image": "",
             "metadata": {"status": "placeholder"}
         }
