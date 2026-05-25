@@ -7,7 +7,22 @@ import {
   FilterResponse 
 } from '../types';
 
-const API_BASE_URL = '/api/v1/graph';
+// Get API base URL based on environment
+const getApiBaseUrl = () => {
+  // Check if we're in production (GitHub Pages)
+  // Use window.location.hostname to detect environment
+  const isProduction = window.location.hostname !== 'localhost' && 
+                       !window.location.hostname.includes('127.0.0.1');
+  
+  if (isProduction) {
+    // Use your Render backend URL
+    return 'https://sci-hub-backend.onrender.com/api/v1/graph';
+  }
+  // In development, use the Vite proxy (relative path)
+  return '/api/v1/graph';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 class GraphService {
   async computeWaveform(params: GraphParameters): Promise<WaveformResponse> {
