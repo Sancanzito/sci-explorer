@@ -1,9 +1,7 @@
 services:
   - type: web
     name: sci-hub-backend
-    runtime: python
+    runtime: docker
     repo: https://github.com/sancanzito/sci-hub
     branch: main
     rootDir: src/components/graph/backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
