@@ -2,7 +2,9 @@
 import numpy as np
 from scipy import signal, stats, linalg, interpolate
 from typing import Tuple, Dict, Any, Optional
-from backend.core.exceptions import ComputationError
+
+# Fixed import - removed 'backend.' prefix
+from core.exceptions import ComputationError
 
 def generate_waveform(params) -> Tuple[np.ndarray, np.ndarray]:
     try:

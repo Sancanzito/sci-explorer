@@ -9,14 +9,15 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy import signal, stats, interpolate, linalg
 
-from backend.api.schemas import (
+# Fixed imports - removed 'backend.' prefix
+from api.schemas import (
     GraphParameters, 
     WaveformResponse, 
     MatrixResponse,
     StatisticalResponse,
     FilterResponse
 )
-from backend.core.computation import (
+from core.computation import (
     generate_waveform,
     compute_fft,
     apply_filter,
@@ -26,7 +27,7 @@ from backend.core.computation import (
     interpolate_data,
     smooth_signal
 )
-from backend.core.exceptions import ComputationError, ValidationError
+from core.exceptions import ComputationError, ValidationError
 
 router = APIRouter()
 

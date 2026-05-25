@@ -4,9 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
-# Using absolute imports starting with the 'backend' package
-from backend.api.routes import router as graph_router
-from backend.core.config import settings
+# Fixed imports - removed 'backend.' prefix
+from api.routes import router as graph_router
+from core.config import settings
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -25,10 +25,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration to allow your React frontend (localhost:5173)
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://sancanzito.github.io",
+        "https://sci-hub-backend.onrender.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
