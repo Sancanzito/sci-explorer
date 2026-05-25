@@ -1,5 +1,5 @@
 # G:\sci-hub\src\components\graph\backend\main.py
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
@@ -21,20 +21,33 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration - ADDED your Vercel URL
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:3000",
         "https://sancanzito.github.io",
-        "https://sci-hub-five.vercel.app",  # ← ADD THIS LINE
+        "https://sci-hub-five.vercel.app",
         "https://sci-hub-backend.onrender.com"
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
+
+# Handle preflight requests explicitly
+@app.options("/{rest_of_path:path}")
+async def preflight_handler():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "https://sci-hub-five.vercel.app",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
 
 # Root endpoint
 @app.get("/")
@@ -66,7 +79,7 @@ try:
     logger.info("✅ Graph router loaded successfully")
 except ModuleNotFoundError as e:
     logger.warning(f"⚠️ Graph router not loaded: {e}")
-    # Add a full placeholder endpoint
+    # Add placeholder endpoints
     @app.post("/api/v1/graph/waveform")
     async def placeholder_waveform():
         return {
