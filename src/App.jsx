@@ -14,7 +14,7 @@ import GraphDashboard from './components/graph/GraphDashboard';
 // Import all page components
 import HomePage from './pages/HomePage';
 import ArticlesPage from './pages/ArticlePage/ArticlesPage';
-import SimulationsPage from './pages/SimulationsPage';
+import SimulationsPage from './pages/SimulationsPage/SimulationsPage';
 import QuizzesPage from './pages/QuizzesPage';
 import ArticleReader from './pages/ArticlePage/ArticleReader';
 import ArticleNotFound from './pages/ArticlePage/ArticleNotFound';
@@ -23,6 +23,9 @@ import ArticleNotFound from './pages/ArticlePage/ArticleNotFound';
 import ChemistryModelsPage from './Articles/UseofChemModels/ChemistryModelsPage';
 import ParticleModelDashboard from './Articles/ParticleModelOfMatter/ParticleModelDashboard';
 import InvestigationPage from './Articles/Investigation/InvestigationPage';
+
+// Import Eco-Balance Game
+import EcoBalanceGame from './Simulations/EcoBalance/EcoBalance';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,6 +53,9 @@ function App() {
               
               {/* Scientific Visualization Dashboard */}
               <Route path="/graph" element={<GraphDashboard />} />
+              
+              {/* Eco-Balance Game */}
+              <Route path="/games/eco-balance" element={<EcoBalanceGame />} />
 
               {/* General article routes */}
               <Route path="/articles/:articleId" element={<ArticleReader />} />          

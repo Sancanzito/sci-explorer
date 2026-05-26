@@ -21,19 +21,20 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
+        "http://localhost:5174",  # ← ADD THIS (your current port)
         "http://localhost:3000",
+        "http://localhost:8000",
         "https://sancanzito.github.io",
         "https://sci-hub-five.vercel.app",
         "https://sci-hub-backend.onrender.com"
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],
 )
 
 # Handle preflight requests explicitly
@@ -42,9 +43,9 @@ async def preflight_handler():
     return Response(
         status_code=200,
         headers={
-            "Access-Control-Allow-Origin": "https://sci-hub-five.vercel.app",
+            "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
             "Access-Control-Allow-Credentials": "true",
         }
     )
@@ -72,7 +73,7 @@ async def health_check():
 async def test_endpoint():
     return {"message": "API is working!"}
 
-# Try to import routes, but handle gracefully if they don't exist
+# Import routes
 try:
     from api.routes import router as graph_router
     app.include_router(graph_router, prefix="/api/v1/graph", tags=["graph"])
@@ -114,3 +115,16 @@ except ModuleNotFoundError as e:
             "filter_image": "",
             "metadata": {"status": "placeholder"}
         }
+
+# Import data routes
+# In main.py, the data routes import should be:
+try:
+    from api.data_routes import router as data_router
+    app.include_router(data_router, prefix="/api/v1", tags=["data-analysis"])
+    logger.info("✅ Data router loaded successfully")
+except ModuleNotFoundError as e:
+    logger.warning(f"⚠️ Data router not loaded: {e}")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
