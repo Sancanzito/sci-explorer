@@ -9,7 +9,7 @@ import EventFeed from './components/EventFeed';
 import InterventionPanel from './components/InterventionPanel';
 import StatisticsDashboard from './components/StatisticsDashboard';
 import SpeciesModal from './components/SpeciesModal';
-import EcosystemReport from './components/EcosystemReport';
+import EcosystemReport from "./components/EcoSystemReport";
 
 const EcoBalanceGame = () => {
   const [showReport, setShowReport] = useState(false);
