@@ -8,36 +8,32 @@ const DesktopNav = ({ isDarkMode, toggleTheme }) => {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const location = useLocation();
 
-  // Helper class to highlight the active route link cleanly
+  // Highlight the active route link cleanly with gamified glass styling
   const getLinkClass = (path) => {
-    const baseClass = "text-sm font-medium transition-colors duration-200 py-1.5 px-3 rounded-lg";
+    const baseClass = "text-sm transition-all duration-300 py-1.5 px-4 rounded-xl border border-transparent backdrop-blur-md";
     return location.pathname.startsWith(path)
-      ? `${baseClass} text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/30 font-semibold`
-      : `${baseClass} text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800/50`;
+      ? `${baseClass} text-indigo-600 dark:text-cyan-300 bg-white/60 dark:bg-[#0a0f1c]/60 font-bold shadow-sm border-white/50 dark:border-cyan-500/20`
+      : `${baseClass} text-slate-600 dark:text-cyan-100/70 hover:text-indigo-600 dark:hover:text-cyan-300 hover:bg-white/40 dark:hover:bg-cyan-900/20 font-semibold`;
   };
 
   return (
-    <div className="hidden lg:flex items-center space-x-3">
-      {/* Direct Link to Articles Page */}
+    <div className="hidden lg:flex items-center space-x-2">
       <Link to="/articles" className={getLinkClass('/articles')}>
         Articles
       </Link>
       
-      {/* Direct Link to Simulations Page */}
       <Link to="/simulations" className={getLinkClass('/simulations')}>
         Simulations
       </Link>
 
-      {/* Direct Link to Quizzes Page */}
       <Link to="/quizzes" className={getLinkClass('/quizzes')}>
         Quizzes
       </Link>
       
-      {/* Kept Dropdown ONLY for Interactive Tools */}
       <div 
         onMouseEnter={() => setActiveDropdown('tools')}
         onMouseLeave={() => setActiveDropdown(null)}
-        className="relative"
+        className="relative px-2"
       >
         <ToolsDropdown 
           isActive={activeDropdown === 'tools'}
@@ -46,7 +42,7 @@ const DesktopNav = ({ isDarkMode, toggleTheme }) => {
         />
       </div>
       
-      <div className="pl-2 border-l border-gray-200 dark:border-gray-800">
+      <div className="pl-3 ml-1 border-l border-white/50 dark:border-cyan-500/20">
         <ThemeToggle isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
       </div>
     </div>

@@ -7,7 +7,9 @@ import {
   GiWaterDrop, 
   GiHeatHaze, 
   GiPoisonGas,
-  GiMicroscope 
+  GiMicroscope,
+  GiDna1,
+  GiPlanetCore
 } from 'react-icons/gi';
 import { FaGamepad, FaArrowRight } from 'react-icons/fa';
 
@@ -27,6 +29,39 @@ const SimulationsPage = () => {
         'Environmental intervention system',
         'Live population charts and analytics',
         'Educational feedback and ecosystem reports'
+      ]
+    },
+    {
+      id: 'dna-extraction',
+      name: 'DNA Extraction Lab',
+      description: 'Extract DNA from a strawberry in this interactive virtual lab. Learn the steps of DNA extraction: cell disruption, lysis, filtration, and precipitation.',
+      longDescription: 'Become a molecular biologist! Perform mechanical disruption, chemical lysis, filtration, and alcohol precipitation to extract and visualize strawberry DNA. Learn the science behind each step with real-time feedback.',
+      icon: <GiDna1 className="w-12 h-12" />,
+      color: 'from-blue-600 to-purple-700',
+      path: '/simulations/dna-extraction',
+      features: [
+        'Interactive lab equipment simulation',
+        'Step-by-step guided protocol',
+        'Real-time purity scoring system',
+        'Scientific explanations for each step',
+        'Visual DNA precipitation effect'
+      ]
+    },
+    {
+      id: 'solar-system',
+      name: '3D Solar System Explorer',
+      description: 'Explore our solar system in stunning 3D! Navigate through space, observe planetary orbits, and learn fascinating facts about each celestial body.',
+      longDescription: 'Take a journey through our cosmic neighborhood! This immersive 3D simulation lets you explore all planets, control time speed, and discover detailed scientific data about each planet. Perfect for astronomy enthusiasts and space lovers.',
+      icon: <GiPlanetCore className="w-12 h-12" />,
+      color: 'from-purple-600 to-pink-700',
+      path: '/simulations/solar-system',
+      features: [
+        'Real-time 3D planetary orbits',
+        'Interactive camera controls',
+        'Scientific data for each planet',
+        'Time control (0.5x - 20x speed)',
+        'Asteroid belt visualization',
+        'Saturn ring rendering'
       ]
     },
     {
@@ -61,6 +96,10 @@ const SimulationsPage = () => {
     }
   ];
 
+  // Separate featured simulations (first two are featured)
+  const featuredSimulations = simulations.slice(0, 2);
+  const allSimulations = simulations;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 dark:from-dark-bg dark:via-dark-surface dark:to-dark-bg">
       {/* Hero Section */}
@@ -89,76 +128,106 @@ const SimulationsPage = () => {
         </div>
       </div>
 
-      {/* Eco-Balance Featured Banner */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
-        className="max-w-7xl mx-auto px-6 -mt-8 relative z-10"
-      >
-        <div className="bg-gradient-to-r from-green-600 to-emerald-700 rounded-2xl shadow-2xl overflow-hidden">
-          <div className="p-8 lg:p-12">
-            <div className="flex flex-col lg:flex-row items-center gap-8">
-              <div className="flex-1">
+      {/* Featured Simulations Banner - Show three featured simulations */}
+      <div className="max-w-7xl mx-auto px-6 -mt-8 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Eco-Balance Featured */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            <div className="bg-gradient-to-r from-green-600 to-emerald-700 rounded-2xl shadow-2xl overflow-hidden h-full">
+              <div className="p-8">
                 <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-2 mb-4">
                   <FaGamepad className="w-4 h-4" />
                   <span className="text-sm font-semibold">Featured Simulation</span>
                 </div>
-                <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">
-                  Eco-Balance: The Trophic Navigator
+                <h2 className="text-2xl lg:text-3xl font-bold text-white mb-3">
+                  Eco-Balance: Trophic Navigator
                 </h2>
-                <p className="text-green-100 text-lg mb-6">
-                  Experience the delicate balance of ecosystems in this immersive simulation game. 
-                  Manipulate environmental conditions and observe how species populations respond 
-                  to your interventions in real-time.
+                <p className="text-green-100 text-sm mb-4 line-clamp-3">
+                  Experience ecosystem balance in this immersive simulation. Manipulate environmental conditions and observe species populations.
                 </p>
-                <div className="flex flex-wrap gap-3 mb-6">
-                  {['Trophic Levels', 'Energy Transfer', 'Population Dynamics', 'Environmental Science'].map(tag => (
-                    <span key={tag} className="px-3 py-1 bg-white/20 rounded-full text-sm text-white">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
                 <Link to="/games/eco-balance">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="bg-white text-green-700 px-8 py-3 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
+                    className="bg-white text-green-700 px-6 py-2 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
                   >
                     Play Now
                     <FaArrowRight />
                   </motion.button>
                 </Link>
               </div>
-              <div className="flex-1 flex justify-center">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full blur-3xl opacity-30 animate-pulse"></div>
-                  <div className="relative bg-black/20 rounded-2xl p-6 backdrop-blur-sm">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center">
-                        <div className="text-3xl font-bold text-white">4+</div>
-                        <div className="text-green-200 text-sm">Trophic Levels</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-3xl font-bold text-white">10%</div>
-                        <div className="text-green-200 text-sm">Energy Transfer</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-3xl font-bold text-white">Real-time</div>
-                        <div className="text-green-200 text-sm">Population Tracking</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-3xl font-bold text-white">8+</div>
-                        <div className="text-green-200 text-sm">Interventions</div>
-                      </div>
-                    </div>
-                  </div>
+            </div>
+          </motion.div>
+
+          {/* DNA Extraction Featured */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <div className="bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl shadow-2xl overflow-hidden h-full">
+              <div className="p-8">
+                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-2 mb-4">
+                  <GiDna1 className="w-4 h-4" />
+                  <span className="text-sm font-semibold">Molecular Biology Lab</span>
                 </div>
+                <h2 className="text-2xl lg:text-3xl font-bold text-white mb-3">
+                  DNA Extraction Lab
+                </h2>
+                <p className="text-blue-100 text-sm mb-4 line-clamp-3">
+                  Extract real DNA from a strawberry! Learn cell disruption, chemical lysis, filtration, and precipitation techniques.
+                </p>
+                <Link to="/simulations/dna-extraction">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-white text-blue-700 px-6 py-2 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
+                  >
+                    Launch Lab
+                    <FaArrowRight />
+                  </motion.button>
+                </Link>
               </div>
             </div>
-          </div>
+          </motion.div>
+
+          {/* Solar System Featured */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
+            <div className="bg-gradient-to-r from-purple-600 to-pink-700 rounded-2xl shadow-2xl overflow-hidden h-full">
+              <div className="p-8">
+                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-2 mb-4">
+                  <GiPlanetCore className="w-4 h-4" />
+                  <span className="text-sm font-semibold">Astronomy Simulator</span>
+                </div>
+                <h2 className="text-2xl lg:text-3xl font-bold text-white mb-3">
+                  3D Solar System Explorer
+                </h2>
+                <p className="text-purple-100 text-sm mb-4 line-clamp-3">
+                  Explore our solar system in stunning 3D! Navigate through space, observe planetary orbits, and learn fascinating facts about each celestial body.
+                </p>
+                <Link to="/simulations/solar-system">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-white text-purple-700 px-6 py-2 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
+                  >
+                    Explore Space
+                    <FaArrowRight />
+                  </motion.button>
+                </Link>
+              </div>
+            </div>
+          </motion.div>
         </div>
-      </motion.div>
+      </div>
 
       {/* All Simulations Grid */}
       <div className="max-w-7xl mx-auto px-6 py-16">
@@ -177,7 +246,7 @@ const SimulationsPage = () => {
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {simulations.map((sim, index) => (
+          {allSimulations.map((sim, index) => (
             <motion.div
               key={sim.id}
               initial={{ opacity: 0, y: 20 }}
@@ -199,11 +268,11 @@ const SimulationsPage = () => {
                   <h3 className="text-xl font-bold mt-4">{sim.name}</h3>
                 </div>
                 <div className="p-6">
-                  <p className="text-gray-600 dark:text-gray-300 mb-4">
+                  <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-3">
                     {sim.description}
                   </p>
                   <div className="flex flex-wrap gap-2 mb-6">
-                    {sim.features.slice(0, 2).map(feature => (
+                    {sim.features.slice(0, 3).map(feature => (
                       <span key={feature} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs text-gray-600 dark:text-gray-400">
                         {feature}
                       </span>

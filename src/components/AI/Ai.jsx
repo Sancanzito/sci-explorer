@@ -1,152 +1,268 @@
-import React, { useState, useRef, useEffect } from 'react';
+// components/AIAssistant/AIAssistant.jsx
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { 
+  Bot, Send, Sparkles, ChevronDown, Atom
+} from 'lucide-react';
 
-const genAI = new GoogleGenerativeAI('AIzaSyB1yCTSCtsmucFEQrpN01mK5XBRHY8o2ts');
+// --- SYSTEM PROMPT (EDUCATIONAL GUARDRAILS) ---
+const SYSTEM_PROMPT = `
+You are a science laboratory learning assistant for middle school students.
 
-const AIAssistant = ({ isDarkMode }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { id: 1, text: "Hello! I'm your SciHub AI Assistant. How can I help you with your science studies today?", sender: 'ai', timestamp: new Date() }
-  ]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [isConnected, setIsConnected] = useState(true); // Signal status
-  
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
+Rules:
+- Never directly answer quizzes or exams.
+- Guide students step-by-step.
+- Encourage critical thinking.
+- Give hints instead of answers.
+- Explain science concepts simply.
+- Use encouraging educational language.
+- Keep responses relatively brief and conversational.
+`;
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+// --- GEMINI API INTEGRATION ---
+const apiKey = "AIzaSyDyEmmx9jDS4YKdpP4EODtqW6TpilKRzfE"; // Replace with your actual API key
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+async function fetchAIResponse(messages, context = "") {
+  const formattedMessages = messages.map(msg => ({
+    role: msg.role === 'user' ? 'user' : 'model',
+    parts: [{ text: msg.text }]
+  }));
 
-    const userMsg = { id: Date.now(), text: inputMessage, sender: 'user' };
-    setMessages(prev => [...prev, userMsg]);
-    setInputMessage('');
-    setIsTyping(true);
-
-    try {
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
-        systemInstruction: "You are a specialized Science Education Assistant. Format responses in clear paragraphs or lists. Always provide clickable links for references."
-      });
-
-      const result = await model.generateContent(inputMessage);
-      const text = result.response.text();
-
-      setMessages(prev => [...prev, { id: Date.now() + 1, text, sender: 'ai' }]);
-      setIsConnected(true);
-    } catch (error) {
-      setIsConnected(false);
-      setMessages(prev => [...prev, { id: Date.now(), text: "⚠️ Connection lost. Check your API key or network.", sender: 'ai' }]);
-    } finally {
-      setIsTyping(false);
+  if (context && formattedMessages.length > 0) {
+    const lastMsg = formattedMessages[formattedMessages.length - 1];
+    if (lastMsg.role === 'user') {
+       lastMsg.parts[0].text = `[System Note: The student is currently in the "${context}" section. Provide hints related to this context if relevant.]\n\nStudent says: ${lastMsg.parts[0].text}`;
     }
+  }
+
+  const payload = {
+    systemInstruction: {
+      parts: [{ text: SYSTEM_PROMPT }]
+    },
+    contents: formattedMessages
   };
 
-  return (
-    <>
-      <motion.button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-2xl text-white bg-cyan-500"
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-      >
-        🤖
-      </motion.button>
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
 
+    if (!response.ok) throw new Error('API Error');
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm having trouble thinking right now. Let's try again!";
+  } catch (error) {
+    console.error("AI Fetch Error:", error);
+    return "Oops! My connection to the lab network dropped. Please check your connection and try asking again.";
+  }
+}
+
+// --- UTILITY: SIMPLE MARKDOWN RENDERER ---
+const formatText = (text) => {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index} className="font-semibold text-cyan-700 dark:text-cyan-300">{part.slice(2, -2)}</strong>;
+    }
+    return <span key={index}>{part.split('\n').map((line, i) => (
+      <React.Fragment key={i}>
+        {line}
+        {i !== part.split('\n').length - 1 && <br />}
+      </React.Fragment>
+    ))}</span>;
+  });
+};
+
+// --- TYPING INDICATOR ---
+const TypingIndicator = () => (
+  <div className="flex space-x-1 p-3 bg-slate-100 dark:bg-zinc-800 rounded-2xl rounded-tl-none w-16 shadow-sm border border-slate-200 dark:border-zinc-700/50">
+    {[0, 1, 2].map((dot) => (
+      <motion.div
+        key={dot}
+        className="w-2 h-2 bg-cyan-500 rounded-full"
+        animate={{ y: [0, -5, 0] }}
+        transition={{ repeat: Infinity, duration: 0.8, delay: dot * 0.15 }}
+      />
+    ))}
+  </div>
+);
+
+// --- CHAT MESSAGE BUBBLE ---
+const ChatMessage = ({ msg }) => {
+  const isUser = msg.role === 'user';
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
+    >
+      {!isUser && (
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center mr-2 shadow-md flex-shrink-0">
+          <Bot size={16} className="text-white" />
+        </div>
+      )}
+      <div
+        className={`max-w-[80%] p-3 text-sm md:text-base ${
+          isUser
+            ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl rounded-tr-none shadow-md'
+            : 'bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-2xl rounded-tl-none shadow-sm border border-slate-200 dark:border-zinc-700/50'
+        }`}
+      >
+        {formatText(msg.text)}
+      </div>
+    </motion.div>
+  );
+};
+
+// --- MAIN AI ASSISTANT COMPONENT ---
+const AIAssistant = ({ context = "", disabled = false }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState([
+    { role: 'ai', text: "Hello! I'm your Lab Assistant. 🧬\n\nNeed help understanding the current experiment or any science concepts?" }
+  ]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping, isOpen]);
+
+  const handleSend = async (textToSend = input) => {
+    if (!textToSend.trim() || disabled) return;
+    
+    const newMessages = [...messages, { role: 'user', text: textToSend }];
+    setMessages(newMessages);
+    setInput('');
+    setIsTyping(true);
+
+    const aiResponse = await fetchAIResponse(newMessages, context);
+    
+    setMessages([...newMessages, { role: 'ai', text: aiResponse }]);
+    setIsTyping(false);
+  };
+
+  const quickPrompts = [
+    "Explain DNA simply",
+    "Lab safety tips",
+    "What's a nucleus?"
+  ];
+
+  // Don't render if disabled
+  if (disabled) return null;
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       <AnimatePresence>
         {isOpen && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsOpen(false)} className="fixed inset-0 bg-black/50 z-40" />
-            <motion.div
-              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-              className={`fixed right-0 top-0 bottom-0 w-full sm:w-96 z-50 shadow-2xl flex flex-col ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}
-            >
-              {/* Header with Connection Status */}
-              <div className="flex items-center justify-between p-4 border-b border-gray-700">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-xl">🔬</div>
-                    <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${isConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="mb-4 w-[90vw] md:w-[380px] h-[60vh] md:h-[650px] max-h-[80vh] bg-slate-50 dark:bg-zinc-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-zinc-800 flex flex-col overflow-hidden backdrop-blur-xl dark:bg-opacity-95"
+          >
+            {/* Header */}
+            <div className="p-4 bg-gradient-to-r from-cyan-600 to-blue-700 flex justify-between items-center text-white shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                    <Atom className="w-6 h-6 animate-[spin_10s_linear_infinite]" />
                   </div>
-                  <div>
-                    <h2 className="font-semibold leading-none">SciHub AI</h2>
-                    <span className="text-[10px] uppercase tracking-wider text-gray-400">{isConnected ? 'Online' : 'Offline'}</span>
-                  </div>
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-cyan-700 rounded-full"></div>
                 </div>
-                <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-gray-700 rounded-md">✕</button>
+                <div>
+                  <h3 className="font-bold text-sm md:text-base">Lab Assistant</h3>
+                  <p className="text-cyan-100 text-xs">Science Mentor AI</p>
+                </div>
               </div>
+              <button 
+                onClick={() => setIsOpen(false)}
+                className="p-2 hover:bg-white/20 rounded-full transition-colors"
+              >
+                <ChevronDown size={20} />
+              </button>
+            </div>
 
-              {/* Messages Container */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {messages.map((msg) => (
-                  <motion.div
-                    key={msg.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm ${
-                      msg.sender === 'user' ? 'bg-cyan-600 text-white rounded-tr-none' : 'bg-gray-800 text-gray-100 rounded-tl-none'
-                    }`}>
-                      {/* Markdown renders the links and paragraphs */}
-                      <ReactMarkdown 
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300" />,
-                          p: ({node, ...props}) => <p {...props} className="mb-2 last:mb-0" />,
-                          ul: ({node, ...props}) => <ul {...props} className="list-disc ml-4 mb-2" />,
-                        }}
-                      >
-                        {msg.text}
-                      </ReactMarkdown>
-                    </div>
-                  </motion.div>
-                ))}
-                
-                {/* Typing Indicator */}
-                {isTyping && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-2 p-2">
-                    <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </motion.div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
+            {/* Chat History */}
+            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-zinc-900">
+              {messages.map((msg, idx) => (
+                <ChatMessage key={idx} msg={msg} />
+              ))}
+              {isTyping && <TypingIndicator />}
+              <div ref={messagesEndRef} />
+            </div>
 
-              {/* Input */}
-              <div className="p-4 border-t border-gray-700 bg-opacity-50">
-                <div className="flex items-end gap-2 bg-gray-800 rounded-xl p-2 focus-within:ring-1 ring-cyan-500">
-                  <textarea
-                    ref={inputRef}
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-                    placeholder="Ask about microbiology..."
-                    className="flex-1 bg-transparent border-none focus:ring-0 text-sm resize-none py-1 max-h-32"
-                    rows={1}
-                  />
+            {/* Quick Prompts */}
+            {messages.length === 1 && !isTyping && (
+              <div className="px-4 pb-2 flex flex-wrap gap-2 shrink-0">
+                {quickPrompts.map((prompt, i) => (
                   <button
-                    onClick={handleSendMessage}
-                    disabled={!inputMessage.trim() || isTyping}
-                    className="p-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg disabled:opacity-30 transition-all"
+                    key={i}
+                    onClick={() => handleSend(prompt)}
+                    className="text-xs px-3 py-1.5 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300 rounded-full hover:bg-cyan-200 dark:hover:bg-cyan-800/50 transition border border-cyan-200 dark:border-cyan-800/50"
                   >
-                    <svg className="w-4 h-4 text-white rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                    {prompt}
                   </button>
-                </div>
+                ))}
               </div>
-            </motion.div>
-          </>
+            )}
+
+            {/* Input Area */}
+            <div className="p-4 bg-white dark:bg-zinc-800 border-t border-slate-200 dark:border-zinc-700/50 shrink-0">
+              <div className="flex items-center space-x-2 bg-slate-100 dark:bg-zinc-900 p-1.5 rounded-full border border-slate-300 dark:border-zinc-700 focus-within:ring-2 focus-within:ring-cyan-500 transition-shadow">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                  placeholder="Ask a science question..."
+                  className="flex-1 bg-transparent px-4 py-2 outline-none text-slate-800 dark:text-zinc-200 text-sm md:text-base"
+                />
+                <button
+                  onClick={() => handleSend()}
+                  disabled={!input.trim() || isTyping}
+                  className="p-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95 flex-shrink-0"
+                >
+                  <Send size={18} />
+                </button>
+              </div>
+              <div className="mt-2 text-center text-[10px] text-slate-400 dark:text-zinc-500 flex items-center justify-center gap-1">
+                <Sparkles size={10} /> AI can make mistakes. Think critically!
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
-    </>
+
+      {/* Floating Action Button */}
+      {!isOpen && (
+        <motion.button
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsOpen(true)}
+          className="relative group p-4 bg-gradient-to-br from-cyan-500 to-blue-600 text-white rounded-full shadow-lg hover:shadow-cyan-500/50 transition-all"
+        >
+          <span className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-30 group-hover:opacity-50"></span>
+          <Bot size={28} className="relative z-10" />
+          
+          {messages.length === 1 && (
+            <span className="absolute -top-1 -right-1 flex h-4 w-4">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white dark:border-zinc-900"></span>
+            </span>
+          )}
+        </motion.button>
+      )}
+    </div>
   );
 };
 
