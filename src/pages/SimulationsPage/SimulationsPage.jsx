@@ -32,6 +32,22 @@ const SimulationsPage = () => {
       ]
     },
     {
+      id: 'cell-explorer',
+      name: '3D Cell Explorer',
+      description: 'Explore animal and plant cells in stunning 3D! Navigate through organelles, learn their functions, and discover fascinating facts about cellular biology.',
+      longDescription: 'Step inside the microscopic world! Toggle between animal and plant cells, interact with organelles, and learn about their functions in this immersive 3D simulation.',
+      icon: <GiMicroscope className="w-12 h-12" />,
+      color: 'from-purple-600 to-pink-700',
+      path: '/simulations/cell-explorer',
+      features: [
+        'Interactive 3D organelle exploration',
+        'Toggle between animal and plant cells',
+        'X-ray and exploded view modes',
+        'Educational organelle information',
+        'Real-time cellular animations'
+      ]
+    },
+    {
       id: 'dna-extraction',
       name: 'DNA Extraction Lab',
       description: 'Extract DNA from a strawberry in this interactive virtual lab. Learn the steps of DNA extraction: cell disruption, lysis, filtration, and precipitation.',
@@ -96,8 +112,8 @@ const SimulationsPage = () => {
     }
   ];
 
-  // Separate featured simulations (first two are featured)
-  const featuredSimulations = simulations.slice(0, 2);
+  // Featured simulations - now showing 3 featured simulations (first 3)
+  const featuredSimulations = simulations.slice(0, 3);
   const allSimulations = simulations;
 
   return (
@@ -163,6 +179,38 @@ const SimulationsPage = () => {
             </div>
           </motion.div>
 
+          {/* 3D Cell Explorer Featured */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.25 }}
+          >
+            <div className="bg-gradient-to-r from-purple-600 to-pink-700 rounded-2xl shadow-2xl overflow-hidden h-full">
+              <div className="p-8">
+                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-2 mb-4">
+                  <GiMicroscope className="w-4 h-4" />
+                  <span className="text-sm font-semibold">3D Biology Lab</span>
+                </div>
+                <h2 className="text-2xl lg:text-3xl font-bold text-white mb-3">
+                  3D Cell Explorer
+                </h2>
+                <p className="text-purple-100 text-sm mb-4 line-clamp-3">
+                  Explore animal and plant cells in stunning 3D! Interact with organelles and learn about cellular biology.
+                </p>
+                <Link to="/simulations/cell-explorer">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-white text-purple-700 px-6 py-2 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
+                  >
+                    Explore Cells
+                    <FaArrowRight />
+                  </motion.button>
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+
           {/* DNA Extraction Featured */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -188,38 +236,6 @@ const SimulationsPage = () => {
                     className="bg-white text-blue-700 px-6 py-2 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
                   >
                     Launch Lab
-                    <FaArrowRight />
-                  </motion.button>
-                </Link>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Solar System Featured */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <div className="bg-gradient-to-r from-purple-600 to-pink-700 rounded-2xl shadow-2xl overflow-hidden h-full">
-              <div className="p-8">
-                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-2 mb-4">
-                  <GiPlanetCore className="w-4 h-4" />
-                  <span className="text-sm font-semibold">Astronomy Simulator</span>
-                </div>
-                <h2 className="text-2xl lg:text-3xl font-bold text-white mb-3">
-                  3D Solar System Explorer
-                </h2>
-                <p className="text-purple-100 text-sm mb-4 line-clamp-3">
-                  Explore our solar system in stunning 3D! Navigate through space, observe planetary orbits, and learn fascinating facts about each celestial body.
-                </p>
-                <Link to="/simulations/solar-system">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="bg-white text-purple-700 px-6 py-2 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
-                  >
-                    Explore Space
                     <FaArrowRight />
                   </motion.button>
                 </Link>

@@ -28,6 +28,7 @@ import InvestigationPage from "./Articles/Science/SciPage";
 import EcoBalanceGame from './Simulations/EcoBalance/EcoBalance';
 import DNAExtractionApp from './Simulations/DNAextraction/DNAextraction';
 import SolarSystemObservatory from './Simulations/SolarSystem/SolarSystem';
+import CellExplorer from "./Simulations/Cell/Cell";
 //import quiz games
 import MicroscopeGame from './quiz/microscope/MicroscopeGame';
 
@@ -80,6 +81,7 @@ function AppContent() {
         <Route path="/microscope-game" element={<MicroscopeGame />} />
         <Route path="/simulations/dna-extraction" element={<DNAExtractionApp />} />
         <Route path="/simulations/solar-system" element={<SolarSystemObservatory />} />
+        <Route path="/simulations/cell-explorer" element={<CellExplorer />} />
         {/* General article routes */}
         <Route path="/articles/:articleId" element={<ArticleReader />} />          
         <Route path="/articles" element={<ArticlesPage />} />                      

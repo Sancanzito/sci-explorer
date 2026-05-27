@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from './ThemeToggle';
-import ToolsDropdown from './NavigationLinks/ToolsDropdown';
 
 const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
   const [mobileDropdown, setMobileDropdown] = useState(null);
@@ -14,10 +13,10 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
   };
 
   const getMobileLinkClass = (path) => {
-    const baseClass = "block p-3 text-base font-semibold rounded-xl transition-all";
+    const baseClass = "block p-3 text-base font-semibold rounded-xl transition-all border border-transparent backdrop-blur-sm";
     return location.pathname.startsWith(path)
-      ? `${baseClass} text-cyan-600 dark:text-cyan-400 bg-cyan-50/60 dark:bg-cyan-950/20 font-bold`
-      : `${baseClass} text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60`;
+      ? `${baseClass} text-indigo-600 dark:text-cyan-300 bg-white/60 dark:bg-[#0a0f1c]/60 border-white/50 dark:border-cyan-500/20 shadow-sm`
+      : `${baseClass} text-slate-600 dark:text-cyan-100/70 hover:bg-white/40 dark:hover:bg-cyan-900/20`;
   };
 
   const mobileMenuVariants = {
@@ -30,7 +29,7 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
     <div className="lg:hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="text-gray-600 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 p-2 focus:outline-none"
+        className="text-slate-600 dark:text-cyan-100 hover:text-indigo-600 dark:hover:text-cyan-400 p-2 focus:outline-none"
         aria-label="Toggle Menu"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -50,40 +49,23 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
             exit="exit"
             variants={mobileMenuVariants}
             transition={{ duration: 0.2 }}
-            className="absolute top-16 left-0 right-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-xl z-40 max-h-[calc(100vh-4rem)] overflow-y-auto"
+            className="absolute top-16 left-0 right-0 bg-white/80 dark:bg-[#050b14]/90 backdrop-blur-2xl border-b border-white/40 dark:border-cyan-500/20 shadow-xl z-40 max-h-[calc(100vh-4rem)] overflow-y-auto"
           >
             <div className="px-4 pt-3 pb-6 space-y-2">
-              
-              {/* Direct Page Route Links */}
-              <Link 
-                to="/articles" 
-                onClick={() => setIsOpen(false)}
-                className={getMobileLinkClass('/articles')}
-              >
+              <Link to="/articles" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/articles')}>
                 📚 Articles Catalog
               </Link>
-
-              <Link 
-                to="/simulations" 
-                onClick={() => setIsOpen(false)}
-                className={getMobileLinkClass('/simulations')}
-              >
+              <Link to="/simulations" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/simulations')}>
                 🎮 Virtual Simulations
               </Link>
-
-              <Link 
-                to="/quizzes" 
-                onClick={() => setIsOpen(false)}
-                className={getMobileLinkClass('/quizzes')}
-              >
+              <Link to="/quizzes" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/quizzes')}>
                 📝 Interactive Quizzes
               </Link>
 
-              {/* Collapsible Dropdown Structure: Tools Only */}
-              <div className="border-t border-gray-100 dark:border-gray-800/50 pt-2">
+              <div className="border-t border-white/40 dark:border-cyan-500/20 pt-2">
                 <button
                   onClick={() => toggleMobileDropdown('tools')}
-                  className="w-full flex justify-between items-center p-3 text-base font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60 rounded-xl"
+                  className="w-full flex justify-between items-center p-3 text-base font-semibold text-slate-700 dark:text-cyan-100/90 hover:bg-white/40 dark:hover:bg-cyan-900/20 rounded-xl transition-colors"
                 >
                   <span className="flex items-center gap-2">🛠️ Laboratory Tools</span>
                   <span className={`text-xs transition-transform duration-200 ${mobileDropdown === 'tools' ? 'rotate-180' : ''}`}>▼</span>
@@ -94,19 +76,20 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden bg-gray-50/50 dark:bg-gray-950/20 rounded-xl mx-2"
+                      className="overflow-hidden bg-white/40 dark:bg-black/20 rounded-xl mx-2 border border-white/30 dark:border-cyan-500/10"
                     >
                       <div className="pl-4 pr-2 py-2 space-y-1">
-                        <Link to="/tools/calculator" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-cyan-500 rounded-lg">🧮 Scientific Calculator</Link>
-                        <Link to="/tools/periodic-table" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-cyan-500 rounded-lg">⚗️ Periodic Table</Link>
+                        <Link to="/tools/calculator" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm font-medium text-slate-600 dark:text-cyan-200/70 hover:text-indigo-600 dark:hover:text-cyan-400 hover:bg-white/50 dark:hover:bg-cyan-900/30 rounded-lg transition-colors">🧮 Scientific Calculator</Link>
+                        <Link to="/tools/periodic-table" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm font-medium text-slate-600 dark:text-cyan-200/70 hover:text-indigo-600 dark:hover:text-cyan-400 hover:bg-white/50 dark:hover:bg-cyan-900/30 rounded-lg transition-colors">⚗️ Periodic Table</Link>
+                        <Link to="/graph" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm font-medium text-slate-600 dark:text-cyan-200/70 hover:text-indigo-600 dark:hover:text-cyan-400 hover:bg-white/50 dark:hover:bg-cyan-900/30 rounded-lg transition-colors">📊 Scientific Visualization</Link>
+                        <Link to="/tools/equation-solver" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm font-medium text-slate-600 dark:text-cyan-200/70 hover:text-indigo-600 dark:hover:text-cyan-400 hover:bg-white/50 dark:hover:bg-cyan-900/30 rounded-lg transition-colors">📐 Equation Solver</Link>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
 
-              {/* Theme Toggle Area */}
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-800 flex justify-center">
+              <div className="pt-4 border-t border-white/40 dark:border-cyan-500/20 flex justify-center">
                 <ThemeToggle isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
               </div>
             </div>
