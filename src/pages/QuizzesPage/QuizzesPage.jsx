@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import MicroscopeGame from '../quiz/microscope/MicroscopeGame';
+import MicroscopeGame from '../../quiz/microscope/MicroscopeGame';
 
 const QuizzesPage = () => {
   const [activeQuiz, setActiveQuiz] = useState(null);

@@ -15,7 +15,7 @@ import GraphDashboard from './components/graph/GraphDashboard';
 import HomePage from './pages/HomeComponents/HomePage';
 import ArticlesPage from './pages/ArticlePage/ArticlesPage';
 import SimulationsPage from './pages/SimulationsPage/SimulationsPage';
-import QuizzesPage from './pages/QuizzesPage';
+import QuizzesPage from './pages/QuizzesPage/QuizzesPage';
 import ArticleReader from './pages/ArticlePage/ArticleReader';
 import ArticleNotFound from './pages/ArticlePage/ArticleNotFound';
 
@@ -24,12 +24,16 @@ import ChemistryModelsPage from './Articles/UseofChemModels/ChemistryModelsPage'
 import ParticleModelDashboard from './Articles/ParticleModelOfMatter/ParticleModelDashboard';
 import LaboratorySafetyPage from './Articles/LaboratorySafety/LaboratorySafetyPage';
 import InvestigationPage from "./Articles/Science/SciPage";
+
 // Import Simulations
 import EcoBalanceGame from './Simulations/EcoBalance/EcoBalance';
 import DNAExtractionApp from './Simulations/DNAextraction/DNAextraction';
 import SolarSystemObservatory from './Simulations/SolarSystem/SolarSystem';
 import CellExplorer from "./Simulations/Cell/Cell";
-//import quiz games
+import GelElectrophoresis from './Simulations/gelElectrophoresis/gelElectrophoresis';
+import MolView from './Simulations/MolView/Molview';
+
+// Import quiz games
 import MicroscopeGame from './quiz/microscope/MicroscopeGame';
 
 const queryClient = new QueryClient({
@@ -59,6 +63,7 @@ function AppContent() {
     if (location.pathname.includes('/simulations')) return "Science Simulations";
     if (location.pathname.includes('/quizzes')) return "Quiz Section - DO NOT provide direct answers";
     if (location.pathname.includes('/tools')) return "Science Tools";
+    if (location.pathname.includes('/molview')) return "Molecular Visualization Tool";
     return "Science Learning Platform";
   };
 
@@ -73,8 +78,12 @@ function AppContent() {
         <Route path="/articles/LaboratorySafety" element={<LaboratorySafetyPage />} />
         <Route path="/articles/particle-model-matter" element={<ParticleModelDashboard />} />
         <Route path="/articles/ScientificSkills" element={<InvestigationPage />} />
+        
         {/* Scientific Visualization Dashboard */}
         <Route path="/graph" element={<GraphDashboard />} />
+        
+        {/* Molecular Visualization Tool */}
+        <Route path="/molview" element={<MolView />} />
         
         {/* Simulations and quizzes */}
         <Route path="/games/eco-balance" element={<EcoBalanceGame />} />
@@ -82,6 +91,8 @@ function AppContent() {
         <Route path="/simulations/dna-extraction" element={<DNAExtractionApp />} />
         <Route path="/simulations/solar-system" element={<SolarSystemObservatory />} />
         <Route path="/simulations/cell-explorer" element={<CellExplorer />} />
+        <Route path="/simulations/gel-electrophoresis" element={<GelElectrophoresis />} />
+        
         {/* General article routes */}
         <Route path="/articles/:articleId" element={<ArticleReader />} />          
         <Route path="/articles" element={<ArticlesPage />} />                      

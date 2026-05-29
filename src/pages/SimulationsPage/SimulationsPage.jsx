@@ -9,12 +9,48 @@ import {
   GiPoisonGas,
   GiMicroscope,
   GiDna1,
-  GiPlanetCore
+  GiPlanetCore,
+  GiMolecule
 } from 'react-icons/gi';
-import { FaGamepad, FaArrowRight } from 'react-icons/fa';
+import { FaGamepad, FaArrowRight, FaFlask } from 'react-icons/fa';
+import { Atom } from 'lucide-react';
 
 const SimulationsPage = () => {
   const simulations = [
+    {
+      id: 'molview',
+      name: 'Molecular Workstation: 3D Chemical Lab',
+      description: 'Draw, visualize, and analyze molecules in 3D! Search PubChem database, draw custom structures, and explore molecular properties in real-time.',
+      longDescription: 'A professional-grade molecular visualization tool! Draw chemical structures using the JSME editor, search the PubChem database, and analyze molecular properties. Perfect for chemistry students and researchers.',
+      icon: <Atom className="w-12 h-12" />,
+      color: 'from-cyan-600 to-blue-700',
+      path: '/molview',
+      features: [
+        'Interactive molecular drawing canvas',
+        'PubChem database integration',
+        'Real-time molecular analysis',
+        '35+ molecular templates included',
+        'SMILES notation support',
+        '3D molecular visualization'
+      ]
+    },
+    {
+      id: 'gel-electrophoresis',
+      name: 'Forensic DNA Analysis: Gel Electrophoresis',
+      description: 'Solve a forensic mystery using gel electrophoresis! Load DNA samples, run the gel, and match crime scene DNA to suspects.',
+      longDescription: 'Step into a real forensics lab! You are a DNA analyst tasked with identifying a suspect from a crime scene sample. Load DNA samples into an agarose gel, run electrophoresis, visualize with UV light, and analyze banding patterns to solve the case.',
+      icon: <GiDna1 className="w-12 h-12" />,
+      color: 'from-cyan-600 to-blue-700',
+      path: '/simulations/gel-electrophoresis',
+      features: [
+        'Interactive gel loading with micropipette',
+        'Adjustable voltage and gel concentration',
+        'Real-time DNA migration simulation',
+        'UV visualization of DNA bands',
+        'Forensic case scenario with suspects',
+        'Scientific explanation of electrophoresis principles'
+      ]
+    },
     {
       id: 'eco-balance',
       name: 'Eco-Balance: The Trophic Navigator',
@@ -112,8 +148,8 @@ const SimulationsPage = () => {
     }
   ];
 
-  // Featured simulations - now showing 3 featured simulations (first 3)
-  const featuredSimulations = simulations.slice(0, 3);
+  // Featured simulations - now showing 4 featured simulations (including MolView)
+  const featuredSimulations = simulations.slice(0, 4);
   const allSimulations = simulations;
 
   return (
@@ -144,35 +180,99 @@ const SimulationsPage = () => {
         </div>
       </div>
 
-      {/* Featured Simulations Banner - Show three featured simulations */}
+      {/* Featured Simulations Banner - Show four featured simulations */}
       <div className="max-w-7xl mx-auto px-6 -mt-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Eco-Balance Featured */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+          {/* MolView Featured */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            <div className="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl shadow-2xl overflow-hidden h-full">
+              <div className="p-6">
+                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-3 py-1 mb-3">
+                  <Atom className="w-3 h-3" />
+                  <span className="text-xs font-semibold">NEW! Chemistry Lab</span>
+                </div>
+                <h2 className="text-xl lg:text-2xl font-bold text-white mb-2">
+                  Molecular Workstation
+                </h2>
+                <p className="text-cyan-100 text-xs mb-3 line-clamp-2">
+                  Draw, analyze, and explore molecules with PubChem integration!
+                </p>
+                <Link to="/molview">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-white text-cyan-700 px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
+                  >
+                    Launch Lab
+                    <FaArrowRight size={10} />
+                  </motion.button>
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Gel Electrophoresis Featured */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <div className="bg-gradient-to-r from-green-600 to-emerald-700 rounded-2xl shadow-2xl overflow-hidden h-full">
-              <div className="p-8">
-                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-2 mb-4">
-                  <FaGamepad className="w-4 h-4" />
-                  <span className="text-sm font-semibold">Featured Simulation</span>
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-2xl shadow-2xl overflow-hidden h-full">
+              <div className="p-6">
+                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-3 py-1 mb-3">
+                  <GiDna1 className="w-3 h-3" />
+                  <span className="text-xs font-semibold">Forensics Lab</span>
                 </div>
-                <h2 className="text-2xl lg:text-3xl font-bold text-white mb-3">
-                  Eco-Balance: Trophic Navigator
+                <h2 className="text-xl lg:text-2xl font-bold text-white mb-2">
+                  Forensic DNA Analysis
                 </h2>
-                <p className="text-green-100 text-sm mb-4 line-clamp-3">
-                  Experience ecosystem balance in this immersive simulation. Manipulate environmental conditions and observe species populations.
+                <p className="text-purple-100 text-xs mb-3 line-clamp-2">
+                  Solve a crime using gel electrophoresis!
+                </p>
+                <Link to="/simulations/gel-electrophoresis">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-white text-purple-700 px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
+                  >
+                    Start Investigation
+                    <FaArrowRight size={10} />
+                  </motion.button>
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Eco-Balance Featured */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <div className="bg-gradient-to-r from-green-600 to-emerald-700 rounded-2xl shadow-2xl overflow-hidden h-full">
+              <div className="p-6">
+                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-3 py-1 mb-3">
+                  <FaGamepad className="w-3 h-3" />
+                  <span className="text-xs font-semibold">Featured Simulation</span>
+                </div>
+                <h2 className="text-xl lg:text-2xl font-bold text-white mb-2">
+                  Eco-Balance
+                </h2>
+                <p className="text-green-100 text-xs mb-3 line-clamp-2">
+                  Experience ecosystem balance in this immersive simulation.
                 </p>
                 <Link to="/games/eco-balance">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="bg-white text-green-700 px-6 py-2 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
+                    className="bg-white text-green-700 px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
                   >
                     Play Now
-                    <FaArrowRight />
+                    <FaArrowRight size={10} />
                   </motion.button>
                 </Link>
               </div>
@@ -183,60 +283,28 @@ const SimulationsPage = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.25 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
           >
-            <div className="bg-gradient-to-r from-purple-600 to-pink-700 rounded-2xl shadow-2xl overflow-hidden h-full">
-              <div className="p-8">
-                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-2 mb-4">
-                  <GiMicroscope className="w-4 h-4" />
-                  <span className="text-sm font-semibold">3D Biology Lab</span>
+            <div className="bg-gradient-to-r from-pink-600 to-rose-700 rounded-2xl shadow-2xl overflow-hidden h-full">
+              <div className="p-6">
+                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-3 py-1 mb-3">
+                  <GiMicroscope className="w-3 h-3" />
+                  <span className="text-xs font-semibold">3D Biology Lab</span>
                 </div>
-                <h2 className="text-2xl lg:text-3xl font-bold text-white mb-3">
+                <h2 className="text-xl lg:text-2xl font-bold text-white mb-2">
                   3D Cell Explorer
                 </h2>
-                <p className="text-purple-100 text-sm mb-4 line-clamp-3">
-                  Explore animal and plant cells in stunning 3D! Interact with organelles and learn about cellular biology.
+                <p className="text-pink-100 text-xs mb-3 line-clamp-2">
+                  Explore animal and plant cells in stunning 3D!
                 </p>
                 <Link to="/simulations/cell-explorer">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="bg-white text-purple-700 px-6 py-2 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
+                    className="bg-white text-pink-700 px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
                   >
                     Explore Cells
-                    <FaArrowRight />
-                  </motion.button>
-                </Link>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* DNA Extraction Featured */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            <div className="bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl shadow-2xl overflow-hidden h-full">
-              <div className="p-8">
-                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-2 mb-4">
-                  <GiDna1 className="w-4 h-4" />
-                  <span className="text-sm font-semibold">Molecular Biology Lab</span>
-                </div>
-                <h2 className="text-2xl lg:text-3xl font-bold text-white mb-3">
-                  DNA Extraction Lab
-                </h2>
-                <p className="text-blue-100 text-sm mb-4 line-clamp-3">
-                  Extract real DNA from a strawberry! Learn cell disruption, chemical lysis, filtration, and precipitation techniques.
-                </p>
-                <Link to="/simulations/dna-extraction">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="bg-white text-blue-700 px-6 py-2 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
-                  >
-                    Launch Lab
-                    <FaArrowRight />
+                    <FaArrowRight size={10} />
                   </motion.button>
                 </Link>
               </div>
@@ -278,6 +346,11 @@ const SimulationsPage = () => {
                     {sim.comingSoon && (
                       <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-semibold">
                         Coming Soon
+                      </span>
+                    )}
+                    {sim.id === 'molview' && (
+                      <span className="px-3 py-1 bg-yellow-400/30 rounded-full text-xs font-semibold">
+                        NEW
                       </span>
                     )}
                   </div>
