@@ -7,7 +7,7 @@ import ScientificCalculator from './components/Calculator/ScientificCalculator';
 import PeriodicTable from './components/Tools/PeriodicTable';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AIAssistant from './components/AI/Ai';
-
+import { Analytics } from "@vercel/analytics/react";
 // Import GraphDashboard
 import GraphDashboard from './components/graph/GraphDashboard';
 
