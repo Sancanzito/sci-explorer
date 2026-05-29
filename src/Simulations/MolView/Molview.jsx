@@ -199,7 +199,7 @@ const ResolverService = {
     } catch (e) {}
 
     try {
-      const opsin = await fetch(`https://opsin.ch.cam.ac.uk/opsin/${encodeURIComponent(query)}.smi`);
+      const opsin = await fetch(`/api/opsin/${encodeURIComponent(query)}.smi`);
       if (opsin.ok) {
         const text = await opsin.text();
         if (text && text.length > 2) return text.trim();
@@ -325,6 +325,10 @@ const PubChemService = {
   },
 
   searchBySmiles: async (smiles) => {
+    if (!smiles || smiles.trim() === '') {
+        throw new Error("No structure provided.");
+    }
+    
     const normalizedSmiles = AnalysisService.normalizeSmiles(smiles);
     
     // Memory Cache Check
@@ -368,6 +372,10 @@ const PubChemService = {
   },
 
   fetchMolFromSmiles: async (smiles) => {
+    if (!smiles || smiles.trim() === '') {
+      return null;
+    }
+
     try {
       const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/${encodeURIComponent(smiles)}/SDF`;
       const res = await fetch(url);

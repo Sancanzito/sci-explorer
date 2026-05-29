@@ -1,6 +1,22 @@
 {
   "rewrites": [
     {
+      "source": "/api/opsin/:path*",
+      "destination": "https://opsin.ch.cam.ac.uk/opsin/:path*"
+    },
+    {
+      "source": "/api/pyodide/:path*",
+      "destination": "https://cdn.jsdelivr.net/pyodide/v0.29.4/:path*"
+    },
+    {
+      "source": "/api/periodic-table-data/:path*",
+      "destination": "https://unpkg.com/periodic-table-data@1.1.1/:path*"
+    },
+    {
+      "source": "/api/periodic-table/:path*",
+      "destination": "https://unpkg.com/periodic-table@0.0.8/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

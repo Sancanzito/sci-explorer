@@ -25,6 +25,7 @@
     "@react-three/fiber": "^9.6.1",
     "@tanstack/react-query": "^5.100.11",
     "@types/three": "^0.184.1",
+    "@vercel/analytics": "^2.0.1",
     "bootstrap": "^5.3.8",
     "canvas-confetti": "^1.9.4",
     "convert": "^7.0.0",
