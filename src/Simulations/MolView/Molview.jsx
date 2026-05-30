@@ -23,6 +23,9 @@ const Jsme = ({ width = "100%", height = "600px", options = "query,hydrogens", o
   useEffect(() => {
     // Inject JSME script dynamically if it doesn't exist
     if (!window.JSApplet && !document.getElementById('jsme-script')) {
+      // Add empty function to suppress JSME global warning
+      window.jsmeOnLoad = () => {}; 
+      
       const script = document.createElement('script');
       script.src = 'https://jsme-editor.github.io/dist/jsme/jsme.nocache.js';
       script.id = 'jsme-script';
@@ -240,7 +243,8 @@ const AutocompleteService = {
     try {
       const response = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete/compound/${encodeURIComponent(query)}/json`);
       const data = await response.json();
-      const rawSuggestions = data.dictionary_terms?.compound?.slice(0, 5) || [];
+      // FIX: Increased from 5 to 10 to help catch simple compounds
+      const rawSuggestions = data.dictionary_terms?.compound?.slice(0, 10) || [];
 
       // Validate against PubChem
       const validated = [];

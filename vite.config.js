@@ -7,8 +7,7 @@ export default defineConfig({
   define: {
     global: 'globalThis',
   },
-  base: './', 
-  // ADD THIS BLOCK:
+  base: './',
   server: {
     proxy: {
       '/api': {
@@ -18,7 +17,39 @@ export default defineConfig({
       },
     },
   },
+  // Add this to fix the backend scanning issue
+  optimizeDeps: {
+    include: ['plotly.js-dist-min', 'react-plotly.js'],
+    exclude: ['plotly.js', 'src/components/graph/backend/**/*'],
+    // Force Vite to only scan these entries
+    entries: ['src/main.jsx', 'src/**/*.jsx', 'src/**/*.js', 'src/**/*.tsx', 'src/**/*.ts']
+  },
   build: {
     outDir: 'dist',
-  }
+    commonjsOptions: {
+      include: [/plotly.js-dist-min/, /node_modules/],
+      transformMixedEsModules: true,
+    },
+    rollupOptions: {
+      input: {
+        main: 'index.html'
+      },
+      output: {
+        manualChunks: {
+          plotly: ['plotly.js-dist-min'],
+        },
+      },
+    },
+  },
+  resolve: {
+    alias: {
+      'plotly.js': 'plotly.js-dist-min',
+    },
+    dedupe: [
+      'react', 
+      'react-dom', 
+      '@wendellhu/redi', 
+      'clsx'
+    ],
+  },
 })

@@ -9,8 +9,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AIAssistant from './components/AI/Ai';
 import { Analytics } from "@vercel/analytics/react";
 // Import GraphDashboard
-import GraphDashboard from './components/graph/GraphDashboard';
-
+import StatisticalTool from './components/graph/statisticaltool';
+// main.jsx or App.jsx
+import "@glideapps/glide-data-grid/dist/index.css";
 // Import all page components
 import HomePage from './pages/HomeComponents/HomePage';
 import ArticlesPage from './pages/ArticlePage/ArticlesPage';
@@ -49,14 +50,14 @@ function AppContent() {
   const { isDarkMode, toggleTheme } = useTheme();
   const location = useLocation();
   
+  // Check if we are on the homepage
+  const isHomePage = location.pathname === '/';
+  
   // Determine if AI assistant should be disabled (e.g., during quizzes)
   const isAssessmentActive = location.pathname.includes('/quizzes') || 
                              location.pathname.includes('/microscope-game');
   
-  // Check if we are on the homepage to allow the beautiful background to show
-  const isHomePage = location.pathname === '/';
-  
-  // Get context based on current route
+  // Get context based on current route (only used if on homepage)
   const getAIContext = () => {
     if (isHomePage) return "Home Dashboard";
     if (location.pathname.includes('/articles')) return "Science Articles";
@@ -80,7 +81,7 @@ function AppContent() {
         <Route path="/articles/ScientificSkills" element={<InvestigationPage />} />
         
         {/* Scientific Visualization Dashboard */}
-        <Route path="/graph" element={<GraphDashboard />} />
+        <Route path="/graph" element={<StatisticalTool />} />
         
         {/* Molecular Visualization Tool */}
         <Route path="/molview" element={<MolView />} />
@@ -107,11 +108,13 @@ function AppContent() {
         <Route path="*" element={<ArticleNotFound />} />
       </Routes>
       
-      {/* AI Assistant - Shows on all pages except assessment pages */}
-      <AIAssistant 
-        context={getAIContext()} 
-        disabled={isAssessmentActive}
-      />
+      {/* AI Assistant - ONLY shows on homepage */}
+      {isHomePage && (
+        <AIAssistant 
+          context={getAIContext()} 
+          disabled={isAssessmentActive}
+        />
+      )}
     </>
   );
 }
@@ -120,7 +123,6 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        {/* Remove the background wrapper div or make it conditional */}
         <AppContent />
       </Router>
     </QueryClientProvider>
