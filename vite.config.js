@@ -17,11 +17,9 @@ export default defineConfig({
       },
     },
   },
-  // Add this to fix the backend scanning issue
   optimizeDeps: {
     include: ['plotly.js-dist-min', 'react-plotly.js'],
     exclude: ['plotly.js', 'src/components/graph/backend/**/*'],
-    // Force Vite to only scan these entries
     entries: ['src/main.jsx', 'src/**/*.jsx', 'src/**/*.js', 'src/**/*.tsx', 'src/**/*.ts']
   },
   build: {
@@ -35,8 +33,15 @@ export default defineConfig({
         main: 'index.html'
       },
       output: {
-        manualChunks: {
-          plotly: ['plotly.js-dist-min'],
+        manualChunks: (id) => {
+          if (id.includes('plotly.js-dist-min')) {
+            return 'plotly';
+          }
+          // Optionally, you can add more chunk splitting rules here
+          // if (id.includes('node_modules/react')) return 'vendor';
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
         },
       },
     },

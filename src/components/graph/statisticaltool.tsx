@@ -354,8 +354,13 @@ const UniverSpreadsheet: React.FC<UniverSpreadsheetProps> = ({ onWorkbookReady }
         univer.registerPlugin(UniverRenderEnginePlugin);
         univer.registerPlugin(UniverFormulaEnginePlugin);
         univer.registerPlugin(UniverUIPlugin, { container: containerRef.current! });
-        univer.registerPlugin(UniverDocsPlugin);
+        
+        // Configure Docs specifically for cell editing
+        univer.registerPlugin(UniverDocsPlugin, {
+          hasScroll: false, 
+        });
         univer.registerPlugin(UniverDocsUIPlugin);
+        
         univer.registerPlugin(UniverSheetsPlugin);
         univer.registerPlugin(UniverSheetsUIPlugin);
         univer.registerPlugin(UniverSheetsFormulaPlugin);
@@ -374,9 +379,15 @@ const UniverSpreadsheet: React.FC<UniverSpreadsheetProps> = ({ onWorkbookReady }
               name: 'Data',
               rowCount: 10000,
               columnCount: 1000,
+              cellData: {}, // Explicitly initialize the empty cell model
             },
           },
         });
+
+        // Force the engine to capture keyboard focus
+        const injector = univer.__getInjector();
+        const instanceService = injector.get(IUniverInstanceService);
+        instanceService.focusUnit(workbookId);
 
         univerRef.current = univer;
         
