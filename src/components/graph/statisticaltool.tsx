@@ -15,14 +15,14 @@ import {
 } from '@univerjs/core';
 import { defaultTheme } from '@univerjs/themes';
 
-// Render Engine
+// Render & Formula Engines
 import { UniverRenderEnginePlugin } from '@univerjs/engine-render';
 import { UniverFormulaEnginePlugin } from '@univerjs/engine-formula';
 
 // UI Plugins
 import { UniverUIPlugin } from '@univerjs/ui';
 
-// Document plugins (Required for the cell text editor engine)
+// Document plugins
 import { UniverDocsPlugin } from '@univerjs/docs';
 import { UniverDocsUIPlugin } from '@univerjs/docs-ui';
 
@@ -31,20 +31,32 @@ import { UniverSheetsPlugin } from '@univerjs/sheets';
 import { UniverSheetsUIPlugin } from '@univerjs/sheets-ui';
 import { UniverSheetsFormulaPlugin } from '@univerjs/sheets-formula';
 
+// 🚨 THE MISSING PIECE: Required for the cell text editor to render
+import { UniverSheetsFormulaUIPlugin } from '@univerjs/sheets-formula-ui';
+
 // Styles
 import '@univerjs/design/lib/index.css';
 import '@univerjs/ui/lib/index.css';
 import '@univerjs/docs-ui/lib/index.css';
 import '@univerjs/sheets-ui/lib/index.css';
+import '@univerjs/sheets-formula-ui/lib/index.css';
 
 // Locale imports
 import enUS from '@univerjs/ui/locale/en-US';
 import sheetsUIEnUS from '@univerjs/sheets-ui/locale/en-US';
 import docsUIEnUS from '@univerjs/docs-ui/locale/en-US';
 import designEnUS from '@univerjs/design/locale/en-US';
+import sheetsFormulaUIEnUS from '@univerjs/sheets-formula-ui/locale/en-US';
 
 const locales = {
-  [LocaleType.EN_US]: Tools.deepMerge({}, designEnUS, enUS, docsUIEnUS, sheetsUIEnUS),
+  [LocaleType.EN_US]: Tools.deepMerge(
+    {}, 
+    designEnUS, 
+    enUS, 
+    docsUIEnUS, 
+    sheetsUIEnUS, 
+    sheetsFormulaUIEnUS
+  ),
 };
 
 // ============================================
@@ -159,7 +171,7 @@ class StatsEngine {
 const statsEngine = new StatsEngine();
 
 // ============================================
-// CORE DATA HANDLERS (CQRS / NO FACADE)
+// CORE DATA HANDLERS
 // ============================================
 
 const batchLoadData = (univer: any, workbookId: string, worksheetId: string, data: any[][]): boolean => {
@@ -330,122 +342,90 @@ const UniverSpreadsheet: React.FC<UniverSpreadsheetProps> = ({ onWorkbookReady }
   const containerRef = useRef<HTMLDivElement>(null);
   const univerRef = useRef<any>(null);
   const initializedRef = useRef(false);
-  const isMountedRef = useRef(true);
 
   useEffect(() => {
     if (!containerRef.current || initializedRef.current) return;
-
     initializedRef.current = true;
-    isMountedRef.current = true;
 
-    const initUniver = () => {
-      try {
-        const univer = new Univer({
-          theme: defaultTheme,
-          locale: LocaleType.EN_US,
-          locales,
-        });
+    try {
+      const univer = new Univer({
+        theme: defaultTheme,
+        locale: LocaleType.EN_US,
+        locales,
+      });
 
-        // 1. Core plugins
-        univer.registerPlugin(UniverRenderEnginePlugin);
-        univer.registerPlugin(UniverFormulaEnginePlugin);
-        univer.registerPlugin(UniverUIPlugin, { container: containerRef.current! });
-        
-        // 2. RESTORED: Docs engine strictly configured for cell editing
-        univer.registerPlugin(UniverDocsPlugin, {
-          hasScroll: false, 
-        });
-        univer.registerPlugin(UniverDocsUIPlugin);
+      // 1. Core plugins
+      univer.registerPlugin(UniverRenderEnginePlugin);
+      univer.registerPlugin(UniverFormulaEnginePlugin);
+      univer.registerPlugin(UniverUIPlugin, { container: containerRef.current! });
+      
+      // 2. Docs engine
+      univer.registerPlugin(UniverDocsPlugin, { hasScroll: false });
+      univer.registerPlugin(UniverDocsUIPlugin);
 
-        // 3. Sheet plugins
-        univer.registerPlugin(UniverSheetsPlugin);
-        univer.registerPlugin(UniverSheetsUIPlugin);
-        univer.registerPlugin(UniverSheetsFormulaPlugin);
+      // 3. Sheet plugins
+      univer.registerPlugin(UniverSheetsPlugin);
+      univer.registerPlugin(UniverSheetsUIPlugin);
+      
+      // 4. Formula UI Plugin (CRITICAL: The cell editor lives here!)
+      univer.registerPlugin(UniverSheetsFormulaPlugin);
+      univer.registerPlugin(UniverSheetsFormulaUIPlugin);
 
-        const workbookId = 'workbook-1';
-        const worksheetId = 'sheet1';
+      const workbookId = 'workbook-1';
+      const worksheetId = 'sheet1';
 
-        univer.createUnit(UniverInstanceType.UNIVER_SHEET, {
-          id: workbookId,
-          name: 'StatsPro',
-          sheetOrder: [worksheetId],
-          sheets: {
-            [worksheetId]: {
-              id: worksheetId,
-              name: 'Data',
-              rowCount: 10000,
-              columnCount: 1000,
-              cellData: {}, // Explicitly initialize the empty cell model
-            },
+      univer.createUnit(UniverInstanceType.UNIVER_SHEET, {
+        id: workbookId,
+        name: 'StatsPro',
+        sheetOrder: [worksheetId],
+        sheets: {
+          [worksheetId]: {
+            id: worksheetId,
+            name: 'Data',
+            rowCount: 10000,
+            columnCount: 1000,
           },
-        });
+        },
+      });
 
-        const injector = univer.__getInjector();
-        const instanceService = injector.get(IUniverInstanceService);
-        const commandService = injector.get(ICommandService);
+      const injector = univer.__getInjector();
+      const instanceService = injector.get(IUniverInstanceService);
+      
+      instanceService.focusUnit(workbookId);
+      univerRef.current = univer;
 
-        // Focus the unit
-        instanceService.focusUnit(workbookId);
-
-        // Force active cell selection to trigger the cursor system
-        commandService.executeCommand('sheet.command.set-selection', {
-          unitId: workbookId,
-          subUnitId: worksheetId,
-          range: {
-            startRow: 0,
-            endRow: 0,
-            startColumn: 0,
-            endColumn: 0,
-          },
-        });
-
-        univerRef.current = univer;
-        
-        // Force DOM focus safely after render
-        setTimeout(() => {
-          if (containerRef.current) {
-            containerRef.current.focus();
-          }
-        }, 300);
-
-        if (onWorkbookReady && isMountedRef.current) {
-          setTimeout(() => {
-            if (isMountedRef.current) {
-              onWorkbookReady(univer, workbookId, worksheetId);
-            }
-          }, 500);
-        }
-      } catch (err) {
-        console.error('Failed to initialize Univer:', err);
-        initializedRef.current = false;
+      if (onWorkbookReady) {
+        setTimeout(() => onWorkbookReady(univer, workbookId, worksheetId), 500);
       }
-    };
-
-    initUniver();
+    } catch (err) {
+      console.error('❌ Failed to initialize Univer:', err);
+      initializedRef.current = false;
+    }
 
     return () => {
-      isMountedRef.current = false;
-      const univer = univerRef.current;
-      univerRef.current = null;
-      
-      setTimeout(() => {
+      if (univerRef.current) {
         try {
-          if (univer && typeof univer.dispose === 'function') {
-            univer.dispose();
-          }
-        } catch (err) {
-          console.warn('Error disposing Univer:', err);
+          univerRef.current.dispose();
+        } catch (e) {
+          console.error("Cleanup error", e);
         }
-      }, 0);
+        univerRef.current = null;
+      }
+      initializedRef.current = false;
     };
-  }, []);
+  }, [onWorkbookReady]);
 
   return (
     <div 
       ref={containerRef} 
-      tabIndex={0} 
-      className="w-full h-full focus:outline-none" 
-      style={{ minHeight: '550px' }} 
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        minHeight: '550px',
+        overflow: 'hidden',
+        outline: 'none'
+      }}
     />
   );
 };

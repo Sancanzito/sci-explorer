@@ -40,6 +40,7 @@
     "@univerjs/rpc": "^0.24.0",
     "@univerjs/sheets": "^0.24.0",
     "@univerjs/sheets-formula": "^0.24.0",
+    "@univerjs/sheets-formula-ui": "^0.24.0",
     "@univerjs/sheets-ui": "^0.24.0",
     "@univerjs/telemetry": "^0.24.0",
     "@univerjs/themes": "^0.24.0",

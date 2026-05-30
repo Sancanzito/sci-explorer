@@ -5,9 +5,7 @@ import './index.css';
 import { ThemeProvider } from './ThemeProvider';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <>
     <ThemeProvider>
       <App />
-    </ThemeProvider>
-  </>,
+    </ThemeProvider>,
 );
