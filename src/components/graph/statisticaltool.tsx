@@ -22,7 +22,7 @@ import { UniverFormulaEnginePlugin } from '@univerjs/engine-formula';
 // UI Plugins
 import { UniverUIPlugin } from '@univerjs/ui';
 
-// Document plugins
+// Document plugins (Required for the cell text editor engine)
 import { UniverDocsPlugin } from '@univerjs/docs';
 import { UniverDocsUIPlugin } from '@univerjs/docs-ui';
 
@@ -172,7 +172,6 @@ const batchLoadData = (univer: any, workbookId: string, worksheetId: string, dat
     const rows = data.length;
     const cols = data[0].length;
     
-    // Construct the strict Univer CellMatrix format
     const cellValue: Record<number, Record<number, { v: any }>> = {};
     
     for (let r = 0; r < rows; r++) {
@@ -188,7 +187,6 @@ const batchLoadData = (univer: any, workbookId: string, worksheetId: string, dat
       }
     }
 
-    // Dispatch the mutation command directly to the engine to trigger UI sync
     commandService.executeCommand('sheet.command.set-range-values', {
       unitId: workbookId,
       subUnitId: worksheetId,
@@ -221,7 +219,6 @@ const getNumericColumns = (univer: any, workbookId: string, worksheetId: string,
     const worksheet = workbook.getSheetBySheetId(worksheetId);
     if (!worksheet) return result;
 
-    // Access the raw data matrix directly from the core model
     const cellMatrix = worksheet.getCellMatrix();
     const maxRow = worksheet.getRowCount();
     const maxCol = worksheet.getColumnCount();
@@ -268,7 +265,6 @@ const clearSheetData = (univer: any, workbookId: string, worksheetId: string) =>
     const worksheet = workbook?.getSheetBySheetId(worksheetId);
     if (!worksheet) return false;
 
-    // Clear a generous block safely
     const maxRow = Math.min(worksheet.getRowCount(), 5000); 
     const maxCol = Math.min(worksheet.getColumnCount(), 500);
 
@@ -350,22 +346,22 @@ const UniverSpreadsheet: React.FC<UniverSpreadsheetProps> = ({ onWorkbookReady }
           locales,
         });
 
-        // Register plugins
+        // 1. Core plugins
         univer.registerPlugin(UniverRenderEnginePlugin);
         univer.registerPlugin(UniverFormulaEnginePlugin);
         univer.registerPlugin(UniverUIPlugin, { container: containerRef.current! });
         
-        // Configure Docs specifically for cell editing
+        // 2. RESTORED: Docs engine strictly configured for cell editing
         univer.registerPlugin(UniverDocsPlugin, {
           hasScroll: false, 
         });
         univer.registerPlugin(UniverDocsUIPlugin);
-        
+
+        // 3. Sheet plugins
         univer.registerPlugin(UniverSheetsPlugin);
         univer.registerPlugin(UniverSheetsUIPlugin);
         univer.registerPlugin(UniverSheetsFormulaPlugin);
 
-        // Create initial config
         const workbookId = 'workbook-1';
         const worksheetId = 'sheet1';
 
@@ -384,13 +380,34 @@ const UniverSpreadsheet: React.FC<UniverSpreadsheetProps> = ({ onWorkbookReady }
           },
         });
 
-        // Force the engine to capture keyboard focus
         const injector = univer.__getInjector();
         const instanceService = injector.get(IUniverInstanceService);
+        const commandService = injector.get(ICommandService);
+
+        // Focus the unit
         instanceService.focusUnit(workbookId);
+
+        // Force active cell selection to trigger the cursor system
+        commandService.executeCommand('sheet.command.set-selection', {
+          unitId: workbookId,
+          subUnitId: worksheetId,
+          range: {
+            startRow: 0,
+            endRow: 0,
+            startColumn: 0,
+            endColumn: 0,
+          },
+        });
 
         univerRef.current = univer;
         
+        // Force DOM focus safely after render
+        setTimeout(() => {
+          if (containerRef.current) {
+            containerRef.current.focus();
+          }
+        }, 300);
+
         if (onWorkbookReady && isMountedRef.current) {
           setTimeout(() => {
             if (isMountedRef.current) {
@@ -423,7 +440,14 @@ const UniverSpreadsheet: React.FC<UniverSpreadsheetProps> = ({ onWorkbookReady }
     };
   }, []);
 
-  return <div ref={containerRef} className="w-full h-full" style={{ minHeight: '550px' }} />;
+  return (
+    <div 
+      ref={containerRef} 
+      tabIndex={0} 
+      className="w-full h-full focus:outline-none" 
+      style={{ minHeight: '550px' }} 
+    />
+  );
 };
 
 // ============================================
