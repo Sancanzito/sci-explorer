@@ -17,9 +17,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==========================================
-# ADVANCED DATA VALIDATION (PYDANTIC)
-# ==========================================
 class DataPayload(BaseModel):
     columns: Dict[str, List[float]]
 
@@ -39,7 +36,6 @@ class AnalysisPayload(DataPayload):
     nonparametric: bool = False
 
 def clean_data(data_dict: Dict[str, List[float]], paired: bool = False) -> List[np.ndarray]:
-    """Strict data cleaning: listwise or pairwise deletion."""
     keys = list(data_dict.keys())
     if paired:
         df = pd.DataFrame(data_dict).dropna()
@@ -56,21 +52,16 @@ def clean_data(data_dict: Dict[str, List[float]], paired: bool = False) -> List[
             cleaned.append(clean_arr)
         return cleaned
 
-# ==========================================
-# ENDPOINTS
-# ==========================================
-
 @app.get("/")
 async def root():
     return {"message": "StatsPro API is running", "status": "healthy"}
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "available_endpoints": ["ttest", "anova", "correlation", "regression", "plots/qq"]}
+    return {"status": "healthy", "available_endpoints": ["ttest", "anova", "correlation", "regression", "mannwhitney", "wilcoxon", "kruskal", "plots/qq"]}
 
 @app.post("/api/stats/plots/qq")
 async def get_qq_plot_data(payload: DataPayload):
-    """Generates Q-Q plot coordinates for normality checking"""
     try:
         results = {}
         for col_name, arr in payload.columns.items():
@@ -78,7 +69,6 @@ async def get_qq_plot_data(payload: DataPayload):
             if len(clean_arr) < 3:
                 continue
             
-            # osm = theoretical quantiles, osr = ordered responses
             (osm, osr), (slope, intercept, r) = stats.probplot(clean_arr, dist="norm")
             
             results[col_name] = {
@@ -96,7 +86,6 @@ async def get_qq_plot_data(payload: DataPayload):
 
 @app.post("/api/stats/regression")
 async def get_regression(payload: DataPayload):
-    """Advanced Linear Regression using Statsmodels with automated interpretation"""
     try:
         keys = list(payload.columns.keys())
         if len(keys) != 2:
@@ -112,21 +101,17 @@ async def get_regression(payload: DataPayload):
         Y = df[y_name]
         X_with_const = sm.add_constant(X)
         
-        # Fit OLS model using statsmodels
         model = sm.OLS(Y, X_with_const).fit()
         
-        # Extract metrics safely
         intercept = model.params.get('const', 0)
         slope = model.params.get(x_name, 0)
         p_value = model.pvalues.get(x_name, 1.0)
         r_squared = model.rsquared
         f_pvalue = model.f_pvalue
         
-        # Assumption Checks
         residuals = model.resid
         shapiro_stat, shapiro_p = stats.shapiro(residuals)
         
-        # Automated Interpretation Generation
         sig_text = "significantly" if p_value < 0.05 else "did not significantly"
         direction = "positive" if slope > 0 else "negative"
         interp = (f"A simple linear regression was calculated to predict {y_name} based on {x_name}. "
@@ -220,14 +205,12 @@ async def get_anova(payload: AnalysisPayload):
             
         f_stat, p_value = stats.f_oneway(*arrays)
         
-        # Calculate additional statistics
         all_data = np.concatenate(arrays)
         grand_mean = np.mean(all_data)
         
         group_means = [np.mean(arr) for arr in arrays]
         group_sizes = [len(arr) for arr in arrays]
         
-        # Calculate effect size (eta-squared)
         ss_between = sum([size * (mean - grand_mean)**2 for size, mean in zip(group_sizes, group_means)])
         ss_total = sum([(val - grand_mean)**2 for val in all_data])
         eta_squared = ss_between / ss_total if ss_total > 0 else 0
@@ -271,7 +254,6 @@ async def get_correlation(payload: DataPayload):
         pearson_corr = df.corr(method='pearson')
         spearman_corr = df.corr(method='spearman')
         
-        # Construct basic interpretation for the first pair found
         keys = list(df.columns)
         r_val = pearson_corr.iloc[0, 1]
         p_val = stats.pearsonr(df[keys[0]], df[keys[1]])[1]
@@ -305,6 +287,74 @@ async def get_correlation(payload: DataPayload):
         }
     except Exception as e:
          raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/stats/mannwhitney")
+async def get_mannwhitney(payload: AnalysisPayload):
+    try:
+        arrays = clean_data(payload.columns, paired=False)
+        names = list(payload.columns.keys())
+        if len(arrays) != 2: raise HTTPException(status_code=400, detail="Mann-Whitney requires exactly 2 columns.")
+            
+        u_stat, p_value = stats.mannwhitneyu(arrays[0], arrays[1], alternative='two-sided')
+        
+        return {
+            "status": "success",
+            "data": {
+                "test": "Mann-Whitney U",
+                "u_stat": float(u_stat),
+                "p_value": float(p_value),
+                "interpretation": f"Mann-Whitney U test showed {'a significant' if p_value < 0.05 else 'no significant'} difference (U = {u_stat:.2f}, p = {p_value:.4f})",
+                "group1": {"name": names[0], "median": float(np.median(arrays[0])), "n": len(arrays[0])},
+                "group2": {"name": names[1], "median": float(np.median(arrays[1])), "n": len(arrays[1])}
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/stats/wilcoxon")
+async def get_wilcoxon(payload: AnalysisPayload):
+    try:
+        arrays = clean_data(payload.columns, paired=True)
+        names = list(payload.columns.keys())
+        if len(arrays) != 2: raise HTTPException(status_code=400, detail="Wilcoxon requires exactly 2 columns.")
+            
+        w_stat, p_value = stats.wilcoxon(arrays[0], arrays[1])
+        
+        return {
+            "status": "success",
+            "data": {
+                "test": "Wilcoxon Signed-Rank",
+                "w_stat": float(w_stat),
+                "p_value": float(p_value),
+                "interpretation": f"Wilcoxon test showed {'a significant' if p_value < 0.05 else 'no significant'} difference (W = {w_stat:.2f}, p = {p_value:.4f})",
+                "group1": {"name": names[0], "median": float(np.median(arrays[0])), "n": len(arrays[0])},
+                "group2": {"name": names[1], "median": float(np.median(arrays[1])), "n": len(arrays[1])}
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/stats/kruskal")
+async def get_kruskal(payload: AnalysisPayload):
+    try:
+        arrays = clean_data(payload.columns, paired=False)
+        names = list(payload.columns.keys())
+        if len(arrays) < 2: raise HTTPException(status_code=400, detail="Kruskal-Wallis requires at least 2 groups.")
+            
+        h_stat, p_value = stats.kruskal(*arrays)
+        
+        return {
+            "status": "success",
+            "data": {
+                "test": "Kruskal-Wallis H Test",
+                "h_stat": float(h_stat),
+                "p_value": float(p_value),
+                "interpretation": f"Kruskal-Wallis test showed {'a significant' if p_value < 0.05 else 'no significant'} difference between groups (H = {h_stat:.2f}, p = {p_value:.4f})",
+                "groups": len(arrays)
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
