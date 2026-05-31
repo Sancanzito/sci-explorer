@@ -52,7 +52,7 @@ const locales = {
 };
 
 // ============================================
-// MATH UTILS FOR CHARTS
+// MATH UTILS FOR CHARTS & STATS
 // ============================================
 
 function erfinv(x: number) {
@@ -64,9 +64,85 @@ function erfinv(x: number) {
   return sign * Math.sqrt(Math.sqrt(p1 * p1 - p2) - p1);
 }
 
+const applyPValueCorrection = (pValues: number[], method: 'none' | 'bonferroni' | 'holm'): number[] => {
+  if (method === 'none') return pValues;
+  const m = pValues.length;
+  if (method === 'bonferroni') return pValues.map(p => Math.min(p * m, 1.0));
+  
+  if (method === 'holm') {
+    const indexedP = pValues.map((p, i) => ({ p, i })).sort((a, b) => a.p - b.p);
+    const adjusted = new Array(m).fill(0);
+    for (let k = 0; k < m; k++) adjusted[indexedP[k].i] = Math.min(indexedP[k].p * (m - k), 1.0);
+    for (let k = 1; k < m; k++) adjusted[indexedP[k].i] = Math.max(adjusted[indexedP[k].i], adjusted[indexedP[k-1].i]);
+    return adjusted;
+  }
+  return pValues;
+};
+
 // ============================================
 // CHART & DESCRIPTIVE COMPONENTS
 // ============================================
+
+const AssumptionWarningBanner = ({ results, testType }: { results: any, testType: string }) => {
+  if (!['Independent Samples T-Test', 'One-Way ANOVA'].includes(testType)) return null;
+
+  const hasNormalityIssue = results.shapiro_p && results.shapiro_p < 0.05;
+  const hasVarianceIssue = results.levene_p && results.levene_p < 0.05;
+
+  if (!hasNormalityIssue && !hasVarianceIssue) return null;
+
+  return (
+    <div className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg shadow-sm">
+      <div className="flex items-start">
+        <span className="text-amber-500 mr-3 text-xl">⚠️</span>
+        <div>
+          <h4 className="font-bold text-amber-800 text-sm">Statistical Assumptions Violated</h4>
+          <ul className="list-disc ml-4 mt-1 text-sm text-amber-700">
+            {hasNormalityIssue && <li><strong>Normality:</strong> The data deviates significantly from a normal distribution (Shapiro-Wilk p &lt; 0.05). Consider a non-parametric alternative (e.g. Mann-Whitney or Kruskal-Wallis).</li>}
+            {hasVarianceIssue && <li><strong>Homogeneity of Variance:</strong> Variances across groups are not equal (Levene's p &lt; 0.05). Consider Welch's ANOVA or adjusting your model.</li>}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const OutliersTable = ({ report }: { report: any }) => {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm mt-4">
+      <table className="min-w-full bg-white text-sm">
+        <thead className="bg-gray-50 text-gray-700">
+          <tr>
+            <th className="p-3 text-left font-semibold border-b">Variable</th>
+            <th className="p-3 text-left font-semibold border-b">Z-Score Outliers (n)</th>
+            <th className="p-3 text-left font-semibold border-b w-1/4">Z-Score Values</th>
+            <th className="p-3 text-left font-semibold border-b">IQR Outliers (n)</th>
+            <th className="p-3 text-left font-semibold border-b w-1/4">IQR Values</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(report).map(([col, data]: [string, any]) => (
+            <tr key={col} className="border-t hover:bg-gray-50">
+              <td className="font-bold p-3 text-gray-900">{col}</td>
+              <td className="p-3">
+                <span className={`px-2 py-1 rounded text-xs font-bold ${data.z_score_count > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                  {data.z_score_count}
+                </span>
+              </td>
+              <td className="p-3 text-xs text-gray-500">{data.z_score_outliers.join(', ') || 'None'}</td>
+              <td className="p-3">
+                <span className={`px-2 py-1 rounded text-xs font-bold ${data.iqr_count > 0 ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800'}`}>
+                  {data.iqr_count}
+                </span>
+              </td>
+              <td className="p-3 text-xs text-gray-500">{data.iqr_outliers.join(', ') || 'None'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 const PCAScreePlot = ({ eigenvalues, customTitle }: { eigenvalues: number[], customTitle: string }) => {
   const data = eigenvalues.map((val, i) => ({ 
@@ -200,7 +276,7 @@ const BarWithErrorBars = ({ groups, customY }: { groups: Record<string, { mean: 
   );
 };
 
-const CorrelationHeatmap = ({ matrix, variables }: { matrix: any, variables: string[] }) => {
+const CorrelationHeatmap = ({ matrix, pMatrix, variables, pValCorrection }: { matrix: any, pMatrix?: any, variables: string[], pValCorrection: 'none' | 'bonferroni' | 'holm' }) => {
   const getColor = (value: number) => {
     if (value > 0.7) return '#ef4444';
     if (value > 0.3) return '#f97316';
@@ -208,6 +284,15 @@ const CorrelationHeatmap = ({ matrix, variables }: { matrix: any, variables: str
     if (value > -0.7) return '#22c55e';
     return '#3b82f6';
   };
+
+  let adjustedPMatrix = pMatrix;
+  if (pMatrix && pValCorrection !== 'none') {
+    const rawPValues: {r: string, c: string, p: number}[] = [];
+    variables.forEach(r => variables.forEach(c => { if (r !== c) rawPValues.push({r, c, p: pMatrix[r][c]}); }));
+    const adjustedPs = applyPValueCorrection(rawPValues.map(v => v.p), pValCorrection);
+    adjustedPMatrix = JSON.parse(JSON.stringify(pMatrix));
+    rawPValues.forEach((v, i) => { adjustedPMatrix[v.r][v.c] = adjustedPs[i]; });
+  }
   
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -224,13 +309,16 @@ const CorrelationHeatmap = ({ matrix, variables }: { matrix: any, variables: str
               <td className="font-bold p-3 border-r bg-gray-50 text-gray-700">{rowVar}</td>
               {variables.map(colVar => {
                 const value = matrix[rowVar]?.[colVar] || 0;
+                const pValue = adjustedPMatrix ? adjustedPMatrix[rowVar]?.[colVar] : null;
+                const isSig = pValue !== null && pValue < 0.05 && rowVar !== colVar;
                 return (
                   <td 
                     key={colVar}
-                    className="p-3 text-center text-white font-medium border"
-                    style={{ backgroundColor: getColor(value), minWidth: '80px' }}
+                    className="p-3 text-center text-white font-medium border relative"
+                    style={{ backgroundColor: getColor(value), minWidth: '90px' }}
                   >
-                    {value.toFixed(2)}
+                    {value.toFixed(2)}{isSig && <span className="absolute top-1 right-1 text-xs font-bold">*</span>}
+                    {pValue !== null && rowVar !== colVar && <div className="text-[10px] opacity-75">p={pValue.toFixed(3)}</div>}
                   </td>
                 );
               })}
@@ -392,11 +480,29 @@ const QQPlot = ({ columnName, data }: { columnName: string, data: any[] }) => {
   );
 };
 
+const ROCCurvePlot = ({ rocData, auc, customTitle }: { rocData: any[], auc: number, customTitle: string }) => {
+  if (!rocData || rocData.length === 0) return null;
+  
+  return (
+    <ResponsiveContainer width="100%" height={400}>
+      <ComposedChart data={rocData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="fpr" type="number" domain={[0, 1]} label={{ value: 'False Positive Rate (1 - Specificity)', position: 'bottom', offset: -5 }} />
+        <YAxis dataKey="tpr" type="number" domain={[0, 1]} label={{ value: 'True Positive Rate (Sensitivity)', angle: -90, position: 'insideLeft' }} />
+        <Tooltip formatter={(value: number) => value.toFixed(3)} />
+        <Legend verticalAlign="top" height={36} />
+        <Line type="monotone" dataKey="tpr" name={`ROC Curve (AUC = ${auc.toFixed(3)})`} stroke="#3b82f6" strokeWidth={3} dot={false} isAnimationActive={false} />
+        <Line type="monotone" dataKey="fpr" name="Random Guess" stroke="#ef4444" strokeDasharray="5 5" dot={false} isAnimationActive={false} />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+};
+
 // ============================================
 // TYPES & STORES
 // ============================================
 
-type SelectionMode = 'exact_2' | 'min_2' | 'min_1' | 'x_y' | '1_n';
+type SelectionMode = 'exact_2' | 'min_2' | 'min_1' | 'x_y' | '1_n' | 'manova' | 'ancova';
 
 interface DialogConfig {
   testId: string;
@@ -416,6 +522,8 @@ interface UIStore {
   columnsData: Record<string, any[]> | null; 
   dialogConfig: DialogConfig | null;
   activeGraphs: string[];
+  missingDataMethod: 'listwise' | 'pairwise' | 'mean_imputation';
+  pValCorrection: 'none' | 'bonferroni' | 'holm';
   
   setActiveView: (view: 'data' | 'charts') => void;
   setLoading: (loading: boolean) => void;
@@ -427,6 +535,8 @@ interface UIStore {
   toggleGraph: (graphId: string) => void;
   setActiveGraphs: (graphs: string[]) => void;
   clearResults: () => void;
+  setMissingDataMethod: (method: 'listwise' | 'pairwise' | 'mean_imputation') => void;
+  setPValCorrection: (method: 'none' | 'bonferroni' | 'holm') => void;
 }
 
 const useUIStore = create<UIStore>((set) => ({
@@ -439,6 +549,8 @@ const useUIStore = create<UIStore>((set) => ({
   columnsData: null,
   dialogConfig: null,
   activeGraphs: [],
+  missingDataMethod: 'listwise',
+  pValCorrection: 'none',
   
   setActiveView: (view) => set({ activeView: view }),
   setLoading: (loading) => set({ isLoading: loading }),
@@ -454,6 +566,8 @@ const useUIStore = create<UIStore>((set) => ({
   })),
   setActiveGraphs: (graphs) => set({ activeGraphs: graphs }),
   clearResults: () => set({ results: null, error: null, testType: null, columnsData: null, activeGraphs: [] }),
+  setMissingDataMethod: (method) => set({ missingDataMethod: method }),
+  setPValCorrection: (method) => set({ pValCorrection: method }),
 }));
 
 // ============================================
@@ -482,25 +596,27 @@ class StatsEngine {
     } finally { this.abortController = null; }
   }
 
-  // Old Endpoints
-  async levene(columns: Record<string, any[]>) { return this.request('levene', { columns }); }
-  async ttest(columns: Record<string, any[]>, paired: boolean = false) { return this.request(`ttest?paired=${paired}`, { columns }); }
-  async anova(columns: Record<string, any[]>) { return this.request('anova', { columns }); }
-  async anovaPosthoc(columns: Record<string, any[]>) { return this.request('anova_posthoc', { columns }); }
-  async correlation(columns: Record<string, any[]>) { return this.request('correlation', { columns }); }
-  async regression(columns: Record<string, any[]>) { return this.request('regression', { columns }); }
-  async multipleRegression(columns: Record<string, any[]>, outcome: string) { return this.request(`multiple_regression?outcome=${encodeURIComponent(outcome)}`, { columns }); }
-  async mannwhitney(columns: Record<string, any[]>) { return this.request('mannwhitney', { columns }); }
-  async wilcoxon(columns: Record<string, any[]>) { return this.request('wilcoxon', { columns }); }
-  async kruskalWallis(columns: Record<string, any[]>) { return this.request('kruskal', { columns }); }
-  async chisquare(columns: Record<string, any[]>) { return this.request('chisquare', { columns }); }
   async previewData(columns: Record<string, any[]>) { return this.request('preview', { columns }); }
-  
-  // New Endpoints
-  async assumptions(columns: Record<string, any[]>, outcome: string) { return this.request(`assumptions?outcome=${encodeURIComponent(outcome)}`, { columns }); }
+  async outliers(columns: Record<string, any[]>) { return this.request('outliers', { columns }); }
   async frequencies(columns: Record<string, any[]>) { return this.request('frequencies', { columns }); }
-  async reliability(columns: Record<string, any[]>) { return this.request('reliability', { columns }); }
-  async pca(columns: Record<string, any[]>) { return this.request('pca', { columns }); }
+  async assumptions(columns: Record<string, any[]>, outcome: string) { return this.request(`assumptions?outcome=${encodeURIComponent(outcome)}`, { columns }); }
+  
+  async levene(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`levene?missing=${missing}`, { columns }); }
+  async ttest(columns: Record<string, any[]>, paired: boolean = false, missing: string = 'listwise') { return this.request(`ttest?paired=${paired}&missing=${missing}`, { columns }); }
+  async anova(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`anova?missing=${missing}`, { columns }); }
+  async anovaPosthoc(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`anova_posthoc?missing=${missing}`, { columns }); }
+  async manova(columns: Record<string, any[]>, group: string, missing: string = 'listwise') { return this.request(`manova?group=${encodeURIComponent(group)}&missing=${missing}`, { columns }); }
+  async ancova(columns: Record<string, any[]>, outcome: string, group: string, missing: string = 'listwise') { return this.request(`ancova?outcome=${encodeURIComponent(outcome)}&group=${encodeURIComponent(group)}&missing=${missing}`, { columns }); }
+  async correlation(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`correlation?missing=${missing}`, { columns }); }
+  async regression(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`regression?missing=${missing}`, { columns }); }
+  async multipleRegression(columns: Record<string, any[]>, outcome: string, missing: string = 'listwise') { return this.request(`multiple_regression?outcome=${encodeURIComponent(outcome)}&missing=${missing}`, { columns }); }
+  async logisticRegression(columns: Record<string, any[]>, outcome: string, missing: string = 'listwise') { return this.request(`logistic_regression?outcome=${encodeURIComponent(outcome)}&missing=${missing}`, { columns }); }
+  async mannwhitney(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`mannwhitney?missing=${missing}`, { columns }); }
+  async wilcoxon(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`wilcoxon?missing=${missing}`, { columns }); }
+  async kruskalWallis(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`kruskal?missing=${missing}`, { columns }); }
+  async chisquare(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`chisquare?missing=${missing}`, { columns }); }
+  async reliability(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`reliability?missing=${missing}`, { columns }); }
+  async pca(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`pca?missing=${missing}`, { columns }); }
 
   async healthCheck(): Promise<boolean> { try { return (await fetch(`${API_BASE}/health`)).ok; } catch { return false; } }
 }
@@ -559,6 +675,8 @@ const getColumnData = (univer: any, workbookId: string, worksheetId: string, ski
             if (!isNaN(num) && cell.v !== '') colData.push(num);
             else colData.push(cell.v);
           }
+        } else {
+          colData.push(null); // Preserve nulls to support pairwise deletion logic
         }
       }
       if (colData.length > 0) result[headers[col]] = colData;
@@ -595,6 +713,7 @@ const ColumnSelectionModal = ({ onExecute }: { onExecute: (selectedColumns: stri
   const [selected, setSelected] = useState<string[]>([]);
   const [xCol, setXCol] = useState<string>('');
   const [yCol, setYCol] = useState<string>('');
+  const [groupCol, setGroupCol] = useState<string>('');
 
   if (!dialogConfig || !columnsData) return null;
   
@@ -616,6 +735,8 @@ const ColumnSelectionModal = ({ onExecute }: { onExecute: (selectedColumns: stri
   const handleRun = () => {
     if (dialogConfig.selectionMode === 'x_y') onExecute([xCol, yCol]);
     else if (dialogConfig.selectionMode === '1_n') onExecute([yCol, ...selected]); 
+    else if (dialogConfig.selectionMode === 'manova') onExecute([groupCol, ...selected]);
+    else if (dialogConfig.selectionMode === 'ancova') onExecute([yCol, groupCol, ...selected]);
     else onExecute(selected);
     setDialogConfig(null);
   };
@@ -626,6 +747,8 @@ const ColumnSelectionModal = ({ onExecute }: { onExecute: (selectedColumns: stri
     if (dialogConfig.selectionMode === 'min_1') return selected.length < 1;
     if (dialogConfig.selectionMode === 'x_y') return !xCol || !yCol || xCol === yCol;
     if (dialogConfig.selectionMode === '1_n') return !yCol || selected.length === 0 || selected.includes(yCol);
+    if (dialogConfig.selectionMode === 'manova') return !groupCol || selected.length < 2 || selected.includes(groupCol);
+    if (dialogConfig.selectionMode === 'ancova') return !yCol || !groupCol || yCol === groupCol || selected.length < 1 || selected.includes(yCol) || selected.includes(groupCol);
     return true;
   };
 
@@ -640,6 +763,8 @@ const ColumnSelectionModal = ({ onExecute }: { onExecute: (selectedColumns: stri
             {dialogConfig.selectionMode === 'min_1' && 'Select at least 1 column.'}
             {dialogConfig.selectionMode === 'x_y' && 'Select your Predictor (X) and Outcome (Y) variables.'}
             {dialogConfig.selectionMode === '1_n' && 'Select one Outcome and multiple Predictors.'}
+            {dialogConfig.selectionMode === 'manova' && 'Select one Group variable and multiple Dependent variables.'}
+            {dialogConfig.selectionMode === 'ancova' && 'Select Outcome, Group, and one or more Covariates.'}
           </p>
         </div>
 
@@ -652,7 +777,7 @@ const ColumnSelectionModal = ({ onExecute }: { onExecute: (selectedColumns: stri
               return (
                 <label key={header} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors border ${isChecked ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-white border-transparent hover:border-gray-200 dark:bg-gray-800'} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <input type="checkbox" checked={isChecked} onChange={() => !isDisabled && toggleSelection(header)} disabled={isDisabled} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"/>
-                  <div className="flex flex-col"><span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{header}</span><span className="text-xs text-gray-400">n={columnsData[header].length} values</span></div>
+                  <div className="flex flex-col"><span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{header}</span></div>
                 </label>
               );
             })}
@@ -692,6 +817,67 @@ const ColumnSelectionModal = ({ onExecute }: { onExecute: (selectedColumns: stri
               <div className="max-h-40 overflow-y-auto space-y-2 p-2 bg-white border border-gray-200 rounded-lg">
                 {availableHeaders.map(header => {
                   if (header === yCol) return null;
+                  const isChecked = selected.includes(header);
+                  return (
+                    <label key={header} className="flex items-center gap-3 p-2 cursor-pointer hover:bg-gray-50 rounded">
+                      <input type="checkbox" checked={isChecked} onChange={() => toggleSelection(header)} className="rounded text-blue-600 border-gray-300" />
+                      <span className="text-sm font-medium text-gray-700">{header}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {dialogConfig.selectionMode === 'manova' && (
+          <div className="space-y-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Group Variable (Independent)</label>
+              <select className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm mb-4" value={groupCol} onChange={e => setGroupCol(e.target.value)}>
+                <option value="" disabled>Select group variable...</option>
+                {availableHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Dependent Variables (Minimum 2)</label>
+              <div className="max-h-40 overflow-y-auto space-y-2 p-2 bg-white border border-gray-200 rounded-lg">
+                {availableHeaders.map(header => {
+                  if (header === groupCol) return null;
+                  const isChecked = selected.includes(header);
+                  return (
+                    <label key={header} className="flex items-center gap-3 p-2 cursor-pointer hover:bg-gray-50 rounded">
+                      <input type="checkbox" checked={isChecked} onChange={() => toggleSelection(header)} className="rounded text-blue-600 border-gray-300" />
+                      <span className="text-sm font-medium text-gray-700">{header}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {dialogConfig.selectionMode === 'ancova' && (
+          <div className="space-y-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Outcome Variable (Dependent)</label>
+              <select className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm mb-4" value={yCol} onChange={e => setYCol(e.target.value)}>
+                <option value="" disabled>Select outcome...</option>
+                {availableHeaders.map(h => <option key={h} value={h} disabled={h === groupCol}>{h}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Group Variable (Independent)</label>
+              <select className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm mb-4" value={groupCol} onChange={e => setGroupCol(e.target.value)}>
+                <option value="" disabled>Select group...</option>
+                {availableHeaders.map(h => <option key={h} value={h} disabled={h === yCol}>{h}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Covariates</label>
+              <div className="max-h-40 overflow-y-auto space-y-2 p-2 bg-white border border-gray-200 rounded-lg">
+                {availableHeaders.map(header => {
+                  if (header === yCol || header === groupCol) return null;
                   const isChecked = selected.includes(header);
                   return (
                     <label key={header} className="flex items-center gap-3 p-2 cursor-pointer hover:bg-gray-50 rounded">
@@ -759,7 +945,12 @@ const UniverSpreadsheet: React.FC<UniverSpreadsheetProps> = ({ onWorkbookReady }
     } catch (err) { console.error('❌ Failed to initialize Univer:', err); initializedRef.current = false; }
 
     return () => {
-      if (univerRef.current) { try { univerRef.current.dispose(); } catch (e) { } univerRef.current = null; }
+      if (univerRef.current) {
+        // Prevent Strict Mode double-invocations from destroying the instance synchronously during render
+        const u = univerRef.current;
+        setTimeout(() => { try { u.dispose(); } catch (e) {} }, 0); 
+        univerRef.current = null; 
+      }
       initializedRef.current = false;
     };
   }, [onWorkbookReady]);
@@ -774,7 +965,9 @@ const UniverSpreadsheet: React.FC<UniverSpreadsheetProps> = ({ onWorkbookReady }
 export default function StatisticalTool() {
   const {
     activeView, isLoading, error, notification, results, testType, columnsData, dialogConfig, activeGraphs,
-    setActiveView, setLoading, setError, setNotification, setResults, setColumnsData, setDialogConfig, clearResults, toggleGraph, setActiveGraphs
+    missingDataMethod, pValCorrection,
+    setActiveView, setLoading, setError, setNotification, setResults, setColumnsData, setDialogConfig, clearResults, toggleGraph, setActiveGraphs,
+    setMissingDataMethod, setPValCorrection
   } = useUIStore();
 
   const univerRef = useRef<any>(null);
@@ -789,7 +982,7 @@ export default function StatisticalTool() {
     if (Object.keys(allColumns).length < 1) { setNotification({ message: "No readable columns found.", type: "error" }); return; }
     
     setColumnsData(allColumns); 
-    const categoricalTests = ['chisquare', 'preview_data', 'descriptives', 'frequencies'];
+    const categoricalTests = ['chisquare', 'preview_data', 'descriptives', 'frequencies', 'manova', 'ancova'];
     const allowCat = params.allowCategorical !== undefined ? params.allowCategorical : categoricalTests.includes(typeId);
     setDialogConfig({ testId: typeId, testName: typeName, selectionMode: mode, allowCategorical: allowCat, params });
   }, [setError, setNotification, setColumnsData, setDialogConfig]);
@@ -800,6 +993,7 @@ export default function StatisticalTool() {
     
     const defaultGraphs = ['summary'];
     if (dialogConfig.testId === 'pca') defaultGraphs.push('screeplot');
+    if (dialogConfig.testId === 'logistic_regression') defaultGraphs.push('roc');
     setActiveGraphs(defaultGraphs);
     setCustomLabels({ title: '', xAxis: '', yAxis: '' });
 
@@ -811,25 +1005,26 @@ export default function StatisticalTool() {
       let result;
       switch (dialogConfig.testId) {
         case 'preview_data': result = await statsEngine.previewData(targetData); break;
+        case 'outliers': result = await statsEngine.outliers(targetData); break;
         case 'descriptives': result = { interpretation: "Descriptive statistics computed successfully." }; break;
-        case 'levene': result = await statsEngine.levene(targetData); break;
-        case 'ttest': result = await statsEngine.ttest(targetData, dialogConfig.params?.paired); break;
-        case 'anova': result = await statsEngine.anova(targetData); break;
-        case 'anova_posthoc': result = await statsEngine.anovaPosthoc(targetData); break;
-        case 'correlation': result = await statsEngine.correlation(targetData); break;
-        case 'regression': result = await statsEngine.regression(targetData); break;
-        case 'multiple_regression': result = await statsEngine.multipleRegression(targetData, selectedColumnNames[0]); break;
-        case 'chisquare': result = await statsEngine.chisquare(targetData); break;
-        case 'mannwhitney': result = await statsEngine.mannwhitney(targetData); break;
-        case 'wilcoxon': result = await statsEngine.wilcoxon(targetData); break;
-        case 'kruskalWallis': result = await statsEngine.kruskalWallis(targetData); break;
-        
-        // New features executed here
+        case 'levene': result = await statsEngine.levene(targetData, missingDataMethod); break;
+        case 'ttest': result = await statsEngine.ttest(targetData, dialogConfig.params?.paired, missingDataMethod); break;
+        case 'anova': result = await statsEngine.anova(targetData, missingDataMethod); break;
+        case 'anova_posthoc': result = await statsEngine.anovaPosthoc(targetData, missingDataMethod); break;
+        case 'manova': result = await statsEngine.manova(targetData, selectedColumnNames[0], missingDataMethod); break;
+        case 'ancova': result = await statsEngine.ancova(targetData, selectedColumnNames[0], selectedColumnNames[1], missingDataMethod); break;
+        case 'correlation': result = await statsEngine.correlation(targetData, missingDataMethod); break;
+        case 'regression': result = await statsEngine.regression(targetData, missingDataMethod); break;
+        case 'multiple_regression': result = await statsEngine.multipleRegression(targetData, selectedColumnNames[0], missingDataMethod); break;
+        case 'logistic_regression': result = await statsEngine.logisticRegression(targetData, selectedColumnNames[0], missingDataMethod); break;
+        case 'chisquare': result = await statsEngine.chisquare(targetData, missingDataMethod); break;
+        case 'mannwhitney': result = await statsEngine.mannwhitney(targetData, missingDataMethod); break;
+        case 'wilcoxon': result = await statsEngine.wilcoxon(targetData, missingDataMethod); break;
+        case 'kruskalWallis': result = await statsEngine.kruskalWallis(targetData, missingDataMethod); break;
         case 'assumptions': result = await statsEngine.assumptions(targetData, selectedColumnNames[0]); break;
         case 'frequencies': result = await statsEngine.frequencies(targetData); break;
-        case 'reliability': result = await statsEngine.reliability(targetData); break;
-        case 'pca': result = await statsEngine.pca(targetData); break;
-        
+        case 'reliability': result = await statsEngine.reliability(targetData, missingDataMethod); break;
+        case 'pca': result = await statsEngine.pca(targetData, missingDataMethod); break;
         default: throw new Error(`Unknown test type`);
       }
 
@@ -839,7 +1034,7 @@ export default function StatisticalTool() {
     } catch (err) {
       setError((err as Error).message); setNotification({ message: (err as Error).message, type: 'error' });
     } finally { setLoading(false); }
-  }, [dialogConfig, columnsData, setLoading, setError, clearResults, setColumnsData, setResults, setNotification, setActiveView, setActiveGraphs]);
+  }, [dialogConfig, columnsData, missingDataMethod, setLoading, setError, clearResults, setColumnsData, setResults, setNotification, setActiveView, setActiveGraphs]);
 
   const parseFile = useCallback((file: File): Promise<any[][]> => {
     return new Promise((resolve, reject) => {
@@ -916,6 +1111,11 @@ export default function StatisticalTool() {
         disabledReason: 'Residual plots chart model error (Actual vs Fitted). You must run a Predictive Regression Model to generate residuals.'
       },
       {
+        id: 'roc', label: 'ROC Curve',
+        isEnabled: testType === 'Logistic Regression',
+        disabledReason: 'ROC curves visualize the true vs false positive rates for binary classification models.'
+      },
+      {
         id: 'distributions', label: 'Data Distributions',
         isEnabled: true, disabledReason: ''
       }
@@ -963,13 +1163,30 @@ export default function StatisticalTool() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            
+            <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+              <h3 className="text-xs font-bold text-gray-500 uppercase mb-3">Analysis Settings</h3>
+              <label className="block text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">Missing Data Strategy</label>
+              <select className="w-full text-sm p-1.5 border rounded mb-3 bg-white" value={missingDataMethod} onChange={e => setMissingDataMethod(e.target.value as any)}>
+                <option value="listwise">Listwise Deletion</option>
+                <option value="pairwise">Pairwise Deletion</option>
+                <option value="mean_imputation">Mean Imputation</option>
+              </select>
+              <label className="block text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">P-Value Correction (Post-Hoc)</label>
+              <select className="w-full text-sm p-1.5 border rounded bg-white" value={pValCorrection} onChange={e => setPValCorrection(e.target.value as any)}>
+                <option value="none">None (Raw P-Values)</option>
+                <option value="bonferroni">Bonferroni</option>
+                <option value="holm">Holm-Bonferroni</option>
+              </select>
+            </div>
+
             <div>
               <div className="text-xs font-bold text-gray-400 uppercase mb-3">Checks & Prep</div>
               <div className="space-y-2">
                 <button onClick={() => prepareTest('preview_data', 'Data Mount Preview', 'min_1')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50 border border-blue-200">🔍 Preview Mounted Data</button>
                 <button onClick={() => prepareTest('descriptives', 'Descriptive Statistics', 'min_1')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">📋 Descriptives</button>
                 <button onClick={() => prepareTest('frequencies', 'Frequency Analysis', 'min_1', { allowCategorical: true })} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">📊 Frequencies & Crosstabs</button>
-                <button onClick={() => prepareTest('levene', "Levene's Test", 'min_2')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">⚖️ Levene's Test</button>
+                <button onClick={() => prepareTest('outliers', 'Outlier Detection', 'min_1')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">🚨 Outlier Detection</button>
                 <button onClick={() => prepareTest('assumptions', "Assumption Diagnostics", '1_n')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">⚖️ Model Assumptions Check</button>
               </div>
             </div>
@@ -988,10 +1205,12 @@ export default function StatisticalTool() {
                 <button onClick={() => prepareTest('ttest', 'Independent T-Test', 'exact_2', { paired: false })} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">🔬 Independent T-Test</button>
                 <button onClick={() => prepareTest('ttest', 'Paired T-Test', 'exact_2', { paired: true })} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">🔄 Paired T-Test</button>
                 <button onClick={() => prepareTest('anova', 'One-way ANOVA', 'min_2')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">📐 One-way ANOVA</button>
-                <button onClick={() => prepareTest('anova_posthoc', 'Tukey HSD Post-Hoc', 'min_2')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">🔍 Tukey HSD Post-Hoc</button>
+                <button onClick={() => prepareTest('manova', 'Multivariate ANOVA (MANOVA)', 'manova')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">📐 MANOVA</button>
+                <button onClick={() => prepareTest('ancova', 'Analysis of Covariance (ANCOVA)', 'ancova')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">📏 ANCOVA</button>
                 <button onClick={() => prepareTest('correlation', 'Pearson Correlation', 'min_2')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">🔗 Pearson Correlation</button>
                 <button onClick={() => prepareTest('regression', 'Simple Linear Regression', 'x_y')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">📈 Simple Linear Reg</button>
                 <button onClick={() => prepareTest('multiple_regression', 'Multiple Regression', '1_n')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">📊 Multiple Linear Reg</button>
+                <button onClick={() => prepareTest('logistic_regression', 'Logistic Regression', '1_n')} disabled={isLoading} className="w-full text-left px-4 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm font-medium hover:bg-gray-100 disabled:opacity-50">🔮 Logistic Regression</button>
               </div>
             </div>
             <div>
@@ -1018,10 +1237,11 @@ export default function StatisticalTool() {
             {results && columnsData ? (
               <div className="max-w-5xl mx-auto space-y-8">
                 
-                {/* Header and Explanation */}
                 <div>
                   <h3 className="text-2xl font-bold mb-4">{testType} Results</h3>
                   
+                  <AssumptionWarningBanner results={results} testType={testType || ''} />
+
                   <div className="bg-gray-50 p-4 border rounded-xl shadow-sm mb-6 flex gap-4 items-end flex-wrap">
                     <div className="flex-1 min-w-[200px]">
                       <label className="block text-xs font-bold text-gray-500 mb-1">Custom Chart Title</label>
@@ -1071,11 +1291,13 @@ export default function StatisticalTool() {
                       <p>{results.interpretation}</p>
                     </div>
                   )}
+
+                  {testType === 'Outlier Detection' && results.report && <OutliersTable report={results.report} />}
                 </div>
 
                 {/* --- RENDERED GRAPHS BELOW --- */}
 
-                {activeGraphs.includes('summary') && testType === 'Descriptive Statistics' && (
+                {activeGraphs.includes('summary') && !['Outlier Detection'].includes(testType || '') && (
                   <div className="bg-white border rounded-xl shadow-sm mb-8 animate-in fade-in">
                     <DescriptiveStats columnsData={columnsData} customTitle={customLabels.title} />
                   </div>
@@ -1110,10 +1332,17 @@ export default function StatisticalTool() {
                   </div>
                 )}
 
+                {activeGraphs.includes('roc') && testType === 'Logistic Regression' && results.roc_data && (
+                  <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
+                    <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Receiver Operating Characteristic (ROC) Curve'}</h3>
+                    <ROCCurvePlot rocData={results.roc_data} auc={results.auc} customTitle={customLabels.title} />
+                  </div>
+                )}
+
                 {activeGraphs.includes('heatmap') && testType === 'Pearson Correlation' && results.pearson_matrix && (
                    <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
                      <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Correlation Matrix Heatmap'}</h3>
-                     <CorrelationHeatmap matrix={results.pearson_matrix} variables={results.variables} />
+                     <CorrelationHeatmap matrix={results.pearson_matrix} pMatrix={results.p_matrix} variables={results.variables} pValCorrection={pValCorrection} />
                    </div>
                 )}
 
