@@ -49,18 +49,48 @@ class DataPayload(BaseModel):
 
 class AnalysisPayload(DataPayload):
     nonparametric: bool = False
+    bootstrap: bool = False
+    interactions: Optional[List[List[str]]] = None
+    polynomials: Optional[Dict[str, int]] = None
+    transform: Optional[str] = 'none'
+
+def get_friendly_error(e: Exception) -> str:
+    err_str = str(e).lower()
+    
+    if isinstance(e, ValueError):
+        # Pass through intentionally raised validation errors safely
+        if "exceeds" in err_str or "infinite" in err_str or "cannot be empty" in err_str or "could not be converted" in err_str:
+            return str(e)
+            
+    if "insufficient" in err_str or "degrees of freedom" in err_str:
+        return "Not enough data points to perform this analysis. Please check for missing values or insufficient sample size."
+    if "singular matrix" in err_str:
+        return "Variables are perfectly correlated (singular matrix). Please remove redundant or identical variables."
+    if "not aligned" in err_str or "shape" in err_str:
+        return "Data dimensions do not match. Ensure variables have the same number of valid rows."
+    if "string to float" in err_str or "could not convert" in err_str:
+        return "Non-numeric data found where numbers are required. Please verify your columns contain valid numbers."
+    if "converge" in err_str:
+        return "The model failed to converge. This often happens with sparse data or perfect separation in regression."
+        
+    return f"Analysis error ({type(e).__name__}): {str(e)}"
 
 def clean_data(data_dict: Dict[str, List[Any]], paired: bool = False, numeric_only: bool = True, missing_method: str = 'listwise') -> List[np.ndarray]:
     keys = list(data_dict.keys())
     df = pd.DataFrame(data_dict)
     
     if numeric_only:
-        df = df.apply(pd.to_numeric, errors='coerce')
+        for col in keys:
+            raw_series = df[col].copy()
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+            # Detect if conversion wiped out data that wasn't originally null
+            if df[col].isna().all() and not raw_series.isna().all():
+                raise ValueError(f"Column '{col}' could not be converted to numbers. Ensure data contains no text.")
         
     if missing_method == 'listwise':
         df = df.dropna()
     elif missing_method == 'mean_imputation':
-        df = df.fillna(df.mean())
+        df = df.fillna(df.mean(numeric_only=True))
     # Pairwise is handled below by extracting valid columns individually
         
     if paired:
@@ -77,6 +107,27 @@ def clean_data(data_dict: Dict[str, List[Any]], paired: bool = False, numeric_on
                 raise ValueError(f"Insufficient valid data in '{k}'.")
             cleaned.append(s.to_numpy())
         return cleaned
+
+def apply_transform(arrays: List[np.ndarray], method: str) -> List[np.ndarray]:
+    if method == 'log':
+        return [np.log10(np.where(arr > 0, arr, np.nan)) for arr in arrays]
+    elif method == 'sqrt':
+        return [np.sqrt(np.where(arr >= 0, arr, np.nan)) for arr in arrays]
+    elif method == 'boxcox':
+        return [stats.boxcox(arr[arr > 0])[0] if len(arr[arr > 0]) > 2 else arr for arr in arrays]
+    return arrays
+
+def bootstrap_mean_diff(arr1: np.ndarray, arr2: np.ndarray, iterations: int = 1000, alpha: float = 0.05):
+    diffs = []
+    n1, n2 = len(arr1), len(arr2)
+    for _ in range(iterations):
+        samp1 = np.random.choice(arr1, size=n1, replace=True)
+        samp2 = np.random.choice(arr2, size=n2, replace=True)
+        diffs.append(np.mean(samp1) - np.mean(samp2))
+    
+    lower = np.percentile(diffs, (alpha/2)*100)
+    upper = np.percentile(diffs, (1-alpha/2)*100)
+    return float(lower), float(upper)
 
 @app.get("/")
 async def root():
@@ -98,7 +149,8 @@ async def preview_data(payload: DataPayload):
             }
         return {"status": "success", "message": "Data mounted successfully.", "data": preview_dict}
     except Exception as e:
-         raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/outliers")
 async def get_outliers(payload: DataPayload):
@@ -136,7 +188,8 @@ async def get_outliers(payload: DataPayload):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/frequencies")
 async def get_frequencies(payload: DataPayload):
@@ -174,7 +227,8 @@ async def get_frequencies(payload: DataPayload):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/assumptions")
 async def check_assumptions(payload: DataPayload, outcome: str = None):
@@ -216,7 +270,8 @@ async def check_assumptions(payload: DataPayload, outcome: str = None):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/reliability")
 async def get_reliability(payload: DataPayload, missing: str = 'listwise'):
@@ -259,7 +314,8 @@ async def get_reliability(payload: DataPayload, missing: str = 'listwise'):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/pca")
 async def get_pca(payload: DataPayload, missing: str = 'listwise'):
@@ -316,7 +372,8 @@ async def get_pca(payload: DataPayload, missing: str = 'listwise'):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/plots/qq")
 async def get_qq_plot_data(payload: DataPayload):
@@ -333,7 +390,8 @@ async def get_qq_plot_data(payload: DataPayload):
             }
         return {"status": "success", "data": results}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/regression")
 async def get_regression(payload: DataPayload, missing: str = 'listwise'):
@@ -384,19 +442,33 @@ async def get_regression(payload: DataPayload, missing: str = 'listwise'):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/multiple_regression")
-async def get_multiple_regression(outcome: str, payload: DataPayload, missing: str = 'listwise'):
+async def get_multiple_regression(outcome: str, payload: AnalysisPayload, missing: str = 'listwise'):
     try:
         df = pd.DataFrame(payload.columns).apply(pd.to_numeric, errors='coerce')
         if missing == 'listwise': df = df.dropna()
         elif missing == 'mean_imputation': df = df.fillna(df.mean())
 
         predictors = [col for col in df.columns if col != outcome]
-        X = sm.add_constant(df[predictors])
-        Y = df[outcome]
-        model = sm.OLS(Y, X).fit()
+        formula_terms = predictors.copy()
+
+        # Add polynomials
+        if payload.polynomials:
+            for col, degree in payload.polynomials.items():
+                if col in predictors and degree > 1:
+                    formula_terms.append(f"np.power({col}, {degree})")
+
+        # Add interactions
+        if payload.interactions:
+            for term_list in payload.interactions:
+                if all(term in predictors for term in term_list):
+                    formula_terms.append(":".join(term_list))
+
+        formula = f"{outcome} ~ " + " + ".join(formula_terms)
+        model = smf.ols(formula=formula, data=df).fit()
         
         coef_dict = {str(p): {"coef": float(model.params[p]), "p_val": float(model.pvalues[p])} for p in model.params.index}
             
@@ -405,7 +477,7 @@ async def get_multiple_regression(outcome: str, payload: DataPayload, missing: s
             "data": {
                 "model": "Multiple Linear Regression",
                 "outcome": outcome,
-                "predictors": predictors,
+                "predictors": formula_terms,
                 "r_squared": float(model.rsquared),
                 "adj_r_squared": float(model.rsquared_adj),
                 "f_statistic": float(model.fvalue),
@@ -416,7 +488,8 @@ async def get_multiple_regression(outcome: str, payload: DataPayload, missing: s
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/logistic_regression")
 async def get_logistic_regression(outcome: str, payload: DataPayload, missing: str = 'listwise'):
@@ -474,12 +547,16 @@ async def get_logistic_regression(outcome: str, payload: DataPayload, missing: s
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/ttest")
 async def get_ttest(payload: AnalysisPayload, paired: bool = False, missing: str = 'listwise'):
     try:
         arrays = clean_data(payload.columns, paired=paired, numeric_only=True, missing_method=missing)
+        if payload.transform and payload.transform != 'none':
+            arrays = apply_transform(arrays, payload.transform)
+            
         names = list(payload.columns.keys())
         arr1, arr2 = arrays[0], arrays[1]
         nx, ny = len(arr1), len(arr2)
@@ -507,30 +584,37 @@ async def get_ttest(payload: AnalysisPayload, paired: bool = False, missing: str
         interp = (f"A {test_name.lower()} indicated that the difference between "
                   f"'{names[0]}' and '{names[1]}' is {sig} "
                   f"(t({dof}) = {t_stat:.3f}, p = {p_value:.4f}, d = {cohens_d:.2f}).")
-
-        return {
-            "status": "success", 
-            "data": {
-                "test": test_name, 
-                "p_value": float(p_value), 
-                "t_stat": float(t_stat),
-                "degrees_freedom": dof,
-                "cohens_d": float(cohens_d),
-                "hedges_g": float(hedges_g),
-                "shapiro_p": float(min_shapiro),
-                "levene_p": float(levene_p),
-                "interpretation": interp,
-                "group1": {"name": names[0], "mean": float(np.mean(arr1)), "std": float(np.std(arr1, ddof=1)), "n": nx},
-                "group2": {"name": names[1], "mean": float(np.mean(arr2)), "std": float(np.std(arr2, ddof=1)), "n": ny}
-            }
+                  
+        result_data = {
+            "test": test_name, 
+            "p_value": float(p_value), 
+            "t_stat": float(t_stat),
+            "degrees_freedom": dof,
+            "cohens_d": float(cohens_d),
+            "hedges_g": float(hedges_g),
+            "shapiro_p": float(min_shapiro),
+            "levene_p": float(levene_p),
+            "interpretation": interp,
+            "group1": {"name": names[0], "mean": float(np.mean(arr1)), "std": float(np.std(arr1, ddof=1)), "n": nx},
+            "group2": {"name": names[1], "mean": float(np.mean(arr2)), "std": float(np.std(arr2, ddof=1)), "n": ny}
         }
+        
+        if payload.bootstrap:
+            ci_lower, ci_upper = bootstrap_mean_diff(arr1, arr2)
+            result_data["bootstrap_ci"] = {"lower": ci_lower, "upper": ci_upper}
+
+        return {"status": "success", "data": result_data}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/anova")
 async def get_anova(payload: AnalysisPayload, missing: str = 'listwise'):
     try:
         arrays = clean_data(payload.columns, paired=False, numeric_only=True, missing_method=missing)
+        if payload.transform and payload.transform != 'none':
+            arrays = apply_transform(arrays, payload.transform)
+            
         names = list(payload.columns.keys())
         
         # Assumption checks
@@ -576,7 +660,8 @@ async def get_anova(payload: AnalysisPayload, missing: str = 'listwise'):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/manova")
 async def get_manova(group: str, payload: DataPayload, missing: str = 'listwise'):
@@ -627,7 +712,8 @@ async def get_manova(group: str, payload: DataPayload, missing: str = 'listwise'
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/ancova")
 async def get_ancova(outcome: str, group: str, payload: DataPayload, missing: str = 'listwise'):
@@ -685,7 +771,8 @@ async def get_ancova(outcome: str, group: str, payload: DataPayload, missing: st
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/anova_posthoc")
 async def get_anova_posthoc(payload: DataPayload, missing: str = 'listwise'):
@@ -713,7 +800,8 @@ async def get_anova_posthoc(payload: DataPayload, missing: str = 'listwise'):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/correlation")
 async def get_correlation(payload: DataPayload, missing: str = 'listwise'):
@@ -756,7 +844,8 @@ async def get_correlation(payload: DataPayload, missing: str = 'listwise'):
             }
         }
     except Exception as e:
-         raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/chisquare")
 async def get_chisquare(payload: dict, missing: str = 'listwise'):
@@ -780,7 +869,8 @@ async def get_chisquare(payload: dict, missing: str = 'listwise'):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/levene")
 async def get_levene(payload: DataPayload, missing: str = 'listwise'):
@@ -797,7 +887,8 @@ async def get_levene(payload: DataPayload, missing: str = 'listwise'):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/mannwhitney")
 async def get_mannwhitney(payload: AnalysisPayload, missing: str = 'listwise'):
@@ -822,7 +913,8 @@ async def get_mannwhitney(payload: AnalysisPayload, missing: str = 'listwise'):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/wilcoxon")
 async def get_wilcoxon(payload: AnalysisPayload, missing: str = 'listwise'):
@@ -840,7 +932,8 @@ async def get_wilcoxon(payload: AnalysisPayload, missing: str = 'listwise'):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/kruskal")
 async def get_kruskal(payload: AnalysisPayload, missing: str = 'listwise'):
@@ -861,7 +954,8 @@ async def get_kruskal(payload: AnalysisPayload, missing: str = 'listwise'):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        friendly_msg = get_friendly_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 if __name__ == "__main__":
     import uvicorn

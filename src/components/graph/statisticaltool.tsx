@@ -522,8 +522,10 @@ interface UIStore {
   columnsData: Record<string, any[]> | null; 
   dialogConfig: DialogConfig | null;
   activeGraphs: string[];
+  testTypeGraphs: Record<string, string[]>;
   missingDataMethod: 'listwise' | 'pairwise' | 'mean_imputation';
   pValCorrection: 'none' | 'bonferroni' | 'holm';
+  dataTransformation: 'none' | 'log' | 'sqrt' | 'boxcox';
   
   setActiveView: (view: 'data' | 'charts') => void;
   setLoading: (loading: boolean) => void;
@@ -537,6 +539,7 @@ interface UIStore {
   clearResults: () => void;
   setMissingDataMethod: (method: 'listwise' | 'pairwise' | 'mean_imputation') => void;
   setPValCorrection: (method: 'none' | 'bonferroni' | 'holm') => void;
+  setDataTransformation: (transform: 'none' | 'log' | 'sqrt' | 'boxcox') => void;
 }
 
 const useUIStore = create<UIStore>((set) => ({
@@ -549,8 +552,10 @@ const useUIStore = create<UIStore>((set) => ({
   columnsData: null,
   dialogConfig: null,
   activeGraphs: [],
+  testTypeGraphs: {},
   missingDataMethod: 'listwise',
   pValCorrection: 'none',
+  dataTransformation: 'none',
   
   setActiveView: (view) => set({ activeView: view }),
   setLoading: (loading) => set({ isLoading: loading }),
@@ -559,15 +564,25 @@ const useUIStore = create<UIStore>((set) => ({
   setResults: (results, testType) => set({ results, testType: testType || 'Unknown Test' }),
   setColumnsData: (data) => set({ columnsData: data }),
   setDialogConfig: (config) => set({ dialogConfig: config }),
-  toggleGraph: (graphId) => set((state) => ({
-    activeGraphs: state.activeGraphs.includes(graphId) 
+  
+  toggleGraph: (graphId) => set((state) => {
+    const newGraphs = state.activeGraphs.includes(graphId) 
       ? state.activeGraphs.filter(g => g !== graphId)
-      : [...state.activeGraphs, graphId]
-  })),
+      : [...state.activeGraphs, graphId];
+      
+    return {
+      activeGraphs: newGraphs,
+      testTypeGraphs: state.testType 
+        ? { ...state.testTypeGraphs, [state.testType]: newGraphs } 
+        : state.testTypeGraphs
+    };
+  }),
+
   setActiveGraphs: (graphs) => set({ activeGraphs: graphs }),
   clearResults: () => set({ results: null, error: null, testType: null, columnsData: null, activeGraphs: [] }),
   setMissingDataMethod: (method) => set({ missingDataMethod: method }),
   setPValCorrection: (method) => set({ pValCorrection: method }),
+  setDataTransformation: (method) => set({ dataTransformation: method }),
 }));
 
 // ============================================
@@ -602,14 +617,14 @@ class StatsEngine {
   async assumptions(columns: Record<string, any[]>, outcome: string) { return this.request(`assumptions?outcome=${encodeURIComponent(outcome)}`, { columns }); }
   
   async levene(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`levene?missing=${missing}`, { columns }); }
-  async ttest(columns: Record<string, any[]>, paired: boolean = false, missing: string = 'listwise') { return this.request(`ttest?paired=${paired}&missing=${missing}`, { columns }); }
-  async anova(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`anova?missing=${missing}`, { columns }); }
+  async ttest(columns: Record<string, any[]>, paired: boolean = false, missing: string = 'listwise', transform: string = 'none') { return this.request(`ttest?paired=${paired}&missing=${missing}`, { columns, transform }); }
+  async anova(columns: Record<string, any[]>, missing: string = 'listwise', transform: string = 'none') { return this.request(`anova?missing=${missing}`, { columns, transform }); }
   async anovaPosthoc(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`anova_posthoc?missing=${missing}`, { columns }); }
   async manova(columns: Record<string, any[]>, group: string, missing: string = 'listwise') { return this.request(`manova?group=${encodeURIComponent(group)}&missing=${missing}`, { columns }); }
   async ancova(columns: Record<string, any[]>, outcome: string, group: string, missing: string = 'listwise') { return this.request(`ancova?outcome=${encodeURIComponent(outcome)}&group=${encodeURIComponent(group)}&missing=${missing}`, { columns }); }
   async correlation(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`correlation?missing=${missing}`, { columns }); }
   async regression(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`regression?missing=${missing}`, { columns }); }
-  async multipleRegression(columns: Record<string, any[]>, outcome: string, missing: string = 'listwise') { return this.request(`multiple_regression?outcome=${encodeURIComponent(outcome)}&missing=${missing}`, { columns }); }
+  async multipleRegression(columns: Record<string, any[]>, outcome: string, missing: string = 'listwise', transform: string = 'none') { return this.request(`multiple_regression?outcome=${encodeURIComponent(outcome)}&missing=${missing}`, { columns, transform }); }
   async logisticRegression(columns: Record<string, any[]>, outcome: string, missing: string = 'listwise') { return this.request(`logistic_regression?outcome=${encodeURIComponent(outcome)}&missing=${missing}`, { columns }); }
   async mannwhitney(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`mannwhitney?missing=${missing}`, { columns }); }
   async wilcoxon(columns: Record<string, any[]>, missing: string = 'listwise') { return this.request(`wilcoxon?missing=${missing}`, { columns }); }
@@ -965,9 +980,9 @@ const UniverSpreadsheet: React.FC<UniverSpreadsheetProps> = ({ onWorkbookReady }
 export default function StatisticalTool() {
   const {
     activeView, isLoading, error, notification, results, testType, columnsData, dialogConfig, activeGraphs,
-    missingDataMethod, pValCorrection,
+    missingDataMethod, pValCorrection, dataTransformation,
     setActiveView, setLoading, setError, setNotification, setResults, setColumnsData, setDialogConfig, clearResults, toggleGraph, setActiveGraphs,
-    setMissingDataMethod, setPValCorrection
+    setMissingDataMethod, setPValCorrection, setDataTransformation
   } = useUIStore();
 
   const univerRef = useRef<any>(null);
@@ -991,10 +1006,15 @@ export default function StatisticalTool() {
     if (!dialogConfig || !columnsData) return;
     setLoading(true); setError(null); clearResults(); 
     
+    const state = useUIStore.getState();
+    const savedGraphs = state.testTypeGraphs[dialogConfig.testName];
+    
     const defaultGraphs = ['summary'];
     if (dialogConfig.testId === 'pca') defaultGraphs.push('screeplot');
     if (dialogConfig.testId === 'logistic_regression') defaultGraphs.push('roc');
-    setActiveGraphs(defaultGraphs);
+    
+    // Restore persistent graphs 
+    setActiveGraphs(savedGraphs && savedGraphs.length > 0 ? savedGraphs : defaultGraphs);
     setCustomLabels({ title: '', xAxis: '', yAxis: '' });
 
     try {
@@ -1008,14 +1028,14 @@ export default function StatisticalTool() {
         case 'outliers': result = await statsEngine.outliers(targetData); break;
         case 'descriptives': result = { interpretation: "Descriptive statistics computed successfully." }; break;
         case 'levene': result = await statsEngine.levene(targetData, missingDataMethod); break;
-        case 'ttest': result = await statsEngine.ttest(targetData, dialogConfig.params?.paired, missingDataMethod); break;
-        case 'anova': result = await statsEngine.anova(targetData, missingDataMethod); break;
+        case 'ttest': result = await statsEngine.ttest(targetData, dialogConfig.params?.paired, missingDataMethod, dataTransformation); break;
+        case 'anova': result = await statsEngine.anova(targetData, missingDataMethod, dataTransformation); break;
         case 'anova_posthoc': result = await statsEngine.anovaPosthoc(targetData, missingDataMethod); break;
         case 'manova': result = await statsEngine.manova(targetData, selectedColumnNames[0], missingDataMethod); break;
         case 'ancova': result = await statsEngine.ancova(targetData, selectedColumnNames[0], selectedColumnNames[1], missingDataMethod); break;
         case 'correlation': result = await statsEngine.correlation(targetData, missingDataMethod); break;
         case 'regression': result = await statsEngine.regression(targetData, missingDataMethod); break;
-        case 'multiple_regression': result = await statsEngine.multipleRegression(targetData, selectedColumnNames[0], missingDataMethod); break;
+        case 'multiple_regression': result = await statsEngine.multipleRegression(targetData, selectedColumnNames[0], missingDataMethod, dataTransformation); break;
         case 'logistic_regression': result = await statsEngine.logisticRegression(targetData, selectedColumnNames[0], missingDataMethod); break;
         case 'chisquare': result = await statsEngine.chisquare(targetData, missingDataMethod); break;
         case 'mannwhitney': result = await statsEngine.mannwhitney(targetData, missingDataMethod); break;
@@ -1034,7 +1054,7 @@ export default function StatisticalTool() {
     } catch (err) {
       setError((err as Error).message); setNotification({ message: (err as Error).message, type: 'error' });
     } finally { setLoading(false); }
-  }, [dialogConfig, columnsData, missingDataMethod, setLoading, setError, clearResults, setColumnsData, setResults, setNotification, setActiveView, setActiveGraphs]);
+  }, [dialogConfig, columnsData, missingDataMethod, dataTransformation, setLoading, setError, clearResults, setColumnsData, setResults, setNotification, setActiveView, setActiveGraphs]);
 
   const parseFile = useCallback((file: File): Promise<any[][]> => {
     return new Promise((resolve, reject) => {
@@ -1166,6 +1186,15 @@ export default function StatisticalTool() {
             
             <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
               <h3 className="text-xs font-bold text-gray-500 uppercase mb-3">Analysis Settings</h3>
+              
+              <label className="block text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">Data Transformation</label>
+              <select className="w-full text-sm p-1.5 border rounded mb-3 bg-white" value={dataTransformation} onChange={e => setDataTransformation(e.target.value as any)}>
+                <option value="none">None (Raw Data)</option>
+                <option value="log">Log10 Transformation</option>
+                <option value="sqrt">Square Root</option>
+                <option value="boxcox">Box-Cox</option>
+              </select>
+
               <label className="block text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">Missing Data Strategy</label>
               <select className="w-full text-sm p-1.5 border rounded mb-3 bg-white" value={missingDataMethod} onChange={e => setMissingDataMethod(e.target.value as any)}>
                 <option value="listwise">Listwise Deletion</option>
