@@ -117,6 +117,21 @@ const SimulationsPage = () => {
       ]
     },
     {
+      id: 'microbe-rpg',
+      name: 'Microbiology & Clinical Parasitology RPG',
+      description: 'Navigate a microscopic environment to classify and identify pathogens in a top-down 2D simulation.',
+      longDescription: 'Explore host cellular structures and use diagnostic tools to identify bacteria, fungi, protozoa, and helminths in this interactive clinical simulation.',
+      icon: <GiMicroscope className="w-12 h-12" />,
+      color: 'from-green-600 to-lime-700',
+      path: '/simulations/microbe-rpg',
+      features: [
+        'Top-down 2D exploration',
+        'Procedural microbe generation',
+        'Taxonomy identification challenges',
+        'Interactive encyclopedia'
+      ]
+    },
+    {
       id: 'dna-lab',
       name: 'DNA Structure Lab',
       description: 'Explore the double helix structure of DNA and learn about genetics.',

@@ -68,7 +68,7 @@
     "papaparse": "^5.5.3",
     "periodic-table": "^0.0.8",
     "periodic-table-data": "^1.1.1",
-    "phaser": "^4.1.0",
+    "phaser": "^3.80.1",
     "plotly.js-dist": "^3.5.1",
     "plotly.js-dist-min": "^3.5.1",
     "pyodide": "^0.29.4",
