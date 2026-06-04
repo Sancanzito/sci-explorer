@@ -1,9 +1,8 @@
 // components/AIAssistant/AIAssistant.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Bot, Send, Sparkles, ChevronDown, Atom
-} from 'lucide-react';
+import { Bot, Send, Sparkles, ChevronDown, Atom } from 'lucide-react';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // --- SYSTEM PROMPT (EDUCATIONAL GUARDRAILS) ---
 const SYSTEM_PROMPT = `
@@ -18,45 +17,66 @@ Rules:
 - Use encouraging educational language.
 - Keep responses relatively brief and conversational.
 `;
+//api key for google gen ai - replace with your own key
+const API_KEY = "AQ.Ab8RN6KfYFEUvh0eD2PoXVMGIVf_qWDMFWPfQgU0i2En3L6qHQ"; 
 
-// --- GEMINI API INTEGRATION ---
-const apiKey = "AIzaSyDyEmmx9jDS4YKdpP4EODtqW6TpilKRzfE"; // Replace with your actual API key
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+// FIXED: Replaced spaces with hyphens
+const MODEL_NAMES = ['gemini-2.5-flash'];
+
+const genAI = new GoogleGenerativeAI(API_KEY);
 
 async function fetchAIResponse(messages, context = "") {
-  const formattedMessages = messages.map(msg => ({
-    role: msg.role === 'user' ? 'user' : 'model',
-    parts: [{ text: msg.text }]
-  }));
+  let lastError = null;
+  let hitRateLimit = false; // Flag to track if ANY model hits a rate limit
 
-  if (context && formattedMessages.length > 0) {
-    const lastMsg = formattedMessages[formattedMessages.length - 1];
-    if (lastMsg.role === 'user') {
-       lastMsg.parts[0].text = `[System Note: The student is currently in the "${context}" section. Provide hints related to this context if relevant.]\n\nStudent says: ${lastMsg.parts[0].text}`;
+  for (const modelName of MODEL_NAMES) {
+    try {
+      const model = genAI.getGenerativeModel({ 
+        model: modelName,
+        systemInstruction: SYSTEM_PROMPT
+      });
+
+      // Gemini requires history to START with a 'user' message.
+      // We slice from index 1 to ignore the hardcoded AI greeting at index 0.
+      const validHistory = messages.slice(1, -1).map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }]
+      }));
+
+      const chat = model.startChat({ history: validHistory });
+
+      let userMessage = messages[messages.length - 1].text;
+      if (context) {
+        userMessage = `[System Note: The student is currently in the "${context}" section. Provide hints related to this context if relevant.]\n\nStudent says: ${userMessage}`;
+      }
+
+      const result = await chat.sendMessage(userMessage);
+      const response = await result.response;
+      const text = response.text();
+      
+      if (text) return text;
+      
+    } catch (err) {
+      console.warn(`Model ${modelName} failed:`, err);
+      lastError = err;
+      
+      // Check for rate limit and flag it so it isn't overwritten by subsequent 404s
+      if (err?.message?.includes('429')) {
+        hitRateLimit = true;
+      }
     }
   }
 
-  const payload = {
-    systemInstruction: {
-      parts: [{ text: SYSTEM_PROMPT }]
-    },
-    contents: formattedMessages
-  };
-
-  try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) throw new Error('API Error');
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm having trouble thinking right now. Let's try again!";
-  } catch (error) {
-    console.error("AI Fetch Error:", error);
-    return "Oops! My connection to the lab network dropped. Please check your connection and try asking again.";
+  // All models failed - handle errors in order of priority
+  if (lastError?.message?.includes('API key') || lastError?.message?.includes('API_KEY_INVALID')) {
+    return "🔐 Invalid API key. Please check your configuration.";
   }
+  
+  if (hitRateLimit) {
+    return "🕒 The lab is very busy right now. Please wait a moment and try again.";
+  }
+  
+  return "💡 I'm having trouble connecting to my knowledge base. Please check your internet connection or model availability.";
 }
 
 // --- UTILITY: SIMPLE MARKDOWN RENDERER ---
@@ -90,7 +110,7 @@ const TypingIndicator = () => (
 );
 
 // --- CHAT MESSAGE BUBBLE ---
-const ChatMessage = ({ msg }) => {
+const ChatMessage = React.memo(({ msg }) => {
   const isUser = msg.role === 'user';
   return (
     <motion.div
@@ -114,7 +134,7 @@ const ChatMessage = ({ msg }) => {
       </div>
     </motion.div>
   );
-};
+});
 
 // --- MAIN AI ASSISTANT COMPONENT ---
 const AIAssistant = ({ context = "", disabled = false }) => {
@@ -125,28 +145,41 @@ const AIAssistant = ({ context = "", disabled = false }) => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping, isOpen]);
+  }, [messages, isTyping, scrollToBottom]);
 
-  const handleSend = async (textToSend = input) => {
-    if (!textToSend.trim() || disabled) return;
-    
-    const newMessages = [...messages, { role: 'user', text: textToSend }];
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  const handleSend = useCallback(async (textToSend = input) => {
+    const trimmed = textToSend.trim();
+    if (!trimmed || isTyping || disabled) return;
+
+    const newMessages = [...messages, { role: 'user', text: trimmed }];
     setMessages(newMessages);
     setInput('');
     setIsTyping(true);
 
-    const aiResponse = await fetchAIResponse(newMessages, context);
-    
-    setMessages([...newMessages, { role: 'ai', text: aiResponse }]);
-    setIsTyping(false);
-  };
+    try {
+      const aiResponse = await fetchAIResponse(newMessages, context);
+      setMessages(prev => [...prev, { role: 'ai', text: aiResponse }]);
+    } catch (error) {
+      console.error(error);
+      setMessages(prev => [...prev, { role: 'ai', text: "⚠️ Sorry, I encountered an unexpected error. Please try again." }]);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [input, messages, isTyping, disabled, context]);
 
   const quickPrompts = [
     "Explain DNA simply",
@@ -154,7 +187,6 @@ const AIAssistant = ({ context = "", disabled = false }) => {
     "What's a nucleus?"
   ];
 
-  // Don't render if disabled
   if (disabled) return null;
 
   return (
@@ -218,12 +250,14 @@ const AIAssistant = ({ context = "", disabled = false }) => {
             <div className="p-4 bg-white dark:bg-zinc-800 border-t border-slate-200 dark:border-zinc-700/50 shrink-0">
               <div className="flex items-center space-x-2 bg-slate-100 dark:bg-zinc-900 p-1.5 rounded-full border border-slate-300 dark:border-zinc-700 focus-within:ring-2 focus-within:ring-cyan-500 transition-shadow">
                 <input
+                  ref={inputRef}
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                   placeholder="Ask a science question..."
                   className="flex-1 bg-transparent px-4 py-2 outline-none text-slate-800 dark:text-zinc-200 text-sm md:text-base"
+                  disabled={isTyping}
                 />
                 <button
                   onClick={() => handleSend()}
