@@ -1,8 +1,16 @@
 // components/AIAssistant/AIAssistant.jsx
+<<<<<<< HEAD
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Send, Sparkles, ChevronDown, Atom } from 'lucide-react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+=======
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Bot, Send, Sparkles, ChevronDown, Atom
+} from 'lucide-react';
+>>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
 
 // --- SYSTEM PROMPT (EDUCATIONAL GUARDRAILS) ---
 const SYSTEM_PROMPT = `
@@ -17,6 +25,7 @@ Rules:
 - Use encouraging educational language.
 - Keep responses relatively brief and conversational.
 `;
+<<<<<<< HEAD
 //api key for google gen ai - replace with your own key
 // Helper to get API key across different environments
 const getApiKey = () => {
@@ -99,6 +108,47 @@ async function fetchAIResponse(messages, context = "") {
   }
   
   return "💡 I'm having trouble connecting to my knowledge base. Please check your internet connection or model availability.";
+=======
+
+// --- GEMINI API INTEGRATION ---
+const apiKey = "AIzaSyDyEmmx9jDS4YKdpP4EODtqW6TpilKRzfE"; // Replace with your actual API key
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+
+async function fetchAIResponse(messages, context = "") {
+  const formattedMessages = messages.map(msg => ({
+    role: msg.role === 'user' ? 'user' : 'model',
+    parts: [{ text: msg.text }]
+  }));
+
+  if (context && formattedMessages.length > 0) {
+    const lastMsg = formattedMessages[formattedMessages.length - 1];
+    if (lastMsg.role === 'user') {
+       lastMsg.parts[0].text = `[System Note: The student is currently in the "${context}" section. Provide hints related to this context if relevant.]\n\nStudent says: ${lastMsg.parts[0].text}`;
+    }
+  }
+
+  const payload = {
+    systemInstruction: {
+      parts: [{ text: SYSTEM_PROMPT }]
+    },
+    contents: formattedMessages
+  };
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) throw new Error('API Error');
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm having trouble thinking right now. Let's try again!";
+  } catch (error) {
+    console.error("AI Fetch Error:", error);
+    return "Oops! My connection to the lab network dropped. Please check your connection and try asking again.";
+  }
+>>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
 }
 
 // --- UTILITY: SIMPLE MARKDOWN RENDERER ---
@@ -132,7 +182,11 @@ const TypingIndicator = () => (
 );
 
 // --- CHAT MESSAGE BUBBLE ---
+<<<<<<< HEAD
 const ChatMessage = React.memo(({ msg }) => {
+=======
+const ChatMessage = ({ msg }) => {
+>>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
   const isUser = msg.role === 'user';
   return (
     <motion.div
@@ -156,7 +210,11 @@ const ChatMessage = React.memo(({ msg }) => {
       </div>
     </motion.div>
   );
+<<<<<<< HEAD
 });
+=======
+};
+>>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
 
 // --- MAIN AI ASSISTANT COMPONENT ---
 const AIAssistant = ({ context = "", disabled = false }) => {
@@ -167,6 +225,7 @@ const AIAssistant = ({ context = "", disabled = false }) => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
+<<<<<<< HEAD
   const inputRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
@@ -188,10 +247,26 @@ const AIAssistant = ({ context = "", disabled = false }) => {
     if (!trimmed || isTyping || disabled) return;
 
     const newMessages = [...messages, { role: 'user', text: trimmed }];
+=======
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping, isOpen]);
+
+  const handleSend = async (textToSend = input) => {
+    if (!textToSend.trim() || disabled) return;
+    
+    const newMessages = [...messages, { role: 'user', text: textToSend }];
+>>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
     setMessages(newMessages);
     setInput('');
     setIsTyping(true);
 
+<<<<<<< HEAD
     try {
       const aiResponse = await fetchAIResponse(newMessages, context);
       setMessages(prev => [...prev, { role: 'ai', text: aiResponse }]);
@@ -202,6 +277,13 @@ const AIAssistant = ({ context = "", disabled = false }) => {
       setIsTyping(false);
     }
   }, [input, messages, isTyping, disabled, context]);
+=======
+    const aiResponse = await fetchAIResponse(newMessages, context);
+    
+    setMessages([...newMessages, { role: 'ai', text: aiResponse }]);
+    setIsTyping(false);
+  };
+>>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
 
   const quickPrompts = [
     "Explain DNA simply",
@@ -209,6 +291,10 @@ const AIAssistant = ({ context = "", disabled = false }) => {
     "What's a nucleus?"
   ];
 
+<<<<<<< HEAD
+=======
+  // Don't render if disabled
+>>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
   if (disabled) return null;
 
   return (
@@ -272,14 +358,20 @@ const AIAssistant = ({ context = "", disabled = false }) => {
             <div className="p-4 bg-white dark:bg-zinc-800 border-t border-slate-200 dark:border-zinc-700/50 shrink-0">
               <div className="flex items-center space-x-2 bg-slate-100 dark:bg-zinc-900 p-1.5 rounded-full border border-slate-300 dark:border-zinc-700 focus-within:ring-2 focus-within:ring-cyan-500 transition-shadow">
                 <input
+<<<<<<< HEAD
                   ref={inputRef}
+=======
+>>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                   placeholder="Ask a science question..."
                   className="flex-1 bg-transparent px-4 py-2 outline-none text-slate-800 dark:text-zinc-200 text-sm md:text-base"
+<<<<<<< HEAD
                   disabled={isTyping}
+=======
+>>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
                 />
                 <button
                   onClick={() => handleSend()}
