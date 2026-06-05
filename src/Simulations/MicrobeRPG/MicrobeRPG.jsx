@@ -772,15 +772,6 @@ const HospitalRoom = () => {
   );
 };
 
-export default function App() {
-  const store = useGameStore();
-  useEffect(() => { if (store.patients.length === 0) { for (let i = 0; i < 3; i++) { store.addPatient(store.generatePatient()); } } }, [store]);
-  return <HospitalRoom />;
-}
-import React from 'react';
-import GameCanvas from './GameCanvas';
-import GameUI from './GameUI';
-
 const MicrobeRPG = () => {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>

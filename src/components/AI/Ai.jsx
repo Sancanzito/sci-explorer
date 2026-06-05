@@ -1,18 +1,9 @@
-// components/AIAssistant/AIAssistant.jsx
-<<<<<<< HEAD
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Send, Sparkles, ChevronDown, Atom } from 'lucide-react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-=======
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Bot, Send, Sparkles, ChevronDown, Atom
-} from 'lucide-react';
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
 
-// --- SYSTEM PROMPT (EDUCATIONAL GUARDRAILS) ---
+// ---------- SYSTEM PROMPT ----------
 const SYSTEM_PROMPT = `
 You are a science laboratory learning assistant for middle school students.
 
@@ -25,140 +16,68 @@ Rules:
 - Use encouraging educational language.
 - Keep responses relatively brief and conversational.
 `;
-<<<<<<< HEAD
-//api key for google gen ai - replace with your own key
-// Helper to get API key across different environments
+
+// ---------- API KEY from environment ----------
 const getApiKey = () => {
-  // Create React App (CRA) / Webpack
-  if (typeof process !== 'undefined' && process.env?.REACT_APP_GEMINI_API_KEY) {
+  if (typeof process !== 'undefined' && process.env?.REACT_APP_GEMINI_API_KEY)
     return process.env.REACT_APP_GEMINI_API_KEY;
-  }
-  // Vite
-  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY)
     return import.meta.env.VITE_GEMINI_API_KEY;
-  }
-  // Next.js (client‑side)
-  if (typeof window !== 'undefined' && window._env_?.REACT_APP_GEMINI_API_KEY) {
-    return window._env_.REACT_APP_GEMINI_API_KEY;
-  }
-  // Fallback: hardcoded for development only (not recommended for production)
-  console.error(
-    'Gemini API key not found. ' +
-    'Set REACT_APP_GEMINI_API_KEY (CRA), VITE_GEMINI_API_KEY (Vite), ' +
-    'or NEXT_PUBLIC_GEMINI_API_KEY (Next.js).'
-  );
+  console.error('Gemini API key missing. Set REACT_APP_GEMINI_API_KEY or VITE_GEMINI_API_KEY');
   return '';
 };
 
 const API_KEY = getApiKey();
-
-const MODEL_NAMES = ['gemini-2.5-flash'];
+const MODEL_NAMES = ['gemini-2.0-flash-exp', 'gemini-1.5-flash']; // fallback
 
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 async function fetchAIResponse(messages, context = "") {
-  let lastError = null;
-  let hitRateLimit = false; // Flag to track if ANY model hits a rate limit
+  if (!API_KEY) return "🔐 API key is missing. Please configure your environment.";
 
   for (const modelName of MODEL_NAMES) {
     try {
-      const model = genAI.getGenerativeModel({ 
+      const model = genAI.getGenerativeModel({
         model: modelName,
         systemInstruction: SYSTEM_PROMPT
       });
 
-      // Gemini requires history to START with a 'user' message.
-      // We slice from index 1 to ignore the hardcoded AI greeting at index 0.
-      const validHistory = messages.slice(1, -1).map(msg => ({
+      // Convert message history (skip the first AI greeting)
+      const history = messages.slice(1, -1).map(msg => ({
         role: msg.role === 'user' ? 'user' : 'model',
         parts: [{ text: msg.text }]
       }));
 
-      const chat = model.startChat({ history: validHistory });
-
+      const chat = model.startChat({ history });
       let userMessage = messages[messages.length - 1].text;
       if (context) {
-        userMessage = `[System Note: The student is currently in the "${context}" section. Provide hints related to this context if relevant.]\n\nStudent says: ${userMessage}`;
+        userMessage = `[System: Student is in "${context}" section. Give hints if relevant.]\n\nStudent: ${userMessage}`;
       }
 
       const result = await chat.sendMessage(userMessage);
-      const response = await result.response;
-      const text = response.text();
-      
+      const text = await result.response.text();
       if (text) return text;
-      
     } catch (err) {
-      console.warn(`Model ${modelName} failed:`, err);
-      lastError = err;
-      
-      // Check for rate limit and flag it so it isn't overwritten by subsequent 404s
-      if (err?.message?.includes('429')) {
-        hitRateLimit = true;
+      console.warn(`${modelName} failed:`, err);
+      if (err.message?.includes('429')) {
+        return "🕒 The lab is busy. Please wait a moment and try again.";
+      }
+      if (err.message?.includes('API key')) {
+        return "🔐 Invalid API key. Please check your configuration.";
       }
     }
   }
-
-  // All models failed - handle errors in order of priority
-  if (lastError?.message?.includes('API key') || lastError?.message?.includes('API_KEY_INVALID')) {
-    return "🔐 Invalid API key. Please check your configuration.";
-  }
-  
-  if (hitRateLimit) {
-    return "🕒 The lab is very busy right now. Please wait a moment and try again.";
-  }
-  
-  return "💡 I'm having trouble connecting to my knowledge base. Please check your internet connection or model availability.";
-=======
-
-// --- GEMINI API INTEGRATION ---
-const apiKey = "AIzaSyDyEmmx9jDS4YKdpP4EODtqW6TpilKRzfE"; // Replace with your actual API key
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
-
-async function fetchAIResponse(messages, context = "") {
-  const formattedMessages = messages.map(msg => ({
-    role: msg.role === 'user' ? 'user' : 'model',
-    parts: [{ text: msg.text }]
-  }));
-
-  if (context && formattedMessages.length > 0) {
-    const lastMsg = formattedMessages[formattedMessages.length - 1];
-    if (lastMsg.role === 'user') {
-       lastMsg.parts[0].text = `[System Note: The student is currently in the "${context}" section. Provide hints related to this context if relevant.]\n\nStudent says: ${lastMsg.parts[0].text}`;
-    }
-  }
-
-  const payload = {
-    systemInstruction: {
-      parts: [{ text: SYSTEM_PROMPT }]
-    },
-    contents: formattedMessages
-  };
-
-  try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) throw new Error('API Error');
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm having trouble thinking right now. Let's try again!";
-  } catch (error) {
-    console.error("AI Fetch Error:", error);
-    return "Oops! My connection to the lab network dropped. Please check your connection and try asking again.";
-  }
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
+  return "💡 I'm having trouble connecting. Please check your internet or try again later.";
 }
 
-// --- UTILITY: SIMPLE MARKDOWN RENDERER ---
+// ---------- Simple markdown helper ----------
 const formatText = (text) => {
   const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, index) => {
+  return parts.map((part, idx) => {
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={index} className="font-semibold text-cyan-700 dark:text-cyan-300">{part.slice(2, -2)}</strong>;
+      return <strong key={idx} className="font-semibold text-cyan-700 dark:text-cyan-300">{part.slice(2, -2)}</strong>;
     }
-    return <span key={index}>{part.split('\n').map((line, i) => (
+    return <span key={idx}>{part.split('\n').map((line, i) => (
       <React.Fragment key={i}>
         {line}
         {i !== part.split('\n').length - 1 && <br />}
@@ -167,10 +86,10 @@ const formatText = (text) => {
   });
 };
 
-// --- TYPING INDICATOR ---
+// ---------- Typing indicator ----------
 const TypingIndicator = () => (
-  <div className="flex space-x-1 p-3 bg-slate-100 dark:bg-zinc-800 rounded-2xl rounded-tl-none w-16 shadow-sm border border-slate-200 dark:border-zinc-700/50">
-    {[0, 1, 2].map((dot) => (
+  <div className="flex space-x-1 p-3 bg-slate-100 dark:bg-zinc-800 rounded-2xl rounded-tl-none w-16 shadow-sm border">
+    {[0, 1, 2].map(dot => (
       <motion.div
         key={dot}
         className="w-2 h-2 bg-cyan-500 rounded-full"
@@ -181,12 +100,8 @@ const TypingIndicator = () => (
   </div>
 );
 
-// --- CHAT MESSAGE BUBBLE ---
-<<<<<<< HEAD
+// ---------- Chat bubble ----------
 const ChatMessage = React.memo(({ msg }) => {
-=======
-const ChatMessage = ({ msg }) => {
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
   const isUser = msg.role === 'user';
   return (
     <motion.div
@@ -199,24 +114,18 @@ const ChatMessage = ({ msg }) => {
           <Bot size={16} className="text-white" />
         </div>
       )}
-      <div
-        className={`max-w-[80%] p-3 text-sm md:text-base ${
-          isUser
-            ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl rounded-tr-none shadow-md'
-            : 'bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-2xl rounded-tl-none shadow-sm border border-slate-200 dark:border-zinc-700/50'
-        }`}
-      >
+      <div className={`max-w-[80%] p-3 text-sm md:text-base ${
+        isUser
+          ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl rounded-tr-none shadow-md'
+          : 'bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-2xl rounded-tl-none shadow-sm border'
+      }`}>
         {formatText(msg.text)}
       </div>
     </motion.div>
   );
-<<<<<<< HEAD
 });
-=======
-};
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
 
-// --- MAIN AI ASSISTANT COMPONENT ---
+// ---------- Main component ----------
 const AIAssistant = ({ context = "", disabled = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -225,7 +134,6 @@ const AIAssistant = ({ context = "", disabled = false }) => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
-<<<<<<< HEAD
   const inputRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
@@ -237,64 +145,31 @@ const AIAssistant = ({ context = "", disabled = false }) => {
   }, [messages, isTyping, scrollToBottom]);
 
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
   const handleSend = useCallback(async (textToSend = input) => {
     const trimmed = textToSend.trim();
     if (!trimmed || isTyping || disabled) return;
 
-    const newMessages = [...messages, { role: 'user', text: trimmed }];
-=======
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping, isOpen]);
-
-  const handleSend = async (textToSend = input) => {
-    if (!textToSend.trim() || disabled) return;
-    
-    const newMessages = [...messages, { role: 'user', text: textToSend }];
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
-    setMessages(newMessages);
+    const userMessage = { role: 'user', text: trimmed };
+    setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsTyping(true);
 
-<<<<<<< HEAD
     try {
-      const aiResponse = await fetchAIResponse(newMessages, context);
+      const aiResponse = await fetchAIResponse([...messages, userMessage], context);
       setMessages(prev => [...prev, { role: 'ai', text: aiResponse }]);
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
       setMessages(prev => [...prev, { role: 'ai', text: "⚠️ Sorry, I encountered an unexpected error. Please try again." }]);
     } finally {
       setIsTyping(false);
     }
   }, [input, messages, isTyping, disabled, context]);
-=======
-    const aiResponse = await fetchAIResponse(newMessages, context);
-    
-    setMessages([...newMessages, { role: 'ai', text: aiResponse }]);
-    setIsTyping(false);
-  };
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
 
-  const quickPrompts = [
-    "Explain DNA simply",
-    "Lab safety tips",
-    "What's a nucleus?"
-  ];
+  const quickPrompts = ["Explain DNA simply", "Lab safety tips", "What's a nucleus?"];
 
-<<<<<<< HEAD
-=======
-  // Don't render if disabled
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
   if (disabled) return null;
 
   return (
@@ -306,7 +181,7 @@ const AIAssistant = ({ context = "", disabled = false }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="mb-4 w-[90vw] md:w-[380px] h-[60vh] md:h-[650px] max-h-[80vh] bg-slate-50 dark:bg-zinc-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-zinc-800 flex flex-col overflow-hidden backdrop-blur-xl dark:bg-opacity-95"
+            className="mb-4 w-[90vw] md:w-[380px] h-[60vh] md:h-[650px] max-h-[80vh] bg-slate-50 dark:bg-zinc-900 rounded-3xl shadow-2xl border flex flex-col overflow-hidden"
           >
             {/* Header */}
             <div className="p-4 bg-gradient-to-r from-cyan-600 to-blue-700 flex justify-between items-center text-white shrink-0">
@@ -322,31 +197,26 @@ const AIAssistant = ({ context = "", disabled = false }) => {
                   <p className="text-cyan-100 text-xs">Science Mentor AI</p>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsOpen(false)}
-                className="p-2 hover:bg-white/20 rounded-full transition-colors"
-              >
+              <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/20 rounded-full">
                 <ChevronDown size={20} />
               </button>
             </div>
 
-            {/* Chat History */}
+            {/* Chat history */}
             <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-zinc-900">
-              {messages.map((msg, idx) => (
-                <ChatMessage key={idx} msg={msg} />
-              ))}
+              {messages.map((msg, idx) => <ChatMessage key={idx} msg={msg} />)}
               {isTyping && <TypingIndicator />}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Quick Prompts */}
+            {/* Quick prompts */}
             {messages.length === 1 && !isTyping && (
               <div className="px-4 pb-2 flex flex-wrap gap-2 shrink-0">
                 {quickPrompts.map((prompt, i) => (
                   <button
                     key={i}
                     onClick={() => handleSend(prompt)}
-                    className="text-xs px-3 py-1.5 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300 rounded-full hover:bg-cyan-200 dark:hover:bg-cyan-800/50 transition border border-cyan-200 dark:border-cyan-800/50"
+                    className="text-xs px-3 py-1.5 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300 rounded-full hover:bg-cyan-200 transition"
                   >
                     {prompt}
                   </button>
@@ -354,34 +224,28 @@ const AIAssistant = ({ context = "", disabled = false }) => {
               </div>
             )}
 
-            {/* Input Area */}
-            <div className="p-4 bg-white dark:bg-zinc-800 border-t border-slate-200 dark:border-zinc-700/50 shrink-0">
-              <div className="flex items-center space-x-2 bg-slate-100 dark:bg-zinc-900 p-1.5 rounded-full border border-slate-300 dark:border-zinc-700 focus-within:ring-2 focus-within:ring-cyan-500 transition-shadow">
+            {/* Input area */}
+            <div className="p-4 bg-white dark:bg-zinc-800 border-t shrink-0">
+              <div className="flex items-center space-x-2 bg-slate-100 dark:bg-zinc-900 p-1.5 rounded-full border focus-within:ring-2 focus-within:ring-cyan-500">
                 <input
-<<<<<<< HEAD
                   ref={inputRef}
-=======
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
                   type="text"
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyPress={e => e.key === 'Enter' && handleSend()}
                   placeholder="Ask a science question..."
-                  className="flex-1 bg-transparent px-4 py-2 outline-none text-slate-800 dark:text-zinc-200 text-sm md:text-base"
-<<<<<<< HEAD
+                  className="flex-1 bg-transparent px-4 py-2 outline-none text-sm md:text-base"
                   disabled={isTyping}
-=======
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
                 />
                 <button
                   onClick={() => handleSend()}
                   disabled={!input.trim() || isTyping}
-                  className="p-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95 flex-shrink-0"
+                  className="p-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-full hover:opacity-90 disabled:opacity-50 transition-transform transform hover:scale-105 active:scale-95"
                 >
                   <Send size={18} />
                 </button>
               </div>
-              <div className="mt-2 text-center text-[10px] text-slate-400 dark:text-zinc-500 flex items-center justify-center gap-1">
+              <div className="mt-2 text-center text-[10px] text-slate-400 flex items-center justify-center gap-1">
                 <Sparkles size={10} /> AI can make mistakes. Think critically!
               </div>
             </div>
@@ -389,7 +253,7 @@ const AIAssistant = ({ context = "", disabled = false }) => {
         )}
       </AnimatePresence>
 
-      {/* Floating Action Button */}
+      {/* Floating button */}
       {!isOpen && (
         <motion.button
           initial={{ scale: 0 }}
@@ -399,13 +263,12 @@ const AIAssistant = ({ context = "", disabled = false }) => {
           onClick={() => setIsOpen(true)}
           className="relative group p-4 bg-gradient-to-br from-cyan-500 to-blue-600 text-white rounded-full shadow-lg hover:shadow-cyan-500/50 transition-all"
         >
-          <span className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-30 group-hover:opacity-50"></span>
+          <span className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-30"></span>
           <Bot size={28} className="relative z-10" />
-          
           {messages.length === 1 && (
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white dark:border-zinc-900"></span>
+              <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white"></span>
             </span>
           )}
         </motion.button>

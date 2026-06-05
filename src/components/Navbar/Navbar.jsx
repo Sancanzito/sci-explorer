@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-<<<<<<< HEAD
 import { useTheme } from '../../ThemeProvider'; // Imported your ThemeProvider
-=======
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
 
 // ==========================================
 // 1. LOGO COMPONENT
@@ -124,12 +121,7 @@ const ThemeToggle = ({ isDarkMode, toggleTheme }) => {
 const toolsData = [
   { name: 'Scientific Calculator', path: '/tools/calculator', icon: '🧮', description: 'Advanced scientific calculations', color: 'from-blue-500 to-cyan-500' },
   { name: 'Periodic Table', path: '/tools/periodic-table', icon: '⚗️', description: 'Interactive element explorer', color: 'from-purple-500 to-pink-500'},
-<<<<<<< HEAD
   { name: 'Scientific Visualization', path: '/graph', icon: '📊', description: 'Advanced scientific plotting & analysis', color: 'from-green-500 to-teal-500' }
-=======
-  { name: 'Scientific Visualization', path: '/graph', icon: '📊', description: 'Advanced scientific plotting & analysis', color: 'from-green-500 to-teal-500' }, 
-  { name: 'Equation Solver', path: '/tools/equation-solver', icon: '📐', description: 'Solve complex equations', color: 'from-orange-500 to-red-500' }
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
 ];
 
 const ToolsDropdown = ({ isActive, onMouseEnter, onMouseLeave }) => {
@@ -139,11 +131,7 @@ const ToolsDropdown = ({ isActive, onMouseEnter, onMouseLeave }) => {
       onMouseEnter={onMouseEnter} 
       onMouseLeave={onMouseLeave}
     >
-<<<<<<< HEAD
       <button className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-cyan-100/90 hover:text-indigo-600 dark:hover:text-cyan-300 transition-colors py-1.5 px-3">
-=======
-      <button className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-cyan-100/80 hover:text-indigo-600 dark:hover:text-cyan-300 transition-colors py-1.5 px-3">
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
         🛠️ Tools
         <motion.span animate={{ rotate: isActive ? 180 : 0 }}>
           ▾
@@ -156,11 +144,7 @@ const ToolsDropdown = ({ isActive, onMouseEnter, onMouseLeave }) => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-<<<<<<< HEAD
             className="absolute top-full right-0 mt-2 w-96 bg-white/80 dark:bg-[#050510]/95 backdrop-blur-2xl border border-white/50 dark:border-cyan-500/20 rounded-2xl shadow-xl dark:shadow-cyan-900/20 overflow-hidden z-50"
-=======
-            className="absolute top-full right-0 mt-2 w-96 bg-white/70 dark:bg-[#0a0f1c]/80 backdrop-blur-2xl border border-white/50 dark:border-cyan-500/20 rounded-2xl shadow-xl dark:shadow-cyan-900/20 overflow-hidden z-50"
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
           >
             <div className="p-2">
               {toolsData.map((tool) => (
@@ -195,36 +179,20 @@ const ToolsDropdown = ({ isActive, onMouseEnter, onMouseLeave }) => {
 };
 
 // ==========================================
-<<<<<<< HEAD
 // 4. DESKTOP NAV COMPONENT
-=======
-// 5. DESKTOP NAV COMPONENT
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
 // ==========================================
 const DesktopNav = ({ isDarkMode, toggleTheme }) => {
   const [activeDropdown, setActiveDropdown] = useState(null);
   
-<<<<<<< HEAD
-=======
-  // Try-catch wrapped for isolated preview environment without a real router
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
   let location = null;
   try { location = useLocation(); } catch(e) {}
 
   const getLinkClass = (path) => {
-<<<<<<< HEAD
     const baseClass = "text-sm transition-all duration-300 py-1.5 px-4 rounded-xl border backdrop-blur-md";
     const isActive = location?.pathname ? location.pathname.startsWith(path) : false;
     return isActive
       ? `${baseClass} border-white/50 dark:border-cyan-500/20 text-indigo-700 dark:text-cyan-300 bg-white/60 dark:bg-cyan-900/30 font-bold shadow-sm`
       : `${baseClass} border-transparent text-slate-700 dark:text-cyan-100/80 hover:text-indigo-600 dark:hover:text-cyan-300 hover:bg-white/40 dark:hover:bg-cyan-900/20 font-semibold`;
-=======
-    const baseClass = "text-sm transition-all duration-300 py-1.5 px-4 rounded-xl border border-transparent backdrop-blur-md";
-    const isActive = location?.pathname ? location.pathname.startsWith(path) : false;
-    return isActive
-      ? `${baseClass} text-indigo-600 dark:text-cyan-300 bg-white/60 dark:bg-[#0a0f1c]/60 font-bold shadow-sm border-white/50 dark:border-cyan-500/20`
-      : `${baseClass} text-slate-600 dark:text-cyan-100/70 hover:text-indigo-600 dark:hover:text-cyan-300 hover:bg-white/40 dark:hover:bg-cyan-900/20 font-semibold`;
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
   };
 
   return (
@@ -253,11 +221,7 @@ const DesktopNav = ({ isDarkMode, toggleTheme }) => {
         />
       </div>
       
-<<<<<<< HEAD
       <div className="pl-3 ml-1 border-l border-slate-200 dark:border-cyan-500/20">
-=======
-      <div className="pl-3 ml-1 border-l border-white/50 dark:border-cyan-500/20">
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
         <ThemeToggle isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
       </div>
     </div>
@@ -265,19 +229,11 @@ const DesktopNav = ({ isDarkMode, toggleTheme }) => {
 };
 
 // ==========================================
-<<<<<<< HEAD
 // 5. MOBILE NAV COMPONENT
-=======
-// 6. MOBILE NAV COMPONENT
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
 // ==========================================
 const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
   const [mobileDropdown, setMobileDropdown] = useState(null);
   
-<<<<<<< HEAD
-=======
-  // Try-catch wrapped for isolated preview environment without a real router
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
   let location = null;
   try { location = useLocation(); } catch(e) {}
 
@@ -286,19 +242,11 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
   };
 
   const getMobileLinkClass = (path) => {
-<<<<<<< HEAD
     const baseClass = "block p-3 text-base font-semibold rounded-xl transition-all border backdrop-blur-sm";
     const isActive = location?.pathname ? location.pathname.startsWith(path) : false;
     return isActive
       ? `${baseClass} border-white/50 dark:border-cyan-500/20 text-indigo-600 dark:text-cyan-300 bg-white/60 dark:bg-cyan-900/30 shadow-sm`
       : `${baseClass} border-transparent text-slate-700 dark:text-cyan-100/80 hover:bg-white/40 dark:hover:bg-cyan-900/20`;
-=======
-    const baseClass = "block p-3 text-base font-semibold rounded-xl transition-all border border-transparent backdrop-blur-sm";
-    const isActive = location?.pathname ? location.pathname.startsWith(path) : false;
-    return isActive
-      ? `${baseClass} text-indigo-600 dark:text-cyan-300 bg-white/60 dark:bg-[#0a0f1c]/60 border-white/50 dark:border-cyan-500/20 shadow-sm`
-      : `${baseClass} text-slate-600 dark:text-cyan-100/70 hover:bg-white/40 dark:hover:bg-cyan-900/20`;
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
   };
 
   const mobileMenuVariants = {
@@ -311,11 +259,7 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
     <div className="lg:hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
-<<<<<<< HEAD
         className="text-slate-800 dark:text-cyan-100 hover:text-indigo-600 dark:hover:text-cyan-400 p-2 focus:outline-none"
-=======
-        className="text-slate-600 dark:text-cyan-100 hover:text-indigo-600 dark:hover:text-cyan-400 p-2 focus:outline-none"
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
         aria-label="Toggle Menu"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -335,11 +279,7 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
             exit="exit"
             variants={mobileMenuVariants}
             transition={{ duration: 0.2 }}
-<<<<<<< HEAD
             className="absolute top-16 left-0 right-0 bg-white/90 dark:bg-[#050510]/95 backdrop-blur-2xl border-b border-white/40 dark:border-cyan-500/20 shadow-xl z-40 max-h-[calc(100vh-4rem)] overflow-y-auto"
-=======
-            className="absolute top-16 left-0 right-0 bg-white/80 dark:bg-[#050b14]/90 backdrop-blur-2xl border-b border-white/40 dark:border-cyan-500/20 shadow-xl z-40 max-h-[calc(100vh-4rem)] overflow-y-auto"
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
           >
             <div className="px-4 pt-3 pb-6 space-y-2">
               <Link to="/articles" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/articles')}>
@@ -352,11 +292,7 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
                 📝 Interactive Quizzes
               </Link>
 
-<<<<<<< HEAD
               <div className="border-t border-slate-200 dark:border-cyan-500/20 pt-2">
-=======
-              <div className="border-t border-white/40 dark:border-cyan-500/20 pt-2">
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
                 <button
                   onClick={() => toggleMobileDropdown('tools')}
                   className="w-full flex justify-between items-center p-3 text-base font-semibold text-slate-700 dark:text-cyan-100/90 hover:bg-white/40 dark:hover:bg-cyan-900/20 rounded-xl transition-colors"
@@ -370,31 +306,19 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-<<<<<<< HEAD
                       className="overflow-hidden bg-white/40 dark:bg-white/5 rounded-xl mx-2 border border-white/30 dark:border-cyan-500/10"
-=======
-                      className="overflow-hidden bg-white/40 dark:bg-black/20 rounded-xl mx-2 border border-white/30 dark:border-cyan-500/10"
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
                     >
                       <div className="pl-4 pr-2 py-2 space-y-1">
                         <Link to="/tools/calculator" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm font-medium text-slate-600 dark:text-cyan-200/70 hover:text-indigo-600 dark:hover:text-cyan-400 hover:bg-white/50 dark:hover:bg-cyan-900/30 rounded-lg transition-colors">🧮 Scientific Calculator</Link>
                         <Link to="/tools/periodic-table" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm font-medium text-slate-600 dark:text-cyan-200/70 hover:text-indigo-600 dark:hover:text-cyan-400 hover:bg-white/50 dark:hover:bg-cyan-900/30 rounded-lg transition-colors">⚗️ Periodic Table</Link>
                         <Link to="/graph" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm font-medium text-slate-600 dark:text-cyan-200/70 hover:text-indigo-600 dark:hover:text-cyan-400 hover:bg-white/50 dark:hover:bg-cyan-900/30 rounded-lg transition-colors">📊 Scientific Visualization</Link>
-<<<<<<< HEAD
-=======
-                        <Link to="/tools/equation-solver" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm font-medium text-slate-600 dark:text-cyan-200/70 hover:text-indigo-600 dark:hover:text-cyan-400 hover:bg-white/50 dark:hover:bg-cyan-900/30 rounded-lg transition-colors">📐 Equation Solver</Link>
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
 
-<<<<<<< HEAD
               <div className="pt-4 border-t border-slate-200 dark:border-cyan-500/20 flex justify-center">
-=======
-              <div className="pt-4 border-t border-white/40 dark:border-cyan-500/20 flex justify-center">
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
                 <ThemeToggle isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
               </div>
             </div>
@@ -406,7 +330,6 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
 };
 
 // ==========================================
-<<<<<<< HEAD
 // 6. MAIN NAVBAR WRAPPER
 // ==========================================
 const Navbar = () => {
@@ -418,14 +341,6 @@ const Navbar = () => {
   const isDarkMode = themeContext?.isDarkMode ?? true; 
   const toggleTheme = themeContext?.toggleTheme ?? (() => {});
   
-=======
-// 7. MAIN NAVBAR WRAPPER
-// ==========================================
-const Navbar = ({ isDarkMode = true, toggleTheme = () => {} }) => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Try-catch wrapped for isolated preview environment without a real router
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
   let location = null;
   try { location = useLocation(); } catch(e) {}
 
@@ -433,7 +348,6 @@ const Navbar = ({ isDarkMode = true, toggleTheme = () => {} }) => {
     setIsMobileMenuOpen(false);
   }, [location]);
 
-<<<<<<< HEAD
   // Handle scroll effect for dynamic glassmorphism
   useEffect(() => {
     const handleScroll = () => {
@@ -450,11 +364,6 @@ const Navbar = ({ isDarkMode = true, toggleTheme = () => {} }) => {
           ? 'bg-white/80 dark:bg-[#050510]/80 backdrop-blur-xl border-slate-200/50 dark:border-cyan-500/20 shadow-sm dark:shadow-cyan-900/10' 
           : 'bg-white/40 dark:bg-[#050510]/30 backdrop-blur-md border-transparent'
       }`}>
-=======
-  return (
-    <>
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/40 dark:bg-[#050b14]/50 backdrop-blur-xl border-b border-white/40 dark:border-cyan-500/20 shadow-sm dark:shadow-cyan-900/10 transition-colors duration-500">
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Logo />
@@ -470,10 +379,7 @@ const Navbar = ({ isDarkMode = true, toggleTheme = () => {} }) => {
           </div>
         </div>
       </nav>
-<<<<<<< HEAD
       {/* Spacer to prevent content from going under the fixed navbar initially */}
-=======
->>>>>>> 5fff2847536ea652782bd35e4abe6e044d3c1fc8
       <div className="h-16" />
     </>
   );
