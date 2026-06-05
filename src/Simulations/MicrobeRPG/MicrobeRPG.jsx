@@ -253,7 +253,134 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
 
   // --- renderSidePanel() remains exactly the same ---
   // (Paste your existing renderSidePanel function here)
-  const renderSidePanel = () => { ... } 
+  const renderSidePanel = () => {
+    switch (sceneType) {
+      case 'microscope':
+        return (
+          <>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}><BiotechIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} /> Microscope Controls</Typography>
+            <Box sx={{ mb: 1.5 }}>
+              <Typography variant="caption">Zoom: {zoom.toFixed(1)}x</Typography>
+              <Slider size="small" min={1} max={6} step={0.5} value={zoom} onChange={(e, v) => handleSlider('zoom', v)} sx={{ mt: 0 }} />
+              <Stack direction="row" spacing={0.5}>
+                {[{v:1,l:'10x'},{v:3,l:'40x'},{v:6,l:'100x'}].map(p => (
+                  <Button key={p.v} size="small" variant={zoom === p.v ? 'contained' : 'outlined'} onClick={() => handleSlider('zoom', p.v)} sx={{ minWidth: 40, fontSize: 10 }}>{p.l}</Button>
+                ))}
+              </Stack>
+            </Box>
+            <Box sx={{ mb: 1.5 }}><Typography variant="caption">Focus</Typography><Slider size="small" min={0} max={100} value={focus} onChange={(e, v) => handleSlider('focus', v)} /></Box>
+            <Box sx={{ mb: 1.5 }}><Typography variant="caption">Light Intensity</Typography><Slider size="small" min={0} max={100} value={light} onChange={(e, v) => handleSlider('light', v)} /></Box>
+            <Divider sx={{ my: 1 }} />
+            <ObservationChecklist checklist={checklist} setChecklist={setChecklist} diseaseId={patient?.diseaseId} patientObservations={patient?.labFindings?.observations} />
+            <Button variant="contained" color="primary" sx={{ mt: 1 }} onClick={saveMicroscope} disabled={!checklist.shape} startIcon={<CheckCircleIcon />}>Record Observations</Button>
+          </>
+        );
+      case 'gram':
+        return (
+          <>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}><ScienceIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} /> Gram Stain Protocol</Typography>
+            <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: 'block' }}>Apply chemicals in order: CV → Iodine → Alcohol → Safranin</Typography>
+            {STAIN_STEPS.gram.map((step, i) => (
+              <Button key={step.name} fullWidth variant={stainStep > i ? 'outlined' : 'contained'} disabled={stainStep !== i}
+                sx={{ mb: 0.5, bgcolor: stainStep === i ? step.color : undefined, '&.Mui-disabled': stainStep > i ? { bgcolor: '#e0e0e0' } : {}, color: stainStep > i ? '#000' : '#fff', justifyContent: 'flex-start', textTransform: 'none' }}
+                onClick={() => handleGramStain(step.name)} startIcon={stainStep > i ? <CheckCircleIcon /> : null}>
+                {i + 1}. {step.name}
+              </Button>
+            ))}
+            {gramErrors.length > 0 && (
+              <Paper sx={{ p: 1, mt: 1, bgcolor: '#fff0f0' }}>
+                <Typography variant="caption" color="error">⚠️ Errors detected: {gramErrors.length}</Typography>
+                {gramErrors.map((err, i) => <Typography key={i} variant="caption" display="block" color="error.main" sx={{ fontSize: 9 }}>• {err}</Typography>)}
+              </Paper>
+            )}
+            <Box sx={{ mt: 'auto', pt: 1 }}>
+              {stainStep >= 4 && <Typography variant="caption" color="success.main" sx={{ mb: 0.5, display: 'block' }}>✓ Stain procedure complete</Typography>}
+              <Button fullWidth variant="outlined" color="warning" size="small" onClick={handleGramReset} startIcon={<RestartAltIcon />}>Reset Procedure</Button>
+              <Button fullWidth variant="contained" color="success" sx={{ mt: 0.5 }} disabled={stainStep < 4} onClick={onClose}>Close & Save Results</Button>
+            </Box>
+          </>
+        );
+      case 'acidfast':
+        return (
+          <>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}><ScienceIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} /> Ziehl-Neelsen Stain</Typography>
+            {[1, 2, 3, 4].map(step => (
+              <Button key={step} fullWidth variant={stainStep >= step ? 'outlined' : 'contained'} disabled={stainStep >= step}
+                sx={{ mb: 0.5, bgcolor: stainStep < step ? ['#ff4444', '#ff6600', '#dddddd', '#2244aa'][step - 1] : undefined, color: stainStep < step ? '#fff' : '#000', justifyContent: 'flex-start', textTransform: 'none' }}
+                onClick={() => { handleAcidFast(step); setStainStep(step); }} startIcon={stainStep >= step ? <CheckCircleIcon /> : null}>
+                {step}. {STAIN_STEPS.acidFast[step - 1].name}
+              </Button>
+            ))}
+            <Box sx={{ mt: 'auto', pt: 1 }}><Button fullWidth variant="contained" color="success" disabled={stainStep < 4} onClick={onClose}>Close & Save Results</Button></Box>
+          </>
+        );
+      case 'bloodsmear':
+        return (
+          <>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}><BloodtypeIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} /> Blood Smear Analysis</Typography>
+            <Paper sx={{ p: 2, bgcolor: '#fff5f5', mb: 1 }}>
+              <Typography variant="h4" color="error" sx={{ textAlign: 'center' }}>{parasitemia.infected}</Typography>
+              <Typography variant="caption" display="block" textAlign="center">Infected RBCs Found</Typography>
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="body2">Total RBCs: <b>{parasitemia.total}</b></Typography>
+              <Typography variant="body2">Parasitemia: <b>{parasitemia.percentage}%</b></Typography>
+            </Paper>
+            <Typography variant="caption" color="textSecondary">Click on infected RBCs (ring forms) to count them.</Typography>
+            {parasitemia.infected > 0 && (
+              <Box sx={{ mt: 1, p: 1, bgcolor: '#f0fff0', borderRadius: 1 }}>
+                <Typography variant="caption" color="success.main">Severity: {parasitemia.percentage < 1 ? 'Mild (<1%)' : parasitemia.percentage < 5 ? 'Moderate (1-5%)' : 'Severe (>5%)'}</Typography>
+              </Box>
+            )}
+            <Button fullWidth variant="contained" color="success" sx={{ mt: 'auto' }} disabled={parasitemia.infected === 0} onClick={() => { store.logObservation(`Blood smear: ${parasitemia.percentage}% parasitemia`); onClose(); }}>Save Blood Smear Results</Button>
+          </>
+        );
+      case 'culture':
+        return (
+          <>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}><ScienceIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} /> Culture Results</Typography>
+            {cultureResult ? (
+              <Paper sx={{ p: 2, bgcolor: '#f0fff0', mb: 1 }}>
+                <Typography variant="subtitle2" color="success.main">✓ Growth Observed</Typography>
+                <Typography variant="body2">{cultureResult.description}</Typography>
+                {cultureResult.hemolysis === 'beta' && <Typography variant="caption" color="warning.main">Beta-hemolysis detected</Typography>}
+                {cultureResult.hemolysis === 'alpha' && <Typography variant="caption" color="info.main">Alpha-hemolysis detected</Typography>}
+              </Paper>
+            ) : <Typography variant="caption" color="textSecondary">Select a culture media from the bench below.</Typography>}
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="caption" fontWeight="bold">Available Media:</Typography>
+              {MEDIA_OPTIONS.map(m => (
+                <Box key={m.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
+                  <Box sx={{ width: 16, height: 16, borderRadius: '50%', bgcolor: `#${m.color.toString(16).padStart(6,'0')}` }} />
+                  <Box><Typography variant="caption">{m.label}</Typography><Typography variant="caption" display="block" color="textSecondary" sx={{ fontSize: 9 }}>{m.description}</Typography></Box>
+                </Box>
+              ))}
+            </Box>
+            <Button fullWidth variant="contained" color="primary" sx={{ mt: 'auto' }} onClick={() => { store.logObservation(`Culture completed: ${cultureResult?.description || 'No growth'}`); onClose(); }}>Close Culture Lab</Button>
+          </>
+        );
+      case 'exam':
+        return (
+          <>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}><PersonIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} /> Physical Examination</Typography>
+            <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: 'block' }}>Click body regions on the patient to examine.</Typography>
+            <Paper sx={{ p: 1.5, bgcolor: '#f5faff', flex: 1, overflow: 'auto' }}>
+              <Typography variant="caption" fontWeight="bold" sx={{ mb: 0.5, display: 'block' }}>Findings:</Typography>
+              {Object.keys(examFindings).length === 0 ? <Typography variant="caption" color="textSecondary">No findings yet. Click on body regions.</Typography> : (
+                Object.entries(examFindings).map(([reg, val]) => (
+                  <Box key={reg} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.3 }}>
+                    <Typography variant="caption" fontWeight="bold" sx={{ textTransform: 'capitalize' }}>{reg}:</Typography>
+                    <Typography variant="caption" color={val === 'Normal' ? 'textSecondary' : 'warning.main'}>{val}</Typography>
+                  </Box>
+                ))
+              )}
+            </Paper>
+            <Button fullWidth variant="contained" color="primary" sx={{ mt: 1 }} onClick={saveExam}>Log Examination Results</Button>
+          </>
+        );
+      default:
+        return <Typography>Unknown lab type: {sceneType}</Typography>;
+    }
+  }; 
 
   if (!patient) return null;
 

@@ -18,8 +18,31 @@ Rules:
 - Keep responses relatively brief and conversational.
 `;
 //api key for google gen ai - replace with your own key
-const API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
-// FIXED: Replaced spaces with hyphens
+// Helper to get API key across different environments
+const getApiKey = () => {
+  // Create React App (CRA) / Webpack
+  if (typeof process !== 'undefined' && process.env?.REACT_APP_GEMINI_API_KEY) {
+    return process.env.REACT_APP_GEMINI_API_KEY;
+  }
+  // Vite
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) {
+    return import.meta.env.VITE_GEMINI_API_KEY;
+  }
+  // Next.js (client‑side)
+  if (typeof window !== 'undefined' && window._env_?.REACT_APP_GEMINI_API_KEY) {
+    return window._env_.REACT_APP_GEMINI_API_KEY;
+  }
+  // Fallback: hardcoded for development only (not recommended for production)
+  console.error(
+    'Gemini API key not found. ' +
+    'Set REACT_APP_GEMINI_API_KEY (CRA), VITE_GEMINI_API_KEY (Vite), ' +
+    'or NEXT_PUBLIC_GEMINI_API_KEY (Next.js).'
+  );
+  return '';
+};
+
+const API_KEY = getApiKey();
+
 const MODEL_NAMES = ['gemini-2.5-flash'];
 
 const genAI = new GoogleGenerativeAI(API_KEY);
