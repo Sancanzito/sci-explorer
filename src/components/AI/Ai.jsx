@@ -18,8 +18,7 @@ Rules:
 - Keep responses relatively brief and conversational.
 `;
 //api key for google gen ai - replace with your own key
-const API_KEY = "AQ.Ab8RN6KfYFEUvh0eD2PoXVMGIVf_qWDMFWPfQgU0i2En3L6qHQ"; 
-
+const API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 // FIXED: Replaced spaces with hyphens
 const MODEL_NAMES = ['gemini-2.5-flash'];
 

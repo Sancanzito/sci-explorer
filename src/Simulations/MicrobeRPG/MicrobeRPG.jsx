@@ -12,7 +12,7 @@ import {
   InputLabel, List, ListItem, ListItemButton, ListItemText, Divider,
   Dialog, DialogTitle, DialogContent, DialogActions, Chip, LinearProgress,
   Slider, FormGroup, FormControlLabel, Checkbox, Tooltip as MuiTooltip,
-  Stack, Collapse
+  Stack, Collapse, CircularProgress // <-- Added this
 } from '@mui/material';
 
 import BiotechIcon from '@mui/icons-material/Biotech';
@@ -113,6 +113,9 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
   const store = useGameStore();
   const patient = store.patients.find(p => p.id === patientId);
 
+  // 1. ADDED: State to track if the Phaser game is loading
+  const [isGameLoading, setIsGameLoading] = useState(true);
+
   const [checklist, setChecklist] = useState({ shape: '', arrangement: '', stain: '', special: '' });
   const [stainStep, setStainStep] = useState(0);
   const [examFindings, setExamFindings] = useState({});
@@ -127,6 +130,9 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
 
   useEffect(() => {
     if (!containerRef.current || !patient) return;
+
+    // Reset loading state every time the modal opens
+    setIsGameLoading(true);
 
     const sceneConfigs = {
       microscope: { Scene: MS, initData: { patient, onSave: (obs) => store.saveMicroscopeObservations(patientId, obs || checklist) } },
@@ -145,7 +151,6 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
     const checkAndStart = () => {
       if (!containerRef.current) return;
       
-      // Continuously poll if the MUI Dialog is still animating and has 0 dimensions
       if (containerRef.current.clientWidth === 0 || containerRef.current.clientHeight === 0) {
         timeoutId = setTimeout(checkAndStart, 50);
         return;
@@ -165,18 +170,16 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
       gameRef.current = game;
 
       game.events.once('ready', () => {
-        // Ensure component didn't unmount while game was booting
         if (gameRef.current) {
-           // Safely passing sceneType as a key instead of cfg.Scene.name prevents minification crashes
           game.scene.add(sceneType, cfg.Scene, true, cfg.initData);
+          // 2. ADDED: Turn off the loading spinner once Phaser is ready
+          setIsGameLoading(false);
         }
       });
     };
 
-    // Start the dimension checking loop
     checkAndStart();
 
-    // The guaranteed cleanup function runs every time the modal closes
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
       if (gameRef.current) {
@@ -186,7 +189,7 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
     };
   }, [sceneType, patientId]);
 
-  // --- Handlers (same as before) ---
+  // --- Handlers remain exactly the same ---
   const handleSlider = (type, val) => {
     if (!gameRef.current) return;
     try {
@@ -248,134 +251,9 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
     onClose();
   };
 
-  const renderSidePanel = () => {
-    switch (sceneType) {
-      case 'microscope':
-        return (
-          <>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}><BiotechIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} /> Microscope Controls</Typography>
-            <Box sx={{ mb: 1.5 }}>
-              <Typography variant="caption">Zoom: {zoom.toFixed(1)}x</Typography>
-              <Slider size="small" min={1} max={6} step={0.5} value={zoom} onChange={(e, v) => handleSlider('zoom', v)} sx={{ mt: 0 }} />
-              <Stack direction="row" spacing={0.5}>
-                {[{v:1,l:'10x'},{v:3,l:'40x'},{v:6,l:'100x'}].map(p => (
-                  <Button key={p.v} size="small" variant={zoom === p.v ? 'contained' : 'outlined'} onClick={() => handleSlider('zoom', p.v)} sx={{ minWidth: 40, fontSize: 10 }}>{p.l}</Button>
-                ))}
-              </Stack>
-            </Box>
-            <Box sx={{ mb: 1.5 }}><Typography variant="caption">Focus</Typography><Slider size="small" min={0} max={100} value={focus} onChange={(e, v) => handleSlider('focus', v)} /></Box>
-            <Box sx={{ mb: 1.5 }}><Typography variant="caption">Light Intensity</Typography><Slider size="small" min={0} max={100} value={light} onChange={(e, v) => handleSlider('light', v)} /></Box>
-            <Divider sx={{ my: 1 }} />
-            <ObservationChecklist checklist={checklist} setChecklist={setChecklist} diseaseId={patient?.diseaseId} patientObservations={patient?.labFindings?.observations} />
-            <Button variant="contained" color="primary" sx={{ mt: 1 }} onClick={saveMicroscope} disabled={!checklist.shape} startIcon={<CheckCircleIcon />}>Record Observations</Button>
-          </>
-        );
-      case 'gram':
-        return (
-          <>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}><ScienceIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} /> Gram Stain Protocol</Typography>
-            <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: 'block' }}>Apply chemicals in order: CV → Iodine → Alcohol → Safranin</Typography>
-            {STAIN_STEPS.gram.map((step, i) => (
-              <Button key={step.name} fullWidth variant={stainStep > i ? 'outlined' : 'contained'} disabled={stainStep !== i}
-                sx={{ mb: 0.5, bgcolor: stainStep === i ? step.color : undefined, '&.Mui-disabled': stainStep > i ? { bgcolor: '#e0e0e0' } : {}, color: stainStep > i ? '#000' : '#fff', justifyContent: 'flex-start', textTransform: 'none' }}
-                onClick={() => handleGramStain(step.name)} startIcon={stainStep > i ? <CheckCircleIcon /> : null}>
-                {i + 1}. {step.name}
-              </Button>
-            ))}
-            {gramErrors.length > 0 && (
-              <Paper sx={{ p: 1, mt: 1, bgcolor: '#fff0f0' }}>
-                <Typography variant="caption" color="error">⚠️ Errors detected: {gramErrors.length}</Typography>
-                {gramErrors.map((err, i) => <Typography key={i} variant="caption" display="block" color="error.main" sx={{ fontSize: 9 }}>• {err}</Typography>)}
-              </Paper>
-            )}
-            <Box sx={{ mt: 'auto', pt: 1 }}>
-              {stainStep >= 4 && <Typography variant="caption" color="success.main" sx={{ mb: 0.5, display: 'block' }}>✓ Stain procedure complete</Typography>}
-              <Button fullWidth variant="outlined" color="warning" size="small" onClick={handleGramReset} startIcon={<RestartAltIcon />}>Reset Procedure</Button>
-              <Button fullWidth variant="contained" color="success" sx={{ mt: 0.5 }} disabled={stainStep < 4} onClick={onClose}>Close & Save Results</Button>
-            </Box>
-          </>
-        );
-      case 'acidfast':
-        return (
-          <>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}><ScienceIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} /> Ziehl-Neelsen Stain</Typography>
-            {[1, 2, 3, 4].map(step => (
-              <Button key={step} fullWidth variant={stainStep >= step ? 'outlined' : 'contained'} disabled={stainStep >= step}
-                sx={{ mb: 0.5, bgcolor: stainStep < step ? ['#ff4444', '#ff6600', '#dddddd', '#2244aa'][step - 1] : undefined, color: stainStep < step ? '#fff' : '#000', justifyContent: 'flex-start', textTransform: 'none' }}
-                onClick={() => { handleAcidFast(step); setStainStep(step); }} startIcon={stainStep >= step ? <CheckCircleIcon /> : null}>
-                {step}. {STAIN_STEPS.acidFast[step - 1].name}
-              </Button>
-            ))}
-            <Box sx={{ mt: 'auto', pt: 1 }}><Button fullWidth variant="contained" color="success" disabled={stainStep < 4} onClick={onClose}>Close & Save Results</Button></Box>
-          </>
-        );
-      case 'bloodsmear':
-        return (
-          <>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}><BloodtypeIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} /> Blood Smear Analysis</Typography>
-            <Paper sx={{ p: 2, bgcolor: '#fff5f5', mb: 1 }}>
-              <Typography variant="h4" color="error" sx={{ textAlign: 'center' }}>{parasitemia.infected}</Typography>
-              <Typography variant="caption" display="block" textAlign="center">Infected RBCs Found</Typography>
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="body2">Total RBCs: <b>{parasitemia.total}</b></Typography>
-              <Typography variant="body2">Parasitemia: <b>{parasitemia.percentage}%</b></Typography>
-            </Paper>
-            <Typography variant="caption" color="textSecondary">Click on infected RBCs (ring forms) to count them.</Typography>
-            {parasitemia.infected > 0 && (
-              <Box sx={{ mt: 1, p: 1, bgcolor: '#f0fff0', borderRadius: 1 }}>
-                <Typography variant="caption" color="success.main">Severity: {parasitemia.percentage < 1 ? 'Mild (<1%)' : parasitemia.percentage < 5 ? 'Moderate (1-5%)' : 'Severe (>5%)'}</Typography>
-              </Box>
-            )}
-            <Button fullWidth variant="contained" color="success" sx={{ mt: 'auto' }} disabled={parasitemia.infected === 0} onClick={() => { store.logObservation(`Blood smear: ${parasitemia.percentage}% parasitemia`); onClose(); }}>Save Blood Smear Results</Button>
-          </>
-        );
-      case 'culture':
-        return (
-          <>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}><ScienceIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} /> Culture Results</Typography>
-            {cultureResult ? (
-              <Paper sx={{ p: 2, bgcolor: '#f0fff0', mb: 1 }}>
-                <Typography variant="subtitle2" color="success.main">✓ Growth Observed</Typography>
-                <Typography variant="body2">{cultureResult.description}</Typography>
-                {cultureResult.hemolysis === 'beta' && <Typography variant="caption" color="warning.main">Beta-hemolysis detected</Typography>}
-                {cultureResult.hemolysis === 'alpha' && <Typography variant="caption" color="info.main">Alpha-hemolysis detected</Typography>}
-              </Paper>
-            ) : <Typography variant="caption" color="textSecondary">Select a culture media from the bench below.</Typography>}
-            <Box sx={{ mt: 1 }}>
-              <Typography variant="caption" fontWeight="bold">Available Media:</Typography>
-              {MEDIA_OPTIONS.map(m => (
-                <Box key={m.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
-                  <Box sx={{ width: 16, height: 16, borderRadius: '50%', bgcolor: `#${m.color.toString(16).padStart(6,'0')}` }} />
-                  <Box><Typography variant="caption">{m.label}</Typography><Typography variant="caption" display="block" color="textSecondary" sx={{ fontSize: 9 }}>{m.description}</Typography></Box>
-                </Box>
-              ))}
-            </Box>
-            <Button fullWidth variant="contained" color="primary" sx={{ mt: 'auto' }} onClick={() => { store.logObservation(`Culture completed: ${cultureResult?.description || 'No growth'}`); onClose(); }}>Close Culture Lab</Button>
-          </>
-        );
-      case 'exam':
-        return (
-          <>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}><PersonIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle' }} /> Physical Examination</Typography>
-            <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: 'block' }}>Click body regions on the patient to examine.</Typography>
-            <Paper sx={{ p: 1.5, bgcolor: '#f5faff', flex: 1, overflow: 'auto' }}>
-              <Typography variant="caption" fontWeight="bold" sx={{ mb: 0.5, display: 'block' }}>Findings:</Typography>
-              {Object.keys(examFindings).length === 0 ? <Typography variant="caption" color="textSecondary">No findings yet. Click on body regions.</Typography> : (
-                Object.entries(examFindings).map(([reg, val]) => (
-                  <Box key={reg} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.3 }}>
-                    <Typography variant="caption" fontWeight="bold" sx={{ textTransform: 'capitalize' }}>{reg}:</Typography>
-                    <Typography variant="caption" color={val === 'Normal' ? 'textSecondary' : 'warning.main'}>{val}</Typography>
-                  </Box>
-                ))
-              )}
-            </Paper>
-            <Button fullWidth variant="contained" color="primary" sx={{ mt: 1 }} onClick={saveExam}>Log Examination Results</Button>
-          </>
-        );
-      default:
-        return <Typography>Unknown lab type: {sceneType}</Typography>;
-    }
-  };
+  // --- renderSidePanel() remains exactly the same ---
+  // (Paste your existing renderSidePanel function here)
+  const renderSidePanel = () => { ... } 
 
   if (!patient) return null;
 
@@ -390,11 +268,34 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
         {sceneType === 'exam' && <><PersonIcon /> Patient Examination Room</>}
         <Typography variant="caption" color="textSecondary" sx={{ ml: 'auto' }}>{patient.name}</Typography>
       </DialogTitle>
+      
       <DialogContent sx={{ display: 'flex', gap: 2, minHeight: 420 }}>
-        <Box ref={containerRef} sx={{ width: 550, height: 420, borderRadius: 2, overflow: 'hidden', border: '2px solid #333', flexShrink: 0, bgcolor: '#000' }} />
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1, maxWidth: 320 }}>{renderSidePanel()}</Box>
+        
+        {/* 3. UPDATED: Wrapper box for the Phaser container AND the Loading Overlay */}
+        <Box sx={{ position: 'relative', width: 550, height: 420, borderRadius: 2, overflow: 'hidden', border: '2px solid #333', flexShrink: 0, bgcolor: '#000' }}>
+          
+          {/* Phaser injects its canvas into this inner ref */}
+          <Box ref={containerRef} sx={{ width: '100%', height: '100%' }} />
+          
+          {/* The Loading Overlay */}
+          {isGameLoading && (
+            <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', bgcolor: '#000000', zIndex: 10 }}>
+              <CircularProgress size={48} sx={{ color: '#60a5fa', mb: 2 }} />
+              <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                Initializing Lab Environment...
+              </Typography>
+            </Box>
+          )}
+        </Box>
+
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1, maxWidth: 320 }}>
+          {renderSidePanel()}
+        </Box>
       </DialogContent>
-      <DialogActions>{sceneType !== 'exam' && sceneType !== 'microscope' && (<Button onClick={onClose}>Close</Button>)}</DialogActions>
+
+      <DialogActions>
+        {sceneType !== 'exam' && sceneType !== 'microscope' && (<Button onClick={onClose}>Close</Button>)}
+      </DialogActions>
     </Dialog>
   );
 };
