@@ -104,88 +104,216 @@ const ObservationChecklist = ({ checklist, setChecklist, diseaseId, patientObser
   );
 };
 
-// ----- PhaserLabModal (FULLY FIXED) -----
+// ==================== FULLY FIXED PhaserLabModal ====================
 const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
   const gameRef = useRef(null);
   const containerRef = useRef(null);
   const store = useGameStore();
-  
-  // We fetch the patient to power the React Side Panels, 
-  // but we DO NOT include it in the useEffect dependencies below.
-  const patient = store.patients.find(p => p.id === patientId);
-
-  // Loading state for the Phaser canvas
   const [isGameLoading, setIsGameLoading] = useState(true);
+  const [initError, setInitError] = useState(null);
 
+  // Get fresh patient data
+  const patient = store.patients.find(p => p.id === patientId);
+  const disease = patient ? DISEASES[patient.diseaseId] : null;
+
+  // UI state for side panels
   const [checklist, setChecklist] = useState({ shape: '', arrangement: '', stain: '', special: '' });
-  const [stainStep, setStainStep] = useState(0);
+  const [gramErrors, setGramErrors] = useState([]);
+  const [parasitemia, setParasitemia] = useState({ infected: 0, total: 0, percentage: 0 });
+  const [cultureResult, setCultureResult] = useState(null);
   const [examFindings, setExamFindings] = useState({});
   const [zoom, setZoom] = useState(1);
   const [focus, setFocus] = useState(50);
   const [light, setLight] = useState(80);
-  const [parasitemia, setParasitemia] = useState({ infected: 0, total: 0, percentage: 0 });
-  const [gramErrors, setGramErrors] = useState([]);
-  const [cultureResult, setCultureResult] = useState(null);
+  const [stainStep, setStainStep] = useState(0);
 
-  useEffect(() => {
-    // We only need the initial patient state to bootstrap the simulation
-    const initPatient = store.patients.find(p => p.id === patientId);
-    
-    if (!containerRef.current || !initPatient) return;
-
-    const disease = DISEASES[initPatient.diseaseId];
-
-    const sceneConfigs = {
-      microscope: { Scene: MS, initData: { patient: initPatient, onSave: (obs) => store.saveMicroscopeObservations(patientId, obs || checklist) } },
-      gram: { Scene: GS, initData: { disease, onFinish: (result, errors) => { setGramErrors(errors || []); store.recordGramStainResult(patientId, result, errors || []); } } },
-      acidfast: { Scene: AF, initData: { disease, onFinish: (result) => store.recordAcidFastResult(patientId, result) } },
-      bloodsmear: { Scene: BS, initData: { patient: initPatient, onComplete: (infected, total, percentage) => { setParasitemia({ infected, total, percentage }); store.recordBloodSmearResult(patientId, infected, total, percentage); } } },
-      culture: { Scene: CS, initData: { disease, patient: initPatient, onFinish: (result) => { setCultureResult(result); store.saveCultureResult(patientId, result); } } },
-      exam: { Scene: PE, initData: { exam: disease?.physicalExam || {}, onLog: (region, finding) => setExamFindings(prev => ({ ...prev, [region]: finding })), onSave: () => {} } }
-    };
-
-    const cfg = sceneConfigs[sceneType];
-    if (!cfg) return;
-
-    const phaserConfig = {
-      type: Phaser.AUTO,
-      parent: containerRef.current,
-      width: 550,
-      height: 420,
-      backgroundColor: '#000000',
-      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-      banner: false
-    };
-
-    const game = new Phaser.Game(phaserConfig);
-    gameRef.current = game;
-
-    // Use Phaser's built-in ready event to avoid React Strict Mode race conditions
-    game.events.once('ready', () => {
-      if (gameRef.current !== game) return; // Abort if React unmounted us while booting
-      
-      // Use the string sceneType as a safe key (avoids minification bugs)
-      game.scene.add(sceneType, cfg.Scene, true, cfg.initData);
-      setIsGameLoading(false);
-    });
-
-    return () => {
-      if (gameRef.current) {
+  // Clean up previous game instance
+  const destroyGame = () => {
+    if (gameRef.current) {
+      try {
         gameRef.current.destroy(true);
-        gameRef.current = null;
+      } catch (e) {
+        console.warn('Game destroy error', e);
+      }
+      gameRef.current = null;
+    }
+  };
+
+  // Initialize Phaser game when container is ready
+  useEffect(() => {
+    if (!containerRef.current || !patient) return;
+
+    let isMounted = true;
+    let sizePollInterval = null;
+    let initTimeout = null;
+
+    const initGame = () => {
+      if (!isMounted || !containerRef.current) return false;
+      
+      // Ensure container has non-zero dimensions
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        console.log('Container not ready yet, waiting...');
+        return false;
+      }
+
+      destroyGame();
+
+      // Scene configuration
+      const sceneConfigs = {
+        microscope: {
+          Scene: MS,
+          initData: { patient, onSave: (obs) => store.saveMicroscopeObservations(patientId, obs || checklist) }
+        },
+        gram: {
+          Scene: GS,
+          initData: {
+            disease,
+            onFinish: (result, errors) => {
+              setGramErrors(errors || []);
+              store.recordGramStainResult(patientId, result, errors || []);
+            }
+          }
+        },
+        acidfast: {
+          Scene: AF,
+          initData: { disease, onFinish: (result) => store.recordAcidFastResult(patientId, result) }
+        },
+        bloodsmear: {
+          Scene: BS,
+          initData: {
+            patient,
+            onComplete: (infected, total, percentage) => {
+              setParasitemia({ infected, total, percentage });
+              store.recordBloodSmearResult(patientId, infected, total, percentage);
+            }
+          }
+        },
+        culture: {
+          Scene: CS,
+          initData: {
+            disease,
+            patient,
+            onFinish: (result) => {
+              setCultureResult(result);
+              store.saveCultureResult(patientId, result);
+            }
+          }
+        },
+        exam: {
+          Scene: PE,
+          initData: {
+            exam: disease?.physicalExam || {},
+            onLog: (region, finding) => setExamFindings(prev => ({ ...prev, [region]: finding })),
+            onSave: () => {}
+          }
+        }
+      };
+
+      const cfg = sceneConfigs[sceneType];
+      if (!cfg) {
+        setInitError(`Invalid scene type: ${sceneType}`);
+        setIsGameLoading(false);
+        return false;
+      }
+
+      try {
+        const phaserConfig = {
+          type: Phaser.AUTO,
+          parent: containerRef.current,
+          width: 550,
+          height: 420,
+          backgroundColor: '#000000',
+          scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH,
+            width: 550,
+            height: 420
+          },
+          banner: true,
+          audio: { noAudio: true },
+          callbacks: {
+            postBoot: (game) => {
+              if (isMounted && gameRef.current === game) {
+                setIsGameLoading(false);
+              }
+            }
+          }
+        };
+
+        const game = new Phaser.Game(phaserConfig);
+        gameRef.current = game;
+
+        game.events.on('error', (err) => {
+          console.error('Phaser error:', err);
+          if (isMounted) {
+            setInitError(`Game error: ${err?.message || 'Unknown'}`);
+            setIsGameLoading(false);
+          }
+        });
+
+        game.events.once('ready', () => {
+          if (!isMounted || gameRef.current !== game) return;
+          try {
+            if (game.scene.getScene(cfg.Scene.name)) {
+              game.scene.remove(cfg.Scene.name);
+            }
+            game.scene.add(sceneType, cfg.Scene, true, cfg.initData);
+          } catch (sceneErr) {
+            console.error('Scene add error:', sceneErr);
+            setInitError(`Scene error: ${sceneErr.message}`);
+            setIsGameLoading(false);
+          }
+        });
+
+        // Timeout fallback
+        initTimeout = setTimeout(() => {
+          if (isMounted && isGameLoading) {
+            setInitError('Game initialization timed out. Please try again.');
+            setIsGameLoading(false);
+          }
+        }, 8000);
+
+        return true;
+      } catch (err) {
+        console.error('Phaser creation error:', err);
+        setInitError(`Failed to start: ${err.message}`);
+        setIsGameLoading(false);
+        return false;
       }
     };
-  }, [sceneType, patientId]); // CRITICAL FIX: Removed `patient` from dependencies to stop infinite reboots
 
-  // --- HANDLER FUNCTIONS ---
+    // Poll every 100ms until container has size or max attempts
+    let attempts = 0;
+    sizePollInterval = setInterval(() => {
+      attempts++;
+      if (initGame()) {
+        clearInterval(sizePollInterval);
+        clearTimeout(initTimeout);
+      } else if (attempts > 30) {
+        clearInterval(sizePollInterval);
+        if (isMounted && !gameRef.current) {
+          setInitError('Container never became ready. Try reopening.');
+          setIsGameLoading(false);
+        }
+      }
+    }, 100);
+
+    return () => {
+      isMounted = false;
+      if (sizePollInterval) clearInterval(sizePollInterval);
+      if (initTimeout) clearTimeout(initTimeout);
+      destroyGame();
+    };
+  }, [sceneType, patientId, patient]); // Re-run if patient data changes
+
+  // --- Control handlers ---
   const handleSlider = (setting, value) => {
     if (setting === 'zoom') setZoom(value);
     if (setting === 'focus') setFocus(value);
     if (setting === 'light') setLight(value);
-    
-    // Pass the value directly to the active Phaser scene
-    if (gameRef.current && gameRef.current.scene.scenes.length > 0) {
-      const scene = gameRef.current.scene.scenes[0];
+    const scene = gameRef.current?.scene?.scenes?.[0];
+    if (scene) {
       if (setting === 'zoom' && scene.setZoom) scene.setZoom(value);
       if (setting === 'focus' && scene.setFocus) scene.setFocus(value);
       if (setting === 'light' && scene.setLight) scene.setLight(value);
@@ -193,18 +321,16 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
   };
 
   const handleGramStain = (chemicalName) => {
-    if (gameRef.current && gameRef.current.scene.scenes.length > 0) {
-      gameRef.current.scene.scenes[0].applyChemical(chemicalName);
-    }
+    const scene = gameRef.current?.scene?.scenes?.[0];
+    if (scene?.applyChemical) scene.applyChemical(chemicalName);
   };
 
   const handleAcidFast = (stepNum) => {
-    if (gameRef.current && gameRef.current.scene.scenes.length > 0) {
-      gameRef.current.scene.scenes[0].applyChemical(stepNum);
-    }
+    const scene = gameRef.current?.scene?.scenes?.[0];
+    if (scene?.applyChemical) scene.applyChemical(stepNum);
   };
 
-  // --- RENDER SIDE PANEL ---
+  // --- Side panel render (same as your original, keep yours) ---
   const renderSidePanel = () => {
     switch (sceneType) {
       case 'microscope':
@@ -222,12 +348,7 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
                 Save Observations
               </Button>
             </Paper>
-            <ObservationChecklist 
-              checklist={checklist} 
-              setChecklist={setChecklist} 
-              diseaseId={patient.diseaseId} 
-              patientObservations={patient.labFindings?.observations} 
-            />
+            <ObservationChecklist checklist={checklist} setChecklist={setChecklist} diseaseId={patient.diseaseId} patientObservations={patient.labFindings?.observations} />
           </>
         );
       case 'gram':
@@ -286,10 +407,7 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
                   <ListItemText
                     primary={region.charAt(0).toUpperCase() + region.slice(1)}
                     secondary={
-                      <Typography 
-                        variant="body2" 
-                        color={examFindings[region] && examFindings[region] !== 'Normal' ? 'error' : 'textSecondary'}
-                      >
+                      <Typography variant="body2" color={examFindings[region] && examFindings[region] !== 'Normal' ? 'error' : 'textSecondary'}>
                         {examFindings[region] || 'Not examined'}
                       </Typography>
                     }
@@ -353,8 +471,7 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
         <Typography variant="caption" color="textSecondary" sx={{ ml: 'auto' }}>{patient.name}</Typography>
       </DialogTitle>
       <DialogContent sx={{ display: 'flex', gap: 2, minHeight: 420 }}>
-        
-        {/* CRITICAL FIX: DOM Structure Separation */}
+        {/* Phaser canvas container with explicit dimensions */}
         <Box
           sx={{
             width: 550,
@@ -364,49 +481,25 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
             border: '2px solid #333',
             flexShrink: 0,
             bgcolor: '#000',
-            position: 'relative'
+            position: 'relative',
+            minWidth: 550,
+            minHeight: 420
           }}
         >
-          {/* 1. The Container for Phaser (React will not mutate inside here) */}
           <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-
-          {/* 2. The Loading Overlay (Rendered ON TOP of the container, not inside it) */}
-          {isGameLoading && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                bgcolor: 'rgba(0,0,0,0.7)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 10
-              }}
-            >
-              <Box sx={{ mb: 2 }}>
-                <div className="loading-spinner" style={{
-                  width: 40,
-                  height: 40,
-                  border: '4px solid #f3f3f3',
-                  borderTop: '4px solid #3498db',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite'
-                }} />
-              </Box>
-              <Typography variant="body2" sx={{ color: '#fff' }}>
-                Loading laboratory equipment...
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#ccc', mt: 1 }}>
-                Please wait a moment
-              </Typography>
+          {isGameLoading && !initError && (
+            <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', bgcolor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', zIndex: 10 }}>
+              <div className="loading-spinner" style={{ width: 40, height: 40, border: '4px solid #f3f3f3', borderTop: '4px solid #3498db', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+              <Typography variant="body2" sx={{ color: '#fff', mt: 2 }}>Loading laboratory equipment...</Typography>
+            </Box>
+          )}
+          {initError && (
+            <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', bgcolor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', zIndex: 10 }}>
+              <Typography variant="body2" sx={{ color: '#ff6666', mb: 1, textAlign: 'center', px: 2 }}>{initError}</Typography>
+              <Button size="small" variant="contained" onClick={onClose}>Close Lab</Button>
             </Box>
           )}
         </Box>
-
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1, maxWidth: 320 }}>
           {renderSidePanel()}
         </Box>
@@ -416,7 +509,6 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
           <Button onClick={onClose}>Close</Button>
         )}
       </DialogActions>
-
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
