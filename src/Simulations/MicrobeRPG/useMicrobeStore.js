@@ -1,3 +1,4 @@
+// src/Simulations/MicrobeRPG/useMicrobeStore.js
 
 import { create } from 'zustand';
 import confetti from 'canvas-confetti';
@@ -7,7 +8,7 @@ import {
   ACHIEVEMENTS, DURATIONS, ORGANISM_TRAITS
 } from './gameData.js';
 
-export const useGameStore = create((set, get) => ({
+const useGameStore = create((set, get) => ({
   patients: [],
   currentPatient: null,
   currentRoom: 'triage',
@@ -331,3 +332,6 @@ export const useGameStore = create((set, get) => ({
     return scores.sort((a, b) => b.confidence - a.confidence).slice(0, 4);
   }
 }));
+
+export { useGameStore };
+export default useGameStore;
