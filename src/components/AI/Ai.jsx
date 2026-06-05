@@ -32,42 +32,60 @@ const MODEL_NAMES = ['gemini-2.0-flash-exp', 'gemini-1.5-flash']; // fallback
 
 const genAI = new GoogleGenerativeAI(API_KEY);
 
+// ---------- API call: backend first, local direct fallback only in dev ----------
 async function fetchAIResponse(messages, context = "") {
-  if (!API_KEY) return "🔐 API key is missing. Please configure your environment.";
-
-  for (const modelName of MODEL_NAMES) {
+  // 1) Try to use local key only during development and if file exists
+  let localKey = null;
+  if (process.env.NODE_ENV === 'development') {
     try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        systemInstruction: SYSTEM_PROMPT
-      });
-
-      // Convert message history (skip the first AI greeting)
-      const history = messages.slice(1, -1).map(msg => ({
-        role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.text }]
-      }));
-
-      const chat = model.startChat({ history });
-      let userMessage = messages[messages.length - 1].text;
-      if (context) {
-        userMessage = `[System: Student is in "${context}" section. Give hints if relevant.]\n\nStudent: ${userMessage}`;
-      }
-
-      const result = await chat.sendMessage(userMessage);
-      const text = await result.response.text();
-      if (text) return text;
-    } catch (err) {
-      console.warn(`${modelName} failed:`, err);
-      if (err.message?.includes('429')) {
-        return "🕒 The lab is busy. Please wait a moment and try again.";
-      }
-      if (err.message?.includes('API key')) {
-        return "🔐 Invalid API key. Please check your configuration.";
-      }
+      const module = await import('./localKey.js');
+      localKey = module.LOCAL_GEMINI_KEY;
+    } catch (e) {
+      // localKey.js doesn't exist – that's fine
     }
   }
-  return "💡 I'm having trouble connecting. Please check your internet or try again later.";
+
+  // 2) If we have a local key, call Gemini directly (only for dev debugging)
+  if (localKey && process.env.NODE_ENV === 'development') {
+    return callGeminiDirectly(messages, context, localKey);
+  }
+
+  // 3) Otherwise use the secure backend endpoint (Vercel)
+  return callBackendEndpoint(messages, context);
+}
+
+// Direct Gemini call (only used when localKey is present)
+async function callGeminiDirectly(messages, context, apiKey) {
+  const { GoogleGenerativeAI } = await import('@google/generative-ai');
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.0-flash-exp',
+    systemInstruction: SYSTEM_PROMPT
+  });
+
+  const history = messages.slice(1, -1).map(msg => ({
+    role: msg.role === 'user' ? 'user' : 'model',
+    parts: [{ text: msg.text }]
+  }));
+  const chat = model.startChat({ history });
+  let userMessage = messages[messages.length - 1].text;
+  if (context) {
+    userMessage = `[System: Student is in "${context}" section. Give hints if relevant.]\n\nStudent: ${userMessage}`;
+  }
+  const result = await chat.sendMessage(userMessage);
+  return result.response.text();
+}
+
+// Backend call (Vercel serverless function)
+async function callBackendEndpoint(messages, context) {
+  const response = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, context })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Backend error');
+  return data.reply;
 }
 
 // ---------- Simple markdown helper ----------

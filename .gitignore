@@ -28,6 +28,7 @@ lerna-debug.log*
 *.key
 *.pem
 *.crt
+src/components/AI/localKey.js   # <-- ADD THIS LINE
 
 # OS generated files
 .DS_Store

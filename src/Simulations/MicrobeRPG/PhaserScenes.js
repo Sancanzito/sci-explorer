@@ -1,11 +1,11 @@
 // src/Simulations/MicrobeRPG/PhaserScenes.js
-// All enhanced Phaser 3 scenes for the MicrobeRPG laboratory simulation
+// Enhanced Phaser scenes with proper event communication
 
 import Phaser from 'phaser';
 import { DISEASES, MEDIA_OPTIONS, CORRECT_MEDIA_MAP, COLONY_APPEARANCES, STAIN_STEPS } from './gameData.js';
 
 // ============================================================
-// SCENE 1: MICROSCOPE - Interactive viewport with procedural sprites
+// MICROSCOPE SCENE
 // ============================================================
 export class MicroscopeScene extends Phaser.Scene {
   constructor() {
@@ -15,6 +15,7 @@ export class MicroscopeScene extends Phaser.Scene {
     this.light = 80;
     this.organisms = [];
     this.specimenField = 0;
+    this.currentChecklist = { shape: '', arrangement: '', stain: '', special: '' };
   }
 
   init(data) {
@@ -28,7 +29,6 @@ export class MicroscopeScene extends Phaser.Scene {
     this.add.rectangle(0, 0, width, height, 0x1a1a2e).setOrigin(0);
     this.add.text(width / 2, 10, '🔬 Microscope View', { fontSize: '14px', color: '#ccc' }).setOrigin(0.5, 0);
 
-    // Circular viewport mask
     const lens = this.make.graphics();
     lens.fillStyle(0xffffff);
     lens.fillCircle(width / 2, height / 2, Math.min(width, height) * 0.38);
@@ -37,20 +37,16 @@ export class MicroscopeScene extends Phaser.Scene {
     this.viewport = this.add.container(width / 2, height / 2);
     this.viewport.setMask(mask);
 
-    // Background glow (light)
     this.bgLight = this.add.circle(0, 0, 300, 0xdddddd);
     this.viewport.add(this.bgLight);
 
-    // Slide stage (draggable)
     this.stage = this.add.container(0, 0);
     this.viewport.add(this.stage);
 
-    // Slide glass background
     this.slideBg = this.add.rectangle(0, 0, 600, 600, 0xffffff, 0.03);
     this.slideBg.setStrokeStyle(1, 0x88aaff, 0.2);
     this.stage.add(this.slideBg);
 
-    // Grid lines (like a real microscope grid)
     const gridGfx = this.add.graphics();
     gridGfx.lineStyle(1, 0x88aaff, 0.08);
     for (let i = -300; i <= 300; i += 50) {
@@ -62,10 +58,8 @@ export class MicroscopeScene extends Phaser.Scene {
     gridGfx.strokePath();
     this.stage.add(gridGfx);
 
-    // Spawn organisms
     this.spawnOrganisms();
 
-    // Interactive drag area
     const hitArea = this.add.rectangle(0, 0, 600, 600, 0xffffff, 0);
     hitArea.setInteractive(new Phaser.Geom.Rectangle(-300, -300, 600, 600), Phaser.Geom.Rectangle.Contains);
     this.input.setDraggable(hitArea);
@@ -74,16 +68,33 @@ export class MicroscopeScene extends Phaser.Scene {
       this.stage.y = dragY - 250;
     });
 
-    // Field counter label
     this.fieldLabel = this.add.text(width / 2, height - 12, '', { fontSize: '11px', color: '#666' }).setOrigin(0.5);
 
     this.applyLight();
     this.updateBlur();
 
-    // Mouse wheel zoom
     this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
       const zoomDelta = deltaY > 0 ? -0.5 : 0.5;
       this.setZoom(Math.max(1, Math.min(6, this.zoom + zoomDelta)));
+    });
+
+    // EMIT READY EVENT
+    this.events.emit('scene-ready', { type: 'microscope', zoom: this.zoom, focus: this.focus, light: this.light });
+
+    // LISTEN FOR UPDATES FROM REACT
+    this.events.on('update-checklist', (data) => {
+      this.currentChecklist = data;
+      this.events.emit('checklist-updated', this.currentChecklist);
+    });
+
+    this.events.on('save-observations', () => {
+      this.events.emit('observations-saved', {
+        checklist: this.currentChecklist,
+        zoom: this.zoom,
+        focus: this.focus,
+        light: this.light,
+        organisms: this.getOrganismCounts()
+      });
     });
   }
 
@@ -92,7 +103,6 @@ export class MicroscopeScene extends Phaser.Scene {
     const isCOVID = this.disease?.type === 'virus';
 
     if (isCOVID || type === 'none') {
-      // Empty field - no organisms visible for viral infections
       this.add.text(0, -20, 'No organisms visible', { fontSize: '14px', color: '#888' }).setOrigin(0.5);
       return;
     }
@@ -106,7 +116,6 @@ export class MicroscopeScene extends Phaser.Scene {
 
       if (org) {
         org.setPosition(x, y);
-        // Store custom properties for animation
         org._vx = (Math.random() - 0.5) * 0.6;
         org._vy = (Math.random() - 0.5) * 0.6;
         org._type = type;
@@ -120,10 +129,9 @@ export class MicroscopeScene extends Phaser.Scene {
     const g = this.add.graphics();
 
     switch (type) {
-      // ---------- Streptococcus pyogenes ----------
       case 'Streptococcus pyogenes': {
         const chainLen = Phaser.Math.Between(4, 8);
-        const color = 0x8844cc; // Gram-positive purple
+        const color = 0x8844cc;
         g.fillStyle(color, 0.9);
         for (let j = 0; j < chainLen; j++) {
           const offX = j * 6 + (Math.random() - 0.5) * 2;
@@ -132,92 +140,73 @@ export class MicroscopeScene extends Phaser.Scene {
         }
         break;
       }
-      // ---------- Escherichia coli ----------
       case 'Escherichia coli': {
-        const color = 0xff66bb; // Gram-negative pink
+        const color = 0xff66bb;
         g.fillStyle(color, 0.85);
         const rodLen = 12 + Math.random() * 6;
         const rodWid = 4 + Math.random() * 2;
         g.fillRoundedRect(0, 0, rodLen, rodWid, 2);
-        // Nuclear region
         g.fillStyle(0xff88cc, 0.4);
         g.fillCircle(rodLen / 4, rodWid / 2, 1.5);
         g.fillCircle((rodLen * 3) / 4, rodWid / 2, 1.5);
         break;
       }
-      // ---------- Streptococcus pneumoniae ----------
       case 'Streptococcus pneumoniae': {
         const color = 0x9944dd;
         g.fillStyle(color, 0.9);
-        // Capsule halo (faint)
         g.fillStyle(0x9944dd, 0.15);
         g.fillEllipse(-1, 1, 16, 12);
-        // Diplococci pair
         g.fillStyle(color, 0.9);
         g.fillCircle(-3, 0, 4 + Math.random() * 1);
         g.fillCircle(3, 0, 4 + Math.random() * 1);
         break;
       }
-      // ---------- Candida albicans ----------
       case 'Candida albicans': {
         g.fillStyle(0x8844aa, 0.85);
-        // Main yeast cell
         g.fillEllipse(0, 0, 10, 14);
-        // Nucleus
         g.fillStyle(0xaa66cc, 0.6);
         g.fillCircle(0, -1, 2);
-        // Occasional budding
         if (Math.random() > 0.55) {
           g.fillStyle(0x8844aa, 0.7);
           g.fillEllipse(8, -7, 6, 8);
-          // Bud scar
           g.fillStyle(0xaa66cc, 0.3);
           g.fillCircle(4, -4, 1);
         }
-        // Occasional pseudohyphae
         if (Math.random() > 0.7) {
           g.lineStyle(2, 0x8844aa, 0.6);
           g.beginPath();
           g.moveTo(8, -7);
           g.lineTo(16, -14);
           g.strokePath();
-          // Septum
           g.fillStyle(0x8844aa, 0.4);
           g.fillCircle(12, -10, 1.5);
         }
         break;
       }
-      // ---------- Mycobacterium tuberculosis ----------
       case 'Mycobacterium tuberculosis': {
-        g.fillStyle(0xff4444, 0.8); // Acid-fast red
+        g.fillStyle(0xff4444, 0.8);
         const rodLen = 10 + Math.random() * 6;
         const rodWid = 2 + Math.random() * 1;
         g.fillRoundedRect(0, 0, rodLen, rodWid, 1);
-        // Beaded appearance (AFB characteristic)
         g.fillStyle(0xff6666, 0.6);
         for (let b = 0; b < rodLen; b += 3) {
           g.fillCircle(b + 1, rodWid / 2, 0.8);
         }
         break;
       }
-      // ---------- Plasmodium falciparum ----------
       case 'Plasmodium falciparum': {
-        // Red blood cell
         g.fillStyle(0xffaaaa, 0.5);
         g.fillCircle(0, 0, 12);
         g.lineStyle(1, 0xcc6666, 0.6);
         g.strokeCircle(0, 0, 12);
 
-        // Ring form inside RBC
         if (Math.random() > 0.3) {
           const rx = -3 + Math.random() * 6;
           const ry = -3 + Math.random() * 6;
           g.lineStyle(2, 0x8b0000, 0.9);
           g.strokeCircle(rx, ry, 3);
-          // Chromatin dot
           g.fillStyle(0x8b0000, 0.9);
           g.fillCircle(rx + 2, ry - 1, 1);
-          // Second ring (some RBCs have multiple)
           if (Math.random() > 0.8) {
             g.lineStyle(1.5, 0x8b0000, 0.6);
             g.strokeCircle(rx + 5, ry + 3, 2);
@@ -227,14 +216,11 @@ export class MicroscopeScene extends Phaser.Scene {
         }
         break;
       }
-      // ---------- Neisseria meningitidis ----------
       case 'Neisseria meningitidis': {
         const color = 0xff66bb;
         g.fillStyle(color, 0.85);
-        // Diplococci (coffee bean shape)
         g.fillEllipse(-3, 0, 6, 5);
         g.fillEllipse(3, 0, 6, 5);
-        // Intracellular location hint
         g.lineStyle(1, 0xcc88aa, 0.2);
         g.strokeCircle(0, 0, 8);
         break;
@@ -247,17 +233,14 @@ export class MicroscopeScene extends Phaser.Scene {
   }
 
   update(time, delta) {
-    // Animate all organisms
-    const speedMultiplier = Math.min(2, delta / 16); // cap to avoid huge jumps
+    const speedMultiplier = Math.min(2, delta / 16);
     this.organisms.forEach(org => {
       if (!org || !org._type) return;
       const type = org._type;
 
-      // Brownian motion (all organisms)
       org.x += (Math.random() - 0.5) * 0.8 * speedMultiplier;
       org.y += (Math.random() - 0.5) * 0.8 * speedMultiplier;
 
-      // Active motility for flagellated organisms
       if (type === 'Escherichia coli') {
         org.x += org._vx * speedMultiplier;
         org.y += org._vy * speedMultiplier;
@@ -268,7 +251,6 @@ export class MicroscopeScene extends Phaser.Scene {
       }
     });
 
-    // Update field label
     const zoomNames = { 1: '10x', 3: '40x', 6: '100x' };
     const zoomLabel = Object.entries(zoomNames).reduce((acc, [k, v]) =>
       Math.abs(this.zoom - parseFloat(k)) < 0.3 ? v : acc, 'Custom');
@@ -284,24 +266,36 @@ export class MicroscopeScene extends Phaser.Scene {
 
   updateBlur() {
     const deviation = Math.abs(50 - this.focus);
-    const alpha = Math.max(0.15, 1 - (deviation / 55));
-    this.stage.setAlpha(alpha);
+    const blurAmount = (deviation / 55) * 8; // Up to 8px blur
+    
+    // Apply Gaussian blur effect
+    if (this.blur) {
+      this.blur.destroy();
+    }
+    
+    if (blurAmount > 0) {
+      this.blur = this.cameras.main.postFX.addBlur(blurAmount, blurAmount);
+    }
+    
     this.viewport.setScale(this.zoom);
   }
 
   setZoom(val) {
     this.zoom = Math.max(1, Math.min(6, val));
     this.updateBlur();
+    this.events.emit('zoom-changed', { zoom: this.zoom });
   }
 
   setFocus(val) {
     this.focus = Math.max(0, Math.min(100, val));
     this.updateBlur();
+    this.events.emit('focus-changed', { focus: this.focus });
   }
 
   setLight(val) {
     this.light = Math.max(0, Math.min(100, val));
     this.applyLight();
+    this.events.emit('light-changed', { light: this.light });
   }
 
   getOrganismCounts() {
@@ -313,7 +307,7 @@ export class MicroscopeScene extends Phaser.Scene {
 }
 
 // ============================================================
-// SCENE 2: GRAM STAIN - 4-step workflow with procedural errors
+// GRAM STAIN SCENE
 // ============================================================
 export class GramStainScene extends Phaser.Scene {
   constructor() {
@@ -322,6 +316,7 @@ export class GramStainScene extends Phaser.Scene {
     this.alcoholCount = 0;
     this.errors = [];
     this.disease = null;
+    this.startTime = null;
   }
 
   init(data) {
@@ -333,34 +328,31 @@ export class GramStainScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     this.add.rectangle(0, 0, width, height, 0x1a1a2e).setOrigin(0);
 
-    // Lab bench
     this.add.rectangle(0, height - 60, width, 120, 0x333355).setOrigin(0).setAlpha(0.5);
 
-    // Slide
     this.slide = this.add.rectangle(width / 2, height / 2 - 20, 300, 160, 0xeeeeee);
     this.slide.setStrokeStyle(3, 0xffffff);
 
-    // Slide label
     this.stepLabel = this.add.text(width / 2, 15, 'Gram Stain Procedure', {
       fontSize: '16px', color: '#fff', fontStyle: 'bold'
     }).setOrigin(0.5, 0);
 
-    // Step indicator
     this.progressText = this.add.text(width / 2, 35, 'Step 0/4: Place slide', {
       fontSize: '12px', color: '#aaa'
     }).setOrigin(0.5, 0);
 
-    // Result label
     this.resultLabel = this.add.text(width / 2, height / 2 + 100, '', {
       fontSize: '14px', color: '#ffd700'
     }).setOrigin(0.5, 0.5);
 
-    // Error label
     this.errorLabel = this.add.text(width / 2, height / 2 + 120, '', {
       fontSize: '11px', color: '#ff6666'
     }).setOrigin(0.5, 0.5);
 
-    // Chemical bottles visualization (decorative)
+    this.timerText = this.add.text(width / 2, 55, 'Timer: 00:00', {
+      fontSize: '11px', color: '#aaa'
+    }).setOrigin(0.5, 0);
+
     const bottles = STAIN_STEPS.gram;
     bottles.forEach((b, i) => {
       const bx = 40 + i * 130;
@@ -372,6 +364,20 @@ export class GramStainScene extends Phaser.Scene {
         fontSize: '8px', color: '#ccc'
       }).setOrigin(0.5);
     });
+
+    this.startTime = this.time.now;
+
+    // EMIT READY EVENT
+    this.events.emit('scene-ready', { type: 'gram', step: this.step, errors: this.errors });
+
+    // LISTEN FOR COMMANDS FROM REACT
+    this.events.on('apply-chemical', (data) => {
+      this.applyChemical(data.chemicalName);
+    });
+
+    this.events.on('reset-procedure', () => {
+      this.reset();
+    });
   }
 
   applyChemical(chemicalName) {
@@ -379,28 +385,22 @@ export class GramStainScene extends Phaser.Scene {
     const expectedStep = this.step;
     const expectedChemical = STAIN_STEPS.gram[expectedStep]?.name || '';
 
-    // Check if sequence is correct
     if (chemicalName !== expectedChemical) {
-      // Check for reapplication of same chemical
-      if (chemicalName === expectedChemical && this.step < 4) {
-        // Same step, let it through
-      } else {
-        this.errors.push(`Wrong sequence: applied ${chemicalName} instead of ${expectedChemical}`);
-        this.errorLabel.setText(`⚠️ Wrong sequence! Expected ${expectedChemical}`);
-        this.time.addEvent({
-          delay: 2000,
-          callback: () => {
-            this.errorLabel.setText('');
-          }
-        });
-        return;
-      }
+      this.errors.push(`Wrong sequence: applied ${chemicalName} instead of ${expectedChemical}`);
+      this.errorLabel.setText(`⚠️ Wrong sequence! Expected ${expectedChemical}`);
+      this.time.addEvent({
+        delay: 2000,
+        callback: () => {
+          this.errorLabel.setText('');
+        }
+      });
+      this.events.emit('error-occurred', { error: this.errors[this.errors.length - 1] });
+      return;
     }
 
     this.step++;
     this.progressText.setText(`Step ${this.step}/4: ${chemicalName}`);
 
-    // Visual transitions
     switch (chemicalName) {
       case 'Crystal Violet':
         this.slide.setFillStyle(0x6a0dad, 0.8);
@@ -413,31 +413,38 @@ export class GramStainScene extends Phaser.Scene {
       case 'Alcohol Decolorizer':
         this.alcoholCount++;
         if (this.alcoholCount >= 3) {
-          // Over-decolorized: slide becomes very pale (false gram-negative)
           this.slide.setFillStyle(0xdddddd, 0.95);
           this.errors.push('Over-decolorization: excess alcohol removed CV from Gram-positive cells');
           this.errorLabel.setText('⚠️ Excess alcohol! Slide over-decolorized.');
+          this.events.emit('procedural-error', { type: 'over-decolorization' });
         } else {
           this.slide.setFillStyle(0xcccccc, 0.6);
         }
         this.shakeEffect();
         break;
       case 'Safranin':
+        let resultGram = 'gram_negative';
+        let resultText = '';
         if (this.alcoholCount >= 3) {
-          // Over-decolorized → always appears gram-negative
           this.slide.setFillStyle(0xff66bb, 0.7);
-          this.resultLabel.setText('Result: Gram Negative (Pink) - May be FALSE due to over-decolorization');
-          this.onFinish('gram_negative', this.errors);
+          resultText = 'Result: Gram Negative (Pink) - May be FALSE due to over-decolorization';
         } else if (this.disease?.observations?.gram === 'gram_positive') {
           this.slide.setFillStyle(0x6a0dad, 0.9);
-          this.resultLabel.setText('✓ Result: Gram Positive (Purple)');
-          this.onFinish('gram_positive', this.errors);
+          resultGram = 'gram_positive';
+          resultText = '✓ Result: Gram Positive (Purple)';
         } else {
           this.slide.setFillStyle(0xff66bb, 0.8);
-          this.resultLabel.setText('✓ Result: Gram Negative (Pink)');
-          this.onFinish('gram_negative', this.errors);
+          resultText = '✓ Result: Gram Negative (Pink)';
         }
+        this.resultLabel.setText(resultText);
         this.flashEffect(0xffd700);
+        
+        // EMIT RESULT EVENT
+        this.events.emit('procedure-complete', {
+          result: resultGram,
+          errors: this.errors,
+          accuracy: (1 - (this.errors.length / 4)) * 100
+        });
         break;
       default:
         break;
@@ -467,18 +474,29 @@ export class GramStainScene extends Phaser.Scene {
     });
   }
 
+  update(time, delta) {
+    if (this.startTime) {
+      const elapsed = Math.floor((time - this.startTime) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      this.timerText.setText(`Timer: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    }
+  }
+
   reset() {
     this.step = 0;
     this.alcoholCount = 0;
+    this.errors = [];
     this.slide.setFillStyle(0xeeeeee);
     this.progressText.setText('Step 0/4: Place slide');
     this.resultLabel.setText('');
     this.errorLabel.setText('');
+    this.events.emit('procedure-reset', {});
   }
 }
 
 // ============================================================
-// SCENE 3: ACID FAST STAIN - Ziehl-Neelsen procedure
+// ACID FAST SCENE
 // ============================================================
 export class AcidFastScene extends Phaser.Scene {
   constructor() {
@@ -496,11 +514,9 @@ export class AcidFastScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     this.add.rectangle(0, 0, width, height, 0x0d0d1a).setOrigin(0);
 
-    // Slide
     this.slide = this.add.rectangle(width / 2, height / 2 - 20, 300, 160, 0xf5f5f5);
     this.slide.setStrokeStyle(3, 0xffffff);
 
-    // Slide label
     this.add.text(width / 2, 15, 'Ziehl-Neelsen Acid-Fast Stain', {
       fontSize: '15px', color: '#fff', fontStyle: 'bold'
     }).setOrigin(0.5, 0);
@@ -513,9 +529,18 @@ export class AcidFastScene extends Phaser.Scene {
       fontSize: '14px', color: '#ffd700'
     }).setOrigin(0.5, 0.5);
 
-    // Draw AFB organisms on the slide
     this.afbGraphics = this.add.graphics();
     this.drawAFBOrganisms();
+
+    this.events.emit('scene-ready', { type: 'acidfast', step: this.step });
+
+    this.events.on('apply-step', (data) => {
+      this.applyChemical(data.stepNumber);
+    });
+
+    this.events.on('reset-procedure', () => {
+      this.reset();
+    });
   }
 
   drawAFBOrganisms() {
@@ -523,13 +548,11 @@ export class AcidFastScene extends Phaser.Scene {
     const isTB = this.disease?.pathogen === 'Mycobacterium tuberculosis';
 
     if (isAFBPositive || isTB) {
-      // Draw red AFB rods (initially hidden / same as background)
       for (let i = 0; i < 20; i++) {
         const x = Phaser.Math.Between(-120, 120);
         const y = Phaser.Math.Between(-60, 60);
         this.afbGraphics.fillStyle(0xff4444, 0.15);
         this.afbGraphics.fillRoundedRect(x, y, 10 + Math.random() * 6, 2 + Math.random(), 1);
-        // Beaded
         this.afbGraphics.fillStyle(0xff6666, 0.1);
         for (let b = 0; b < 10; b += 3) {
           this.afbGraphics.fillCircle(x + b + 1, y + 1, 0.6);
@@ -547,35 +570,25 @@ export class AcidFastScene extends Phaser.Scene {
     this.progressText.setText(`Step ${stepNumber}/4: ${step.name}`);
 
     switch (stepNumber) {
-      case 1: // Carbol Fuchsin
+      case 1:
         this.slide.setFillStyle(0xff3333, 0.7);
         this.flashEffect(0xff0000);
         break;
-      case 2: // Heat
+      case 2:
         this.slide.setFillStyle(0xcc2222, 0.85);
         this.heatEffect();
-        // AFB rods become more visible
-        this.afbGraphics.clear();
-        this.drawAFBOrganisms();
         this.afbGraphics.setAlpha(0.5);
         break;
-      case 3: // Acid Alcohol
+      case 3:
         this.slide.setFillStyle(0xdddddd, 0.6);
-        // AFB retain red, background loses color
-        this.afbGraphics.clear();
-        this.drawAFBOrganisms();
         this.afbGraphics.setAlpha(0.9);
         break;
-      case 4: // Methylene Blue
+      case 4:
         this.slide.setFillStyle(0x2244aa, 0.4);
-        // Final result: red AFB rods on blue background
-        this.afbGraphics.clear();
-        this.drawAFBOrganisms();
         this.afbGraphics.setAlpha(1.0);
 
         const isAFB = this.disease?.observations?.acidFast === 'positive';
         if (isAFB) {
-          // Draw prominent red rods on blue
           this.afbGraphics.clear();
           for (let i = 0; i < 25; i++) {
             const x = Phaser.Math.Between(-130, 130);
@@ -593,6 +606,10 @@ export class AcidFastScene extends Phaser.Scene {
           this.resultLabel.setText('Acid-Fast Negative: No red rods (only blue background)');
         }
         this.fadeEffect();
+
+        this.events.emit('procedure-complete', {
+          result: isAFB ? 'positive' : 'negative'
+        });
         break;
     }
   }
@@ -640,11 +657,12 @@ export class AcidFastScene extends Phaser.Scene {
     this.resultLabel.setText('');
     this.afbGraphics.clear();
     this.drawAFBOrganisms();
+    this.events.emit('procedure-reset', {});
   }
 }
 
 // ============================================================
-// SCENE 4: BLOOD SMEAR - Parasitemia counting
+// BLOOD SMEAR SCENE
 // ============================================================
 export class BloodSmearScene extends Phaser.Scene {
   constructor() {
@@ -665,32 +683,29 @@ export class BloodSmearScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     this.add.rectangle(0, 0, width, height, 0xfff5ee).setOrigin(0);
 
-    // Title
     this.add.text(width / 2, 12, 'Peripheral Blood Smear', {
       fontSize: '15px', color: '#333', fontStyle: 'bold'
     }).setOrigin(0.5, 0);
 
-    // Counter
     this.counterText = this.add.text(10, 32, 'RBCs: 0 | Infected: 0 | 0.00%', {
       fontSize: '12px', color: '#555'
     });
 
-    // Field count indicator
     this.fieldText = this.add.text(width - 10, 32, 'Field 1/3', {
       fontSize: '11px', color: '#888'
     }).setOrigin(1, 0);
 
-    // Instructions
     this.add.text(width / 2, height - 8, 'Click infected RBCs (ring forms) to count parasitemia', {
       fontSize: '10px', color: '#999'
     }).setOrigin(0.5, 0.5);
 
-    // Parasitemia guide
     this.add.text(5, height - 8, 'Guide: <1% mild, 1-5% moderate, >5% severe', {
       fontSize: '8px', color: '#bbb'
     }).setOrigin(0, 0.5);
 
     this.generateBloodCells(width, height);
+
+    this.events.emit('scene-ready', { type: 'bloodsmear', infected: this.infectedFound, total: this.totalRBCs });
   }
 
   generateBloodCells(width, height) {
@@ -709,7 +724,6 @@ export class BloodSmearScene extends Phaser.Scene {
         const x = startX + col * cellSpacing + offsetX;
         const y = startY + row * cellSpacing * 0.87;
 
-        // Random slight position jitter
         const jx = x + (Math.random() - 0.5) * 3;
         const jy = y + (Math.random() - 0.5) * 3;
         const radius = 11 + Math.random() * 3;
@@ -717,26 +731,22 @@ export class BloodSmearScene extends Phaser.Scene {
         const isInfected = isMalaria && Math.random() < 0.08;
 
         const g = this.add.graphics();
-        // RBC
         const rbcColor = isInfected ? 0xffaaaa : 0xffcccc;
         g.fillStyle(rbcColor, 0.85);
         g.fillCircle(jx, jy, radius);
         g.lineStyle(1, 0xcc8888, 0.5);
         g.strokeCircle(jx, jy, radius);
-        // Central pallor
         g.fillStyle(0xffdddd, 0.3);
         g.fillCircle(jx, jy, radius * 0.35);
 
         this.allRBCs.push({ x: jx, y: jy, radius, g, isInfected, counted: false });
 
         if (isInfected) {
-          // Ring form
           const rx = jx + (Math.random() - 0.5) * 4;
           const ry = jy + (Math.random() - 0.5) * 4;
           const ringG = this.add.graphics();
           ringG.lineStyle(2, 0x8b0000, 0.9);
           ringG.strokeCircle(rx, ry, 3);
-          // Chromatin dot
           ringG.fillStyle(0x8b0000, 0.9);
           ringG.fillCircle(rx + 2, ry - 1, 1.2);
 
@@ -747,7 +757,6 @@ export class BloodSmearScene extends Phaser.Scene {
 
     this.counterText.setText(`RBCs: ${this.totalRBCs} | Infected: 0 | 0.00%`);
 
-    // Make all infected RBCs clickable
     this.infectedRBCs.forEach((item, index) => {
       const hitZone = this.add.circle(item.rbc.x, item.rbc.y, item.rbc.radius + 2, 0xffffff, 0);
       hitZone.setInteractive({ useHandCursor: true });
@@ -776,14 +785,12 @@ export class BloodSmearScene extends Phaser.Scene {
     item.rbc.counted = true;
     this.infectedFound++;
 
-    // Visual feedback - turn green
     item.ringG.clear();
     item.ringG.lineStyle(2, 0x00ff00, 1);
     item.ringG.strokeCircle(item.rx, item.ry, 3);
     item.ringG.fillStyle(0x00ff00, 0.8);
     item.ringG.fillCircle(item.rx + 2, item.ry - 1, 1.2);
 
-    // Pulse animation
     const pulse = this.add.circle(item.rbc.x, item.rbc.y, item.rbc.radius, 0x00ff00, 0.25);
     this.tweens.add({
       targets: pulse,
@@ -797,16 +804,17 @@ export class BloodSmearScene extends Phaser.Scene {
     const percentage = parseFloat(((this.infectedFound / this.totalRBCs) * 100).toFixed(2));
     this.counterText.setText(`RBCs: ${this.totalRBCs} | Infected: ${this.infectedFound} | ${percentage}%`);
 
-    // Check if all infected cells found
+    this.events.emit('rbc-counted', { infected: this.infectedFound, total: this.totalRBCs, percentage });
+
     if (this.infectedFound >= this.infectedRBCs.length) {
       this.counterText.setText(`✓ All infected RBCs found! ${percentage}% parasitemia`);
-      this.onComplete(this.infectedFound, this.totalRBCs, percentage);
+      this.events.emit('scan-complete', { infected: this.infectedFound, total: this.totalRBCs, percentage });
     }
   }
 }
 
 // ============================================================
-// SCENE 5: CULTURE LAB - Media selection and colony growth
+// CULTURE SCENE
 // ============================================================
 export class CultureScene extends Phaser.Scene {
   constructor() {
@@ -826,7 +834,6 @@ export class CultureScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     this.add.rectangle(0, 0, width, height, 0x2a2a3e).setOrigin(0);
 
-    // Title
     this.add.text(width / 2, 15, 'Culture Laboratory', {
       fontSize: '16px', color: '#fff', fontStyle: 'bold'
     }).setOrigin(0.5, 0);
@@ -835,10 +842,8 @@ export class CultureScene extends Phaser.Scene {
       fontSize: '12px', color: '#aaa'
     }).setOrigin(0.5, 0);
 
-    // Petri dishes display area
     this.dishArea = this.add.container(width / 2, height / 2 - 20);
 
-    // Draw empty petri dish
     this.petriDish = this.add.graphics();
     this.petriDish.lineStyle(3, 0x888888, 0.8);
     this.petriDish.strokeEllipse(0, 0, 200, 120);
@@ -846,23 +851,19 @@ export class CultureScene extends Phaser.Scene {
     this.petriDish.fillEllipse(0, 0, 196, 116);
     this.dishArea.add(this.petriDish);
 
-    // Media name label
     this.mediaLabel = this.add.text(0, -10, 'No media selected', {
       fontSize: '13px', color: '#888'
     }).setOrigin(0.5);
     this.dishArea.add(this.mediaLabel);
 
-    // Colonies container (initially empty)
     this.colonyContainer = this.add.container(0, 0);
     this.dishArea.add(this.colonyContainer);
 
-    // Growth label
     this.growthLabel = this.add.text(0, 40, '', {
       fontSize: '11px', color: '#aaa'
     }).setOrigin(0.5);
     this.dishArea.add(this.growthLabel);
 
-    // Media selection buttons
     const plateY = height - 50;
     MEDIA_OPTIONS.forEach((media, i) => {
       const px = 40 + i * (width - 80) / MEDIA_OPTIONS.length;
@@ -883,10 +884,11 @@ export class CultureScene extends Phaser.Scene {
       plate.on('pointerout', () => plate.setStrokeStyle(2, 0xffffff, 0.3));
     });
 
-    // Inoculation loop indicator
     this.loop = this.add.text(10, height - 8, '🔄 Inoculation loop ready', {
       fontSize: '10px', color: '#666'
     });
+
+    this.events.emit('scene-ready', { type: 'culture', selectedMedia: this.selectedMedia });
   }
 
   selectMedia(media, plateElement) {
@@ -894,7 +896,6 @@ export class CultureScene extends Phaser.Scene {
     this.selectedMedia = media.id;
     this.mediaLabel.setText(media.id);
 
-    // Visual feedback
     this.dishArea.setScale(1);
     this.tweens.add({
       targets: this.dishArea,
@@ -904,11 +905,9 @@ export class CultureScene extends Phaser.Scene {
       yoyo: true
     });
 
-    // Clear previous colonies
     this.colonyContainer.removeAll(true);
     this.colonies = [];
 
-    // Check if correct media
     const pathogen = this.disease?.pathogen;
     const correctMedia = CORRECT_MEDIA_MAP[pathogen];
     const colonyInfo = COLONY_APPEARANCES[pathogen];
@@ -919,22 +918,18 @@ export class CultureScene extends Phaser.Scene {
       this.loop.setText('🔄 Inoculation complete - colonies forming...');
       this.growColonies(colonyInfo);
     } else if (correctMedia === null && colonyInfo) {
-      // Organism doesn't grow on standard media
       this.growthLabel.setText('No growth after 48 hours');
       this.growthLabel.setColor('#ffaa44');
-      // Still call onFinish with no growth
       const result = { media: this.selectedMedia, growth: false, description: 'No growth observed' };
-      this.onFinish(result);
+      this.events.emit('culture-result', result);
     } else {
       this.growthLabel.setText('No growth observed');
       this.growthLabel.setColor('#ff6666');
-      // Show a few contaminant colonies
       this.growContaminants();
       const result = { media: this.selectedMedia, growth: false, description: 'No growth observed (contaminants)' };
-      this.onFinish(result);
+      this.events.emit('culture-result', result);
     }
 
-    // Highlight selected
     if (this.lastPlate) this.lastPlate.setStrokeStyle(2, 0xffffff, 0.3);
     if (plateElement) {
       plateElement.setStrokeStyle(3, 0xffff00, 0.8);
@@ -952,32 +947,26 @@ export class CultureScene extends Phaser.Scene {
 
       const colony = this.add.graphics();
 
-      // Base colony
       colony.fillStyle(colonyInfo.color, 0.7);
       colony.fillCircle(cx, cy, size);
 
-      // Colony center (darker)
       colony.fillStyle(colonyInfo.color, 0.5);
       colony.fillCircle(cx - 1, cy - 1, size * 0.5);
 
-      // Beta hemolysis for Strep pyogenes
       if (colonyInfo.hemolysis === 'beta') {
         colony.lineStyle(2, 0xffffcc, 0.2);
         colony.strokeCircle(cx, cy, size + 8);
       }
 
-      // Alpha hemolysis for Strep pneumoniae
       if (colonyInfo.hemolysis === 'alpha') {
         colony.lineStyle(2, 0x88ff88, 0.15);
         colony.strokeCircle(cx, cy, size + 6);
       }
 
-      // Start tiny and grow
       colony.setScale(0.1);
       this.colonies.push(colony);
       this.colonyContainer.add(colony);
 
-      // Staggered growth animation
       this.tweens.add({
         targets: colony,
         scaleX: 1,
@@ -988,7 +977,6 @@ export class CultureScene extends Phaser.Scene {
       });
     }
 
-    // Store result and call onFinish after animations complete
     const result = {
       media: this.selectedMedia,
       growth: true,
@@ -996,9 +984,8 @@ export class CultureScene extends Phaser.Scene {
       description: colonyInfo.description,
       hemolysis: colonyInfo.hemolysis
     };
-    // Delay to allow all colonies to finish growing visually
     this.time.delayedCall(1000, () => {
-      this.onFinish(result);
+      this.events.emit('culture-result', result);
     });
   }
 
@@ -1023,25 +1010,11 @@ export class CultureScene extends Phaser.Scene {
         delay: i * 100
       });
     }
-    // Call onFinish after contaminants appear (no growth, but we still pass a result)
-    this.time.delayedCall(500, () => {
-      const result = { media: this.selectedMedia, growth: false, description: 'No growth observed (contaminants)' };
-      this.onFinish(result);
-    });
-  }
-
-  reset() {
-    this.selectedMedia = null;
-    this.colonyContainer.removeAll(true);
-    this.colonies = [];
-    this.mediaLabel.setText('No media selected');
-    this.growthLabel.setText('');
-    this.loop.setText('🔄 Inoculation loop ready');
   }
 }
 
 // ============================================================
-// SCENE 6: PATIENT EXAMINATION ROOM
+// PATIENT EXAMINATION SCENE
 // ============================================================
 export class PatientExamScene extends Phaser.Scene {
   constructor() {
@@ -1059,28 +1032,23 @@ export class PatientExamScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     this.add.rectangle(0, 0, width, height, 0xd0e8f2).setOrigin(0);
 
-    // Examination bed
     this.add.rectangle(width / 2, height - 20, width - 20, 30, 0x4477aa, 0.3);
     this.add.text(width / 2, 8, 'Patient Examination', {
       fontSize: '14px', color: '#333', fontStyle: 'bold'
     }).setOrigin(0.5, 0);
 
-    // Patient body
     const g = this.add.graphics();
 
-    // Body (torso)
     g.fillStyle(0xffddbb, 1);
     g.fillRoundedRect(width / 2 - 50, 150, 100, 160, 20);
     g.lineStyle(2, 0xccaa88, 0.5);
     g.strokeRoundedRect(width / 2 - 50, 150, 100, 160, 20);
 
-    // Head
     g.fillStyle(0xffddbb, 1);
     g.fillCircle(width / 2, 90, 45);
     g.lineStyle(2, 0xccaa88, 0.5);
     g.strokeCircle(width / 2, 90, 45);
 
-    // Eyes
     g.fillStyle(0xffffff, 0.8);
     g.fillCircle(width / 2 - 12, 85, 8);
     g.fillCircle(width / 2 + 12, 85, 8);
@@ -1088,22 +1056,18 @@ export class PatientExamScene extends Phaser.Scene {
     g.fillCircle(width / 2 - 12, 85, 4);
     g.fillCircle(width / 2 + 12, 85, 4);
 
-    // Mouth
     g.lineStyle(2, 0xcc8888, 0.6);
     g.beginPath();
     g.arc(width / 2, 105, 12, 0.2, Math.PI - 0.2, false);
     g.strokePath();
 
-    // Arms
     g.fillStyle(0xffddbb, 1);
     g.fillRoundedRect(width / 2 - 80, 155, 30, 120, 10);
     g.fillRoundedRect(width / 2 + 50, 155, 30, 120, 10);
 
-    // Legs
     g.fillRoundedRect(width / 2 - 40, 310, 30, 100, 10);
     g.fillRoundedRect(width / 2 + 10, 310, 30, 100, 10);
 
-    // Clickable body regions with labels
     const regions = [
       { id: 'head', x: width / 2, y: 85, r: 30, label: 'Head' },
       { id: 'eyes', x: width / 2, y: 85, r: 15, label: 'Eyes' },
@@ -1113,7 +1077,6 @@ export class PatientExamScene extends Phaser.Scene {
       { id: 'skin', x: width / 2 - 65, y: 225, w: 20, h: 70, label: 'Skin' }
     ];
 
-    // Region labels
     regions.forEach(reg => {
       const lbl = this.add.text(reg.x, reg.y, '', {
         fontSize: '8px', color: '#0066cc', fontStyle: 'bold'
@@ -1141,7 +1104,6 @@ export class PatientExamScene extends Phaser.Scene {
       });
 
       zone.on('pointerdown', () => {
-        // Highlight effect
         const highlight = this.add.circle(reg.x, reg.y, reg.r || Math.max(reg.w, reg.h) / 2, 0x00aaff, 0.35);
         this.tweens.add({
           targets: highlight,
@@ -1154,9 +1116,7 @@ export class PatientExamScene extends Phaser.Scene {
 
         const finding = this.exam[reg.id] || 'Normal';
         this.findings[reg.id] = finding;
-        this.onLog(reg.id, finding);
 
-        // Show finding floating text
         const ft = this.add.text(reg.x, reg.y - 20, finding, {
           fontSize: '9px', color: '#006600', fontStyle: 'bold', backgroundColor: '#ffffffaa',
           padding: { x: 4, y: 2 }
@@ -1168,6 +1128,8 @@ export class PatientExamScene extends Phaser.Scene {
           duration: 2000,
           onComplete: () => ft.destroy()
         });
+
+        this.events.emit('exam-finding', { region: reg.id, finding });
       });
     });
 
@@ -1175,97 +1137,15 @@ export class PatientExamScene extends Phaser.Scene {
       fontSize: '10px', color: '#888'
     }).setOrigin(0.5, 0.5);
 
-    // Findings counter
-    this.add.text(width - 10, height - 8, '6 regions', {
-      fontSize: '9px', color: '#aaa'
-    }).setOrigin(1, 0.5);
+    this.events.emit('scene-ready', { type: 'exam', findings: this.findings });
   }
 }
 
-// ============================================================
-// SCENE 7: OUTCOME SCENE - Patient recovery visualization
-// ============================================================
-export class OutcomeScene extends Phaser.Scene {
-  constructor() {
-    super('OutcomeScene');
-  }
-
-  init(data) {
-    this.patient = data.patient || null;
-    this.vitalsHistory = data.vitalsHistory || [];
-  }
-
-  create() {
-    const { width, height } = this.cameras.main;
-    const bgColor = this.patient?.treatmentPlan?.score === 'correct' ? 0x1a2e1a : 0x2e1a1a;
-    this.add.rectangle(0, 0, width, height, bgColor).setOrigin(0);
-
-    this.add.text(width / 2, 20, `Outcome: ${this.patient?.name || 'Patient'}`, {
-      fontSize: '16px', color: '#fff', fontStyle: 'bold'
-    }).setOrigin(0.5, 0);
-
-    // Recovery arrow
-    const g = this.add.graphics();
-    g.lineStyle(3, 0x44ff44, 0.6);
-    const data = this.vitalsHistory;
-    if (data.length > 1) {
-      g.beginPath();
-      data.forEach((point, i) => {
-        const x = (width - 40) * (i / (data.length - 1)) + 20;
-        const y = height - 40 - (point.temp / 42) * (height - 80);
-        if (i === 0) g.moveTo(x, y);
-        else g.lineTo(x, y);
-      });
-      g.strokePath();
-    }
-
-    // Day markers
-    data.forEach((point, i) => {
-      const x = (width - 40) * (i / (data.length - 1)) + 20;
-      this.add.text(x, height - 22, `D${point.day}`, {
-        fontSize: '9px', color: '#888'
-      }).setOrigin(0.5, 0);
-    });
-
-    // Status indicator
-    const status = this.patient?.treatmentPlan?.score === 'correct' ? '✓ RECOVERED' :
-      this.patient?.treatmentPlan?.score === 'partial' ? '⚠ IMPROVING' : '✗ DETERIORATING';
-    const statusColor = this.patient?.treatmentPlan?.score === 'correct' ? '#44ff44' :
-      this.patient?.treatmentPlan?.score === 'partial' ? '#ffaa00' : '#ff4444';
-
-    this.add.text(width / 2, height / 2, status, {
-      fontSize: '24px', color: statusColor, fontStyle: 'bold'
-    }).setOrigin(0.5, 0.5);
-
-    // Stats
-    const lastVitals = data[data.length - 1];
-    if (lastVitals) {
-      this.add.text(width / 2, height / 2 + 30, `Final Temp: ${lastVitals.temp}°C | HR: ${lastVitals.hr} | O2: ${lastVitals.o2sat}%`, {
-        fontSize: '11px', color: '#ccc'
-      }).setOrigin(0.5, 0.5);
-    }
-  }
-}
-
-// ============================================================
-// SCENE REGISTRY & EXPORTS
-// ============================================================
 export const ALL_SCENES = [
   MicroscopeScene,
   GramStainScene,
   AcidFastScene,
   BloodSmearScene,
   CultureScene,
-  PatientExamScene,
-  OutcomeScene
+  PatientExamScene
 ];
-
-export const SCENE_NAMES = {
-  microscope: 'MicroscopeScene',
-  gram: 'GramStainScene',
-  acidfast: 'AcidFastScene',
-  bloodsmear: 'BloodSmearScene',
-  culture: 'CultureScene',
-  exam: 'PatientExamScene',
-  outcome: 'OutcomeScene'
-};
