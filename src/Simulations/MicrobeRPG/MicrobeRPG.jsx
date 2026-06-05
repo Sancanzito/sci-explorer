@@ -759,3 +759,4 @@ export default function App() {
   useEffect(() => { if (store.patients.length === 0) { for (let i = 0; i < 3; i++) { store.addPatient(store.generatePatient()); } } }, [store]);
   return <HospitalRoom />;
 }
+//end
