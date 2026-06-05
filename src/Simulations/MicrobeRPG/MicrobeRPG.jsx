@@ -26,9 +26,8 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
 
-import { DISEASES, MEDICATION_INVENTORY, DURATIONS, MEDIA_OPTIONS, ACHIEVEMENTS, STAIN_STEPS } from './gameData.js';
+import { DISEASES, MEDICATION_INVENTORY, DURATIONS, ACHIEVEMENTS, STAIN_STEPS } from './gameData.js';
 import { useGameStore } from './useMicrobeStore.js';
 import {
   MicroscopeScene as MS, GramStainScene as GS,
@@ -36,7 +35,7 @@ import {
   CultureScene as CS, PatientExamScene as PE
 } from './PhaserScenes.js';
 
-// ----- ObservationChecklist component (unchanged) -----
+// ----- ObservationChecklist component -----
 const ObservationChecklist = ({ checklist, setChecklist, diseaseId, patientObservations }) => {
   const disease = DISEASES[diseaseId];
   const correct = disease?.correctChecklist || {};
@@ -105,12 +104,14 @@ const ObservationChecklist = ({ checklist, setChecklist, diseaseId, patientObser
   );
 };
 
-// ----- PhaserLabModal (correctly creates Phaser canvas, no GameCanvas) -----
-// ----- PhaserLabModal with loading indicator and postBoot callback -----
+// ----- PhaserLabModal (FULLY FIXED) -----
 const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
   const gameRef = useRef(null);
   const containerRef = useRef(null);
   const store = useGameStore();
+  
+  // We fetch the patient to power the React Side Panels, 
+  // but we DO NOT include it in the useEffect dependencies below.
   const patient = store.patients.find(p => p.id === patientId);
 
   // Loading state for the Phaser canvas
@@ -126,69 +127,217 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
   const [gramErrors, setGramErrors] = useState([]);
   const [cultureResult, setCultureResult] = useState(null);
 
-  const disease = patient ? DISEASES[patient.diseaseId] : null;
-
   useEffect(() => {
-    if (!containerRef.current || !patient) return;
+    // We only need the initial patient state to bootstrap the simulation
+    const initPatient = store.patients.find(p => p.id === patientId);
+    
+    if (!containerRef.current || !initPatient) return;
+
+    const disease = DISEASES[initPatient.diseaseId];
 
     const sceneConfigs = {
-      microscope: { Scene: MS, initData: { patient, onSave: (obs) => store.saveMicroscopeObservations(patientId, obs || checklist) } },
+      microscope: { Scene: MS, initData: { patient: initPatient, onSave: (obs) => store.saveMicroscopeObservations(patientId, obs || checklist) } },
       gram: { Scene: GS, initData: { disease, onFinish: (result, errors) => { setGramErrors(errors || []); store.recordGramStainResult(patientId, result, errors || []); } } },
       acidfast: { Scene: AF, initData: { disease, onFinish: (result) => store.recordAcidFastResult(patientId, result) } },
-      bloodsmear: { Scene: BS, initData: { patient, onComplete: (infected, total, percentage) => { setParasitemia({ infected, total, percentage }); store.recordBloodSmearResult(patientId, infected, total, percentage); } } },
-      culture: { Scene: CS, initData: { disease, patient, onFinish: (result) => { setCultureResult(result); store.saveCultureResult(patientId, result); } } },
+      bloodsmear: { Scene: BS, initData: { patient: initPatient, onComplete: (infected, total, percentage) => { setParasitemia({ infected, total, percentage }); store.recordBloodSmearResult(patientId, infected, total, percentage); } } },
+      culture: { Scene: CS, initData: { disease, patient: initPatient, onFinish: (result) => { setCultureResult(result); store.saveCultureResult(patientId, result); } } },
       exam: { Scene: PE, initData: { exam: disease?.physicalExam || {}, onLog: (region, finding) => setExamFindings(prev => ({ ...prev, [region]: finding })), onSave: () => {} } }
     };
 
     const cfg = sceneConfigs[sceneType];
     if (!cfg) return;
 
-    let timeoutId = null;
-
-    const checkAndStart = () => {
-      if (!containerRef.current) return;
-
-      if (containerRef.current.clientWidth === 0 || containerRef.current.clientHeight === 0) {
-        timeoutId = setTimeout(checkAndStart, 50);
-        return;
-      }
-
-      const phaserConfig = {
-        type: Phaser.AUTO,
-        parent: containerRef.current,
-        width: 550,
-        height: 420,
-        backgroundColor: '#000000',
-        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-        banner: false,
-        callbacks: {
-          postBoot: (game) => {
-            // Add the scene with its name (not the string 'microscope', but the class name)
-            game.scene.add(cfg.Scene.name, cfg.Scene, true, cfg.initData);
-            setIsGameLoading(false);
-          }
-        }
-      };
-
-      const game = new Phaser.Game(phaserConfig);
-      gameRef.current = game;
+    const phaserConfig = {
+      type: Phaser.AUTO,
+      parent: containerRef.current,
+      width: 550,
+      height: 420,
+      backgroundColor: '#000000',
+      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      banner: false
     };
 
-    checkAndStart();
+    const game = new Phaser.Game(phaserConfig);
+    gameRef.current = game;
+
+    // Use Phaser's built-in ready event to avoid React Strict Mode race conditions
+    game.events.once('ready', () => {
+      if (gameRef.current !== game) return; // Abort if React unmounted us while booting
+      
+      // Use the string sceneType as a safe key (avoids minification bugs)
+      game.scene.add(sceneType, cfg.Scene, true, cfg.initData);
+      setIsGameLoading(false);
+    });
 
     return () => {
-      if (timeoutId) clearTimeout(timeoutId);
       if (gameRef.current) {
         gameRef.current.destroy(true);
         gameRef.current = null;
       }
     };
-  }, [sceneType, patientId]);
+  }, [sceneType, patientId]); // CRITICAL FIX: Removed `patient` from dependencies to stop infinite reboots
 
-  // (All handler functions – handleSlider, handleGramStain, etc. – stay exactly as before)
-  // ... (copy your existing handlers here, unchanged) ...
+  // --- HANDLER FUNCTIONS ---
+  const handleSlider = (setting, value) => {
+    if (setting === 'zoom') setZoom(value);
+    if (setting === 'focus') setFocus(value);
+    if (setting === 'light') setLight(value);
+    
+    // Pass the value directly to the active Phaser scene
+    if (gameRef.current && gameRef.current.scene.scenes.length > 0) {
+      const scene = gameRef.current.scene.scenes[0];
+      if (setting === 'zoom' && scene.setZoom) scene.setZoom(value);
+      if (setting === 'focus' && scene.setFocus) scene.setFocus(value);
+      if (setting === 'light' && scene.setLight) scene.setLight(value);
+    }
+  };
 
-  // Render side panel remains the same (renderSidePanel) ...
+  const handleGramStain = (chemicalName) => {
+    if (gameRef.current && gameRef.current.scene.scenes.length > 0) {
+      gameRef.current.scene.scenes[0].applyChemical(chemicalName);
+    }
+  };
+
+  const handleAcidFast = (stepNum) => {
+    if (gameRef.current && gameRef.current.scene.scenes.length > 0) {
+      gameRef.current.scene.scenes[0].applyChemical(stepNum);
+    }
+  };
+
+  // --- RENDER SIDE PANEL ---
+  const renderSidePanel = () => {
+    switch (sceneType) {
+      case 'microscope':
+        return (
+          <>
+            <Paper sx={{ p: 2, mb: 1 }}>
+              <Typography variant="subtitle2" gutterBottom>Microscope Controls</Typography>
+              <Typography variant="caption">Zoom</Typography>
+              <Slider size="small" min={1} max={6} step={1} value={zoom} onChange={(_, v) => handleSlider('zoom', v)} />
+              <Typography variant="caption">Fine Focus</Typography>
+              <Slider size="small" min={0} max={100} value={focus} onChange={(_, v) => handleSlider('focus', v)} />
+              <Typography variant="caption">Light Source</Typography>
+              <Slider size="small" min={0} max={100} value={light} onChange={(_, v) => handleSlider('light', v)} />
+              <Button fullWidth variant="contained" size="small" sx={{ mt: 1 }} onClick={() => store.saveMicroscopeObservations(patientId, checklist)}>
+                Save Observations
+              </Button>
+            </Paper>
+            <ObservationChecklist 
+              checklist={checklist} 
+              setChecklist={setChecklist} 
+              diseaseId={patient.diseaseId} 
+              patientObservations={patient.labFindings?.observations} 
+            />
+          </>
+        );
+      case 'gram':
+        return (
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>Gram Stain Procedure</Typography>
+            <List dense>
+              {STAIN_STEPS.gram.map((step, idx) => (
+                <ListItem key={step.name} disablePadding sx={{ mb: 1 }}>
+                  <Button fullWidth variant="outlined" onClick={() => handleGramStain(step.name)} sx={{ justifyContent: 'flex-start', textTransform: 'none', borderColor: `#${step.color.toString(16).padStart(6, '0')}` }}>
+                    <Box sx={{ width: 12, height: 12, bgcolor: `#${step.color.toString(16).padStart(6, '0')}`, mr: 1, borderRadius: '50%' }} />
+                    <Box sx={{ textAlign: 'left' }}>
+                      <Typography variant="body2">{idx + 1}. {step.name}</Typography>
+                      <Typography variant="caption" color="textSecondary" display="block">{step.description}</Typography>
+                    </Box>
+                  </Button>
+                </ListItem>
+              ))}
+            </List>
+            {gramErrors.length > 0 && (
+              <Box sx={{ mt: 2, p: 1, bgcolor: '#fff0f0', borderRadius: 1 }}>
+                <Typography variant="caption" color="error">Procedural Errors:</Typography>
+                <ul style={{ margin: 0, paddingLeft: 16, fontSize: '12px', color: '#d32f2f' }}>
+                  {gramErrors.map((err, i) => <li key={i}>{err}</li>)}
+                </ul>
+              </Box>
+            )}
+          </Paper>
+        );
+      case 'acidfast':
+        return (
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>Acid-Fast Stain (Ziehl-Neelsen)</Typography>
+            <List dense>
+              {STAIN_STEPS.acidFast.map((step, idx) => (
+                <ListItem key={step.name} disablePadding sx={{ mb: 1 }}>
+                  <Button fullWidth variant="outlined" onClick={() => handleAcidFast(idx + 1)} sx={{ justifyContent: 'flex-start', textTransform: 'none', borderColor: `#${step.color.toString(16).padStart(6, '0')}` }}>
+                    <Box sx={{ width: 12, height: 12, bgcolor: `#${step.color.toString(16).padStart(6, '0')}`, mr: 1, borderRadius: '50%' }} />
+                    <Box sx={{ textAlign: 'left' }}>
+                      <Typography variant="body2">{idx + 1}. {step.name}</Typography>
+                      <Typography variant="caption" color="textSecondary" display="block">{step.description}</Typography>
+                    </Box>
+                  </Button>
+                </ListItem>
+              ))}
+            </List>
+          </Paper>
+        );
+      case 'exam':
+        return (
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>Physical Findings</Typography>
+            <List dense>
+              {['head', 'eyes', 'throat', 'chest', 'abdomen', 'skin'].map(region => (
+                <ListItem key={region} divider sx={{ py: 0.5 }}>
+                  <ListItemText
+                    primary={region.charAt(0).toUpperCase() + region.slice(1)}
+                    secondary={
+                      <Typography 
+                        variant="body2" 
+                        color={examFindings[region] && examFindings[region] !== 'Normal' ? 'error' : 'textSecondary'}
+                      >
+                        {examFindings[region] || 'Not examined'}
+                      </Typography>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+            <Button fullWidth variant="contained" sx={{ mt: 2 }} onClick={onClose}>Finish Examination</Button>
+          </Paper>
+        );
+      case 'bloodsmear':
+        return (
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>Parasitemia Analysis</Typography>
+            <Typography variant="body2">Total RBCs Counted: {parasitemia.total}</Typography>
+            <Typography variant="body2">Infected RBCs: {parasitemia.infected}</Typography>
+            <Box sx={{ mt: 2, p: 1, bgcolor: parasitemia.percentage > 0 ? '#fff0f0' : '#f0f8f0', borderRadius: 1 }}>
+              <Typography variant="subtitle1" align="center" color={parasitemia.percentage > 0 ? 'error' : 'success.main'}>
+                {parasitemia.percentage}% Parasitemia
+              </Typography>
+            </Box>
+          </Paper>
+        );
+      case 'culture':
+        return (
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>Culture Results</Typography>
+            {cultureResult ? (
+              <Box>
+                <Typography variant="body2"><strong>Media:</strong> {cultureResult.media}</Typography>
+                <Typography variant="body2"><strong>Growth:</strong> {cultureResult.growth ? 'Positive' : 'Negative'}</Typography>
+                {cultureResult.growth && (
+                  <>
+                    <Typography variant="body2"><strong>Count:</strong> ~{cultureResult.colonyCount} CFU</Typography>
+                    <Typography variant="body2"><strong>Appearance:</strong> {cultureResult.description}</Typography>
+                    <Typography variant="body2"><strong>Hemolysis:</strong> {cultureResult.hemolysis || 'None'}</Typography>
+                  </>
+                )}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="textSecondary">Select a media plate to inoculate.</Typography>
+            )}
+          </Paper>
+        );
+      default:
+        return null;
+    }
+  };
 
   if (!patient) return null;
 
@@ -204,8 +353,9 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
         <Typography variant="caption" color="textSecondary" sx={{ ml: 'auto' }}>{patient.name}</Typography>
       </DialogTitle>
       <DialogContent sx={{ display: 'flex', gap: 2, minHeight: 420 }}>
+        
+        {/* CRITICAL FIX: DOM Structure Separation */}
         <Box
-          ref={containerRef}
           sx={{
             width: 550,
             height: 420,
@@ -214,13 +364,13 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
             border: '2px solid #333',
             flexShrink: 0,
             bgcolor: '#000',
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+            position: 'relative'
           }}
         >
-          {/* Loading overlay – visible while isGameLoading is true */}
+          {/* 1. The Container for Phaser (React will not mutate inside here) */}
+          <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+
+          {/* 2. The Loading Overlay (Rendered ON TOP of the container, not inside it) */}
           {isGameLoading && (
             <Box
               sx={{
@@ -234,8 +384,7 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                zIndex: 10,
-                borderRadius: 2
+                zIndex: 10
               }}
             >
               <Box sx={{ mb: 2 }}>
@@ -257,6 +406,7 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
             </Box>
           )}
         </Box>
+
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1, maxWidth: 320 }}>
           {renderSidePanel()}
         </Box>
@@ -267,7 +417,6 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
         )}
       </DialogActions>
 
-      {/* Add CSS animation keyframes for the spinner (inside a style tag or global CSS) */}
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
@@ -278,7 +427,7 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
   );
 };
 
-// ----- PharmacyPanel (unchanged) -----
+// ----- PharmacyPanel -----
 const PharmacyPanel = () => {
   const store = useGameStore();
   const patient = store.currentPatient;
@@ -336,7 +485,7 @@ const PharmacyPanel = () => {
   );
 };
 
-// ----- HospitalDashboard (unchanged) -----
+// ----- HospitalDashboard -----
 const HospitalDashboard = () => {
   const store = useGameStore();
   const { achievements, outcomeHistory, diagnosticStats, reputation, money, hospitalDay } = store;
@@ -373,7 +522,7 @@ const HospitalDashboard = () => {
   );
 };
 
-// ----- TriagePanel (unchanged) -----
+// ----- TriagePanel -----
 const TriagePanel = ({ patients, onAdmit }) => {
   const store = useGameStore();
   const unadmitted = patients.filter(p => !p.admitted);
@@ -409,7 +558,7 @@ const TriagePanel = ({ patients, onAdmit }) => {
   );
 };
 
-// ----- WardPanel (fixed chart container) -----
+// ----- WardPanel -----
 const WardPanel = ({ patients, onSelectPatient }) => {
   const store = useGameStore();
   const admitted = patients.filter(p => p.admitted);
@@ -449,7 +598,7 @@ const WardPanel = ({ patients, onSelectPatient }) => {
               <Box>
                 <Typography variant="caption" color="textSecondary">Fever Trend:</Typography>
                 <Box sx={{ width: '100%', height: 60, minHeight: 60, position: 'relative' }}>
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height={60} minWidth={1}>
                     <LineChart data={p.vitalsHistory} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <Line type="monotone" dataKey="temp" stroke="#ff4d4f" strokeWidth={2} dot={false} />
                       <Line type="monotone" dataKey="hr" stroke="#60a5fa" strokeWidth={1} dot={false} opacity={0.5} />
@@ -479,7 +628,7 @@ const WardPanel = ({ patients, onSelectPatient }) => {
   );
 };
 
-// ----- LabPanel (unchanged) -----
+// ----- LabPanel -----
 const LabPanel = ({ currentPatient }) => {
   const store = useGameStore();
 
@@ -563,7 +712,14 @@ const HospitalRoom = () => {
           <Box sx={{ mb: 2 }}><HospitalDashboard /></Box>
           <Paper sx={{ maxHeight: 400, overflow: 'auto' }}>
             <List dense>
-              {store.observationLog.map((log, i) => <ListItem key={i} divider><ListItemText primary={log.msg} secondary={log.time} primaryTypographyProps={{ variant: 'body2' }} secondaryTypographyProps={{ variant: 'caption' }} /></ListItem>)}
+              {store.observationLog.map((log, i) => (
+                <ListItem key={i} divider>
+                  <ListItemText 
+                    primary={<Typography variant="body2">{log.msg}</Typography>} 
+                    secondary={<Typography variant="caption" color="textSecondary">{log.time}</Typography>} 
+                  />
+                </ListItem>
+              ))}
               {store.observationLog.length === 0 && <ListItem><ListItemText primary="No activity yet. Start by admitting patients." /></ListItem>}
             </List>
           </Paper>
