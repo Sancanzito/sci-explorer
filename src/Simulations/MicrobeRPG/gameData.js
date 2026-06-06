@@ -1,6 +1,8 @@
 // src/Simulations/MicrobeRPG/gameData.js
 // All data constants for the MicrobeRPG laboratory simulation
 
+// Replace in src/Simulations/MicrobeRPG/gameData.js
+
 export const DISEASES = {
   'strep-throat': {
     name: 'Streptococcal Pharyngitis', pathogen: 'Streptococcus pyogenes', type: 'bacteria',
@@ -8,9 +10,9 @@ export const DISEASES = {
     physicalExam: { head: 'Normal', eyes: 'Normal', throat: 'Erythema, tonsillar exudate', chest: 'Clear', abdomen: 'Normal', skin: 'Normal' },
     observations: { gram: 'gram_positive', morphology: 'cocci', arrangement: 'chains', special: 'beta_hemolysis' },
     correctChecklist: { shape: 'cocci', arrangement: 'chains', stain: 'gram_positive', special: 'none' },
-    cultureMedia: 'Blood Agar',
-    cultureResult: 'Beta-hemolytic colonies',
-    treatment: { drug: 'Amoxicillin', dose: '500mg', frequency: 'TID', days: 10 }
+    cultureMedia: 'Blood Agar', cultureResult: 'Beta-hemolytic colonies',
+    treatments: [{ drug: 'Amoxicillin', dose: '500mg', frequency: 'TID', days: 10 }],
+    fallbackClass: 'Macrolide' // Used if resistant or allergic
   },
   'uti': {
     name: 'Urinary Tract Infection', pathogen: 'Escherichia coli', type: 'bacteria',
@@ -18,9 +20,9 @@ export const DISEASES = {
     physicalExam: { head: 'Normal', eyes: 'Normal', throat: 'Normal', chest: 'Clear', abdomen: 'Suprapubic tenderness', skin: 'Normal' },
     observations: { gram: 'gram_negative', morphology: 'bacilli', arrangement: 'single', special: 'lactose_fermenter' },
     correctChecklist: { shape: 'bacilli', arrangement: 'single', stain: 'gram_negative', special: 'none' },
-    cultureMedia: 'MacConkey Agar',
-    cultureResult: 'Pink lactose-fermenting colonies',
-    treatment: { drug: 'Ciprofloxacin', dose: '500mg', frequency: 'BID', days: 7 }
+    cultureMedia: 'MacConkey Agar', cultureResult: 'Pink lactose-fermenting colonies',
+    treatments: [{ drug: 'Ciprofloxacin', dose: '500mg', frequency: 'BID', days: 7 }],
+    fallbackClass: 'Cephalosporin'
   },
   'pneumonia': {
     name: 'Community-Acquired Pneumonia', pathogen: 'Streptococcus pneumoniae', type: 'bacteria',
@@ -28,9 +30,9 @@ export const DISEASES = {
     physicalExam: { head: 'Normal', eyes: 'Normal', throat: 'Normal', chest: 'Crackles in right lower lobe', abdomen: 'Normal', skin: 'Normal' },
     observations: { gram: 'gram_positive', morphology: 'cocci', arrangement: 'pairs', special: 'capsule' },
     correctChecklist: { shape: 'cocci', arrangement: 'pairs', stain: 'gram_positive', special: 'capsule' },
-    cultureMedia: 'Blood Agar',
-    cultureResult: 'Alpha-hemolytic (green) colonies',
-    treatment: { drug: 'Azithromycin', dose: '500mg', frequency: 'Daily', days: 5 }
+    cultureMedia: 'Blood Agar', cultureResult: 'Alpha-hemolytic (green) colonies',
+    treatments: [{ drug: 'Azithromycin', dose: '500mg', frequency: 'Daily', days: 5 }],
+    fallbackClass: 'Fluoroquinolone'
   },
   'tuberculosis': {
     name: 'Pulmonary Tuberculosis', pathogen: 'Mycobacterium tuberculosis', type: 'bacteria',
@@ -38,9 +40,14 @@ export const DISEASES = {
     physicalExam: { head: 'Normal', eyes: 'Normal', throat: 'Normal', chest: 'Apical crepitations', abdomen: 'Normal', skin: 'Pale' },
     observations: { gram: 'none', acidFast: 'positive', morphology: 'bacilli', arrangement: 'single', special: 'slow_grower' },
     correctChecklist: { shape: 'bacilli', arrangement: 'single', stain: 'acid_fast', special: 'none' },
-    cultureMedia: 'Lowenstein-Jensen',
-    cultureResult: 'Buff-colored colonies (slow growth - 4+ weeks)',
-    treatment: { drug: 'Rifampin', dose: '600mg', frequency: 'Daily', days: 180 }
+    cultureMedia: 'Lowenstein-Jensen', cultureResult: 'Buff-colored colonies (slow growth - 4+ weeks)',
+    treatments: [
+      { drug: 'Rifampin', dose: '600mg', frequency: 'Daily', days: 180 },
+      { drug: 'Isoniazid', dose: '5mg/kg', frequency: 'Daily', days: 180 },
+      { drug: 'Pyrazinamide', dose: '1g', frequency: 'Daily', days: 60 },
+      { drug: 'Ethambutol', dose: '800mg', frequency: 'Daily', days: 60 }
+    ],
+    fallbackClass: null // TB requires strict regimen
   },
   'meningitis': {
     name: 'Bacterial Meningitis', pathogen: 'Neisseria meningitidis', type: 'bacteria',
@@ -48,9 +55,9 @@ export const DISEASES = {
     physicalExam: { head: 'Nuchal rigidity', eyes: 'Photophobia', throat: 'Normal', chest: 'Clear', abdomen: 'Normal', skin: 'Petechial rash' },
     observations: { gram: 'gram_negative', morphology: 'cocci', arrangement: 'pairs', special: 'intracellular' },
     correctChecklist: { shape: 'cocci', arrangement: 'pairs', stain: 'gram_negative', special: 'capsule' },
-    cultureMedia: 'Chocolate Agar',
-    cultureResult: 'Gray mucoid colonies',
-    treatment: { drug: 'Ceftriaxone', dose: '2g', frequency: 'BID', days: 7 }
+    cultureMedia: 'Chocolate Agar', cultureResult: 'Gray mucoid colonies',
+    treatments: [{ drug: 'Ceftriaxone', dose: '2g', frequency: 'BID', days: 7 }],
+    fallbackClass: 'Penicillin'
   },
   'candidiasis': {
     name: 'Oral Candidiasis (Thrush)', pathogen: 'Candida albicans', type: 'fungi',
@@ -58,9 +65,9 @@ export const DISEASES = {
     physicalExam: { head: 'Normal', eyes: 'Normal', throat: 'White curd-like plaques on tongue/palate', chest: 'Clear', abdomen: 'Normal', skin: 'Normal' },
     observations: { gram: 'gram_positive', morphology: 'yeast', arrangement: 'clusters', special: 'pseudohyphae' },
     correctChecklist: { shape: 'yeast', arrangement: 'clusters', stain: 'gram_positive', special: 'pseudohyphae' },
-    cultureMedia: 'Sabouraud Agar',
-    cultureResult: 'Cream-colored yeast colonies',
-    treatment: { drug: 'Fluconazole', dose: '200mg', frequency: 'Daily', days: 7 }
+    cultureMedia: 'Sabouraud Agar', cultureResult: 'Cream-colored yeast colonies',
+    treatments: [{ drug: 'Fluconazole', dose: '200mg', frequency: 'Daily', days: 7 }],
+    fallbackClass: 'Antifungal'
   },
   'malaria': {
     name: 'Malaria', pathogen: 'Plasmodium falciparum', type: 'protozoa',
@@ -68,10 +75,9 @@ export const DISEASES = {
     physicalExam: { head: 'Normal', eyes: 'Pallor', throat: 'Normal', chest: 'Clear', abdomen: 'Splenomegaly', skin: 'Jaundice' },
     observations: { gram: 'none', morphology: 'ring_form', arrangement: 'intracellular', special: 'parasitemia' },
     correctChecklist: { shape: 'ring_form', arrangement: 'single', stain: 'none', special: 'ring_forms' },
-    cultureMedia: null,
-    cultureResult: null,
-    expectedParasitemia: 2.5,
-    treatment: { drug: 'Artemisinin Combination', dose: 'Standard', frequency: 'BID', days: 3 }
+    cultureMedia: null, cultureResult: null,
+    treatments: [{ drug: 'Artemisinin Combination', dose: 'Standard', frequency: 'BID', days: 3 }],
+    fallbackClass: null
   },
   'covid': {
     name: 'COVID-19', pathogen: 'SARS-CoV-2', type: 'virus',
@@ -79,70 +85,70 @@ export const DISEASES = {
     physicalExam: { head: 'Normal', eyes: 'Normal', throat: 'Mild erythema', chest: 'Bilateral diffuse wheezing', abdomen: 'Normal', skin: 'Normal' },
     observations: { gram: 'none', morphology: 'none', arrangement: 'none', special: 'none' },
     correctChecklist: { shape: 'none', arrangement: 'none', stain: 'none', special: 'none' },
-    cultureMedia: null,
-    cultureResult: null,
-    treatment: { drug: 'Supportive Care', dose: 'N/A', frequency: 'PRN', days: 14 }
+    cultureMedia: null, cultureResult: null,
+    treatments: [{ drug: 'Supportive Care', dose: 'N/A', frequency: 'PRN', days: 14 }],
+    fallbackClass: null
   }
 };
 
 export const MEDICATION_INVENTORY = {
-  'Amoxicillin': { class: 'Penicillin', doseRange: ['250mg', '500mg', '1g'], freqRange: ['BID', 'TID'], category: 'antibiotic' },
-  'Penicillin': { class: 'Penicillin', doseRange: ['250mg', '500mg', '1g'], freqRange: ['BID', 'QID'], category: 'antibiotic' },
-  'Ciprofloxacin': { class: 'Fluoroquinolone', doseRange: ['250mg', '500mg'], freqRange: ['BID'], category: 'antibiotic' },
-  'Azithromycin': { class: 'Macrolide', doseRange: ['250mg', '500mg'], freqRange: ['Daily'], category: 'antibiotic' },
-  'Ceftriaxone': { class: 'Cephalosporin', doseRange: ['1g', '2g'], freqRange: ['Daily', 'BID'], category: 'antibiotic' },
-  'Rifampin': { class: 'Antimycobacterial', doseRange: ['300mg', '600mg'], freqRange: ['Daily'], category: 'antibiotic' },
-  'Isoniazid': { class: 'Antimycobacterial', doseRange: ['300mg', '5mg/kg'], freqRange: ['Daily'], category: 'antibiotic' },
-  'Pyrazinamide': { class: 'Antimycobacterial', doseRange: ['500mg', '1g'], freqRange: ['Daily'], category: 'antibiotic' },
-  'Ethambutol': { class: 'Antimycobacterial', doseRange: ['400mg', '800mg'], freqRange: ['Daily'], category: 'antibiotic' },
-  'Fluconazole': { class: 'Antifungal', doseRange: ['100mg', '200mg', '400mg'], freqRange: ['Daily'], category: 'antifungal' },
-  'Nystatin': { class: 'Antifungal', doseRange: ['100kU', '500kU'], freqRange: ['QID'], category: 'antifungal' },
-  'Artemisinin Combination': { class: 'Antimalarial', doseRange: ['Standard'], freqRange: ['BID'], category: 'antimalarial' },
-  'Supportive Care': { class: 'General', doseRange: ['N/A'], freqRange: ['PRN'], category: 'supportive' },
-  'Ibuprofen': { class: 'NSAID', doseRange: ['200mg', '400mg', '600mg'], freqRange: ['QID', 'PRN'], category: 'supportive' }
+  'Amoxicillin': { class: 'Penicillin', doseRange: ['250mg', '500mg', '1g'], freqRange: ['BID', 'TID'], category: 'antibiotic', cost: 15 },
+  'Penicillin': { class: 'Penicillin', doseRange: ['250mg', '500mg', '1g'], freqRange: ['BID', 'QID'], category: 'antibiotic', cost: 10 },
+  'Ciprofloxacin': { class: 'Fluoroquinolone', doseRange: ['250mg', '500mg'], freqRange: ['BID'], category: 'antibiotic', cost: 45 },
+  'Azithromycin': { class: 'Macrolide', doseRange: ['250mg', '500mg'], freqRange: ['Daily'], category: 'antibiotic', cost: 30 },
+  'Ceftriaxone': { class: 'Cephalosporin', doseRange: ['1g', '2g'], freqRange: ['Daily', 'BID'], category: 'antibiotic', cost: 120 },
+  'Rifampin': { class: 'Antimycobacterial', doseRange: ['300mg', '600mg'], freqRange: ['Daily'], category: 'antibiotic', cost: 80 },
+  'Isoniazid': { class: 'Antimycobacterial', doseRange: ['300mg', '5mg/kg'], freqRange: ['Daily'], category: 'antibiotic', cost: 50 },
+  'Pyrazinamide': { class: 'Antimycobacterial', doseRange: ['500mg', '1g'], freqRange: ['Daily'], category: 'antibiotic', cost: 60 },
+  'Ethambutol': { class: 'Antimycobacterial', doseRange: ['400mg', '800mg'], freqRange: ['Daily'], category: 'antibiotic', cost: 55 },
+  'Fluconazole': { class: 'Antifungal', doseRange: ['100mg', '200mg', '400mg'], freqRange: ['Daily'], category: 'antifungal', cost: 40 },
+  'Nystatin': { class: 'Antifungal', doseRange: ['100kU', '500kU'], freqRange: ['QID'], category: 'antifungal', cost: 25 },
+  'Artemisinin Combination': { class: 'Antimalarial', doseRange: ['Standard'], freqRange: ['BID'], category: 'antimalarial', cost: 90 },
+  'Supportive Care': { class: 'General', doseRange: ['N/A'], freqRange: ['PRN'], category: 'supportive', cost: 5 },
+  'Ibuprofen': { class: 'NSAID', doseRange: ['200mg', '400mg', '600mg'], freqRange: ['QID', 'PRN'], category: 'supportive', cost: 8 }
 };
 
 export const DURATIONS = [3, 5, 7, 10, 14, 21, 28, 180];
 
 export const ORGANISM_TRAITS = {
   'Streptococcus pyogenes': {
-    morphology: { cocci: 5, bacilli: -5, diplococci: 2, yeast: -5 },
+    morphology: { cocci: 5, bacilli: -5, yeast: -5 },
     arrangement: { chains: 5, pairs: 1, clusters: -2, single: -3 },
     stain: { gram_positive: 5, gram_negative: -5, acid_fast: -5 },
     special: { budding: -5, pseudohyphae: -5, capsule: 1, ring_forms: -5, spores: -5 }
   },
   'Escherichia coli': {
-    morphology: { bacilli: 5, cocci: -5, diplococci: -3, yeast: -5 },
+    morphology: { bacilli: 5, cocci: -5, yeast: -5 },
     arrangement: { single: 3, chains: -3, pairs: -1, clusters: -3 },
     stain: { gram_negative: 5, gram_positive: -5, acid_fast: -5 },
     special: { budding: -5, pseudohyphae: -5, capsule: 1, ring_forms: -5, spores: -5 }
   },
   'Streptococcus pneumoniae': {
-    morphology: { cocci: 5, bacilli: -5, diplococci: 5, yeast: -5 },
+    morphology: { cocci: 5, bacilli: -5, yeast: -5 },
     arrangement: { pairs: 5, chains: 2, clusters: -2, single: -1 },
     stain: { gram_positive: 5, gram_negative: -5, acid_fast: -5 },
     special: { capsule: 5, budding: -5, pseudohyphae: -5, ring_forms: -5, spores: -5 }
   },
   'Mycobacterium tuberculosis': {
-    morphology: { bacilli: 3, cocci: -3, diplococci: -3, yeast: -5 },
+    morphology: { bacilli: 3, cocci: -3, yeast: -5 },
     arrangement: { single: 2, chains: -2, pairs: -1, clusters: -3 },
     stain: { acid_fast: 10, gram_negative: -5, gram_positive: -5 },
     special: { spores: 1, capsule: -2, budding: -5, pseudohyphae: -5, ring_forms: -5 }
   },
   'Neisseria meningitidis': {
-    morphology: { cocci: 5, bacilli: -5, diplococci: 5, yeast: -5 },
+    morphology: { cocci: 5, bacilli: -5, yeast: -5 },
     arrangement: { pairs: 5, chains: -3, clusters: 2, single: -1 },
     stain: { gram_negative: 5, gram_positive: -5, acid_fast: -5 },
     special: { capsule: 3, budding: -5, pseudohyphae: -5, ring_forms: -5, spores: -5 }
   },
   'Candida albicans': {
-    morphology: { yeast: 10, cocci: -3, bacilli: -3, diplococci: -3 },
+    morphology: { yeast: 10, cocci: -3, bacilli: -3 },
     arrangement: { clusters: 5, chains: 2, pairs: -2, single: 1 },
     stain: { gram_positive: 3, gram_negative: -3, acid_fast: -3 },
     special: { budding: 5, pseudohyphae: 5, capsule: -2, ring_forms: -5, spores: 1 }
   },
   'Plasmodium falciparum': {
-    morphology: { ring_form: 10, cocci: -3, bacilli: -3, yeast: -3, diplococci: -3 },
+    morphology: { ring_form: 10, cocci: -3, bacilli: -3, yeast: -3 },
     arrangement: { single: 2, chains: -3, pairs: -2, clusters: -3 },
     stain: { gram_positive: -3, gram_negative: -3, acid_fast: -3 },
     special: { ring_forms: 10, parasitemia: 10, budding: -5, pseudohyphae: -5, capsule: -3, spores: -3 }

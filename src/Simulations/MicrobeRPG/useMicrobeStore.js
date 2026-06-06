@@ -5,10 +5,28 @@ import confetti from 'canvas-confetti';
 import { toast } from 'react-toastify';
 import {
   DISEASES, MEDICATION_INVENTORY, DRUG_CLASS_MATCHING,
-  ACHIEVEMENTS, DURATIONS, ORGANISM_TRAITS
+  ACHIEVEMENTS, ORGANISM_TRAITS
 } from './gameData.js';
 
+// Helper for Toxicity Math
+const calculateAbsoluteDose = (doseStr, patientWeight) => {
+  if (!doseStr || doseStr === 'N/A' || doseStr === 'Standard') return 1;
+  if (doseStr.includes('mg/kg')) {
+    const mg = parseFloat(doseStr.replace('mg/kg', ''));
+    return mg * patientWeight; 
+  }
+  if (doseStr.includes('g') && !doseStr.includes('mg')) {
+    const g = parseFloat(doseStr.replace('g', ''));
+    return g * 1000; 
+  }
+  if (doseStr.includes('kU')) {
+    return parseFloat(doseStr.replace('kU', '')); 
+  }
+  return parseFloat(doseStr.replace('mg', ''));
+};
+
 const useGameStore = create((set, get) => ({
+  // --- STATE ---
   patients: [],
   currentPatient: null,
   currentRoom: 'triage',
@@ -25,9 +43,9 @@ const useGameStore = create((set, get) => ({
   achievements: [],
   stainErrors: [],
   cultureResults: {},
-  selectedMedia: null,
   microscopeSettings: { zoom: 1, focus: 50, light: 80 },
 
+  // --- BASIC ACTIONS ---
   addPatient: (p) => set(s => ({ patients: [...s.patients, p] })),
   setCurrentPatient: (p) => set({ currentPatient: p }),
   setCurrentRoom: (r) => set({ currentRoom: r }),
@@ -44,127 +62,159 @@ const useGameStore = create((set, get) => ({
     observationLog: [{ time: `Day ${s.hospitalDay}`, msg }, ...s.observationLog]
   })),
 
+  addAchievement: (key) => {
+    const existing = get().achievements;
+    if (existing.includes(key)) return;
+    const achievement = ACHIEVEMENTS[key];
+    if (!achievement) return;
+    set(s => ({ achievements: [...s.achievements, key] }));
+    toast.success(`🏆 Achievement Unlocked: ${achievement.name}!`);
+    get().logObservation(`Achievement unlocked: ${achievement.name}`);
+  },
+
+  // --- CORE GAMEPLAY LOGIC ---
   generatePatient: () => {
     const keys = Object.keys(DISEASES);
     const rand = keys[Math.floor(Math.random() * keys.length)];
     const disease = DISEASES[rand];
+    
+    // Demographics & Constraints
+    const age = 18 + Math.floor(Math.random() * 65);
+    const weight = 50 + Math.floor(Math.random() * 50); // 50kg to 100kg
+    const allergies = Math.random() < 0.2 ? ['Penicillin'] : []; 
+    const resistantTo = Math.random() < 0.25 && disease.type === 'bacteria' 
+      ? [MEDICATION_INVENTORY[disease.treatments?.[0]?.drug || 'Amoxicillin']?.class] 
+      : []; 
+
     const initialTemp = 38.5 + Math.random() * 1.5;
     const initialHr = 85 + Math.floor(Math.random() * 30);
     const initialRr = 16 + Math.floor(Math.random() * 10);
     const initialO2 = rand === 'covid' ? 88 + Math.floor(Math.random() * 7) : 96 + Math.floor(Math.random() * 4);
+    
     return {
       id: Date.now() + Math.random(),
       name: `Patient ${Math.floor(Math.random() * 1000)}`,
+      age, weight, allergies, resistantTo,
       diseaseId: rand,
       symptoms: disease.symptoms,
       labFindings: { observations: {}, differentials: [], exam: {}, gramStain: null, acidFast: null, parasitemia: null, bloodSmear: null, culture: null },
       admitted: false,
-      vitals: {
-        temp: [parseFloat(initialTemp.toFixed(1)), 0],
-        hr: [initialHr, 0],
-        rr: [initialRr, 0],
-        o2sat: [initialO2, 0],
-        symptomSeverity: 10
-      },
-      vitalsHistory: [{
-        day: get().hospitalDay,
-        temp: parseFloat(initialTemp.toFixed(1)),
-        hr: initialHr,
-        rr: initialRr,
-        o2sat: initialO2,
-        symptomSeverity: 10
-      }],
+      vitals: { temp: [parseFloat(initialTemp.toFixed(1)), 0], hr: [initialHr, 0], rr: [initialRr, 0], o2sat: [initialO2, 0], symptomSeverity: 10 },
+      vitalsHistory: [{ day: get().hospitalDay, temp: parseFloat(initialTemp.toFixed(1)), hr: initialHr, rr: initialRr, o2sat: initialO2, symptomSeverity: 10 }],
       treatmentPlan: null
     };
   },
 
-  evaluateTreatment: (patientId, plan) => {
+  evaluateTreatment: (patientId, regimenPlan) => {
     const s = get();
     const patient = s.patients.find(p => p.id === patientId);
     if (!patient) return;
+    
     const disease = DISEASES[patient.diseaseId];
-    const correctTx = disease.treatment;
-
+    const correctRegimen = disease.treatments || [];
+    
     let score = 'wrong';
     let effectiveness = 0;
     let message = '';
+    let isToxic = false;
+    
+    // 1. Economic Deduction
+    const totalCost = regimenPlan.reduce((sum, rx) => sum + (MEDICATION_INVENTORY[rx.drug]?.cost || 0), 0);
 
-    if (plan.drug === correctTx.drug) {
-      const doseOk = plan.dose === correctTx.dose;
-      const freqOk = plan.frequency === correctTx.frequency;
-      const durOk = parseInt(plan.days) >= parseInt(correctTx.days);
+    // 2. Fatal Constraint Checks (Allergies)
+    const triggeredAllergy = regimenPlan.find(rx => patient.allergies.includes(MEDICATION_INVENTORY[rx.drug]?.class));
+    if (triggeredAllergy) {
+      score = 'wrong';
+      effectiveness = -50; 
+      message = `CRITICAL ERROR: Patient went into anaphylaxis! You prescribed ${triggeredAllergy.drug} to a patient allergic to ${MEDICATION_INVENTORY[triggeredAllergy.drug].class}s.`;
+      isToxic = true;
+    } else {
+      
+      // 3. Efficacy & Multi-drug Matching
+      let drugsMatched = 0;
+      let resistanceTriggered = false;
 
-      if (doseOk && freqOk && durOk) {
+      regimenPlan.forEach(rx => {
+        const invData = MEDICATION_INVENTORY[rx.drug];
+        
+        if (patient.resistantTo.includes(invData.class)) {
+          resistanceTriggered = true;
+          return;
+        }
+
+        const targetDrug = correctRegimen.find(c => c.drug === rx.drug) || 
+                           (disease.fallbackClass === invData.class ? correctRegimen[0] : null);
+
+        if (targetDrug) {
+          const prescribedAmt = calculateAbsoluteDose(rx.dose, patient.weight);
+          const targetAmt = calculateAbsoluteDose(targetDrug.dose, patient.weight);
+          
+          if (prescribedAmt > targetAmt * 1.5) {
+             isToxic = true; 
+             drugsMatched += 0.5; 
+          } else if (prescribedAmt < targetAmt * 0.75) {
+             drugsMatched += 0.25;
+          } else {
+             drugsMatched += 1;
+          }
+        }
+      });
+
+      // 4. Final Calculation
+      const matchedRatio = correctRegimen.length > 0 ? (drugsMatched / correctRegimen.length) : 0;
+      
+      if (resistanceTriggered) {
+        score = 'wrong';
+        effectiveness = 10;
+        message = `Treatment Failed. The pathogen showed antimicrobial resistance to the prescribed class.`;
+      } else if (isToxic) {
+        score = 'partial';
+        effectiveness = 30;
+        message = `TOXIC OVERDOSE! The pathogen was treated, but the excessive dosage caused severe organ toxicity for a ${patient.weight}kg patient.`;
+      } else if (regimenPlan.length < correctRegimen.length) {
+        score = 'partial';
+        effectiveness = (matchedRatio * 100) / 2;
+        message = `Incomplete Regimen. You missed required combination drugs for this disease.`;
+      } else if (matchedRatio === 1) {
         score = 'correct';
         effectiveness = 100;
-        message = `Complete Recovery! ${patient.name} responds well to ${plan.drug}.`;
-      } else {
+        message = `Complete Recovery! Perfectly matched and dosed regimen for ${disease.name}.`;
+      } else if (matchedRatio > 0) {
         score = 'partial';
-        let parts = 0;
-        if (doseOk) parts++;
-        if (freqOk) parts++;
-        if (durOk) parts++;
-        effectiveness = 30 + (parts / 3) * 50;
-        message = `Partial Recovery. ${plan.drug} works, but dosage/frequency/duration could be optimized.`;
-      }
-    } else {
-      const planClass = MEDICATION_INVENTORY[plan.drug]?.class;
-      const correctClass = MEDICATION_INVENTORY[correctTx.drug]?.class;
-      const classInfo = DRUG_CLASS_MATCHING[planClass];
-
-      if (planClass === correctClass) {
-        score = 'partial';
-        effectiveness = 60;
-        message = `Partial Recovery. ${plan.drug} (same class as ${correctTx.drug}) shows some effect.`;
-      } else if (classInfo?.similar?.includes(correctClass)) {
-        score = 'partial';
-        effectiveness = 40;
-        message = `Weak response. ${plan.drug} has limited cross-reactivity with ${correctTx.drug}.`;
-      } else if (disease.type === 'virus' && plan.drug === 'Supportive Care') {
-        score = 'partial';
-        effectiveness = 50;
-        message = `Supportive care provided. ${patient.name} needs immune support.`;
+        effectiveness = matchedRatio * 100;
+        message = `Partial Recovery. The regimen had some effect, but dosages or drug choices were suboptimal.`;
       } else {
         score = 'wrong';
         effectiveness = 0;
-        message = `Treatment Failed! ${patient.name}'s condition worsened. Consider a ${MEDICATION_INVENTORY[correctTx.drug]?.class || 'different'} antibiotic.`;
+        message = `Treatment Failed! The prescribed regimen was ineffective against ${disease.name}.`;
       }
     }
 
-    s.updatePatient(patientId, { treatmentPlan: { ...plan, score, effectiveness } });
+    s.updatePatient(patientId, { treatmentPlan: { regimen: regimenPlan, score, effectiveness, isToxic } });
 
+    // Rewards & Penalties
     let moneyGained = 0;
     let repGained = 0;
     let statCat = 'wrong';
-    const newOutcome = { patientId, patientName: patient.name, treatmentDay: s.hospitalDay, score, effectiveness, disease: disease.name };
 
     if (score === 'correct') {
-      moneyGained = 500;
-      repGained = 15;
-      statCat = 'correct';
+      moneyGained = 600; repGained = 15; statCat = 'correct';
       confetti();
       toast.success(message);
-      if (!s.achievements.includes('first_diagnosis')) {
-        setTimeout(() => get().addAchievement('first_diagnosis'), 1500);
-      }
+      if (!s.achievements.includes('first_diagnosis')) setTimeout(() => get().addAchievement('first_diagnosis'), 1500);
     } else if (score === 'partial') {
-      moneyGained = 200;
-      repGained = 5;
-      statCat = 'partial';
+      moneyGained = 200; repGained = -5; statCat = 'partial';
       toast.warning(message);
     } else {
-      moneyGained = -100;
-      repGained = -20;
-      statCat = 'wrong';
+      moneyGained = 0; repGained = -25; statCat = 'wrong';
       toast.error(message);
-      get().logObservation(`Treatment failure for ${patient.name}: ${message}`);
     }
 
     set(st => ({
-      money: st.money + moneyGained,
+      money: st.money - totalCost + moneyGained,
       reputation: Math.min(100, Math.max(0, st.reputation + repGained)),
       completedCases: st.completedCases + 1,
-      outcomeHistory: [...st.outcomeHistory, newOutcome],
+      outcomeHistory: [...st.outcomeHistory, { patientId, patientName: patient.name, treatmentDay: st.hospitalDay, score, effectiveness, disease: disease.name }],
       diagnosticStats: { ...st.diagnosticStats, totalCases: st.diagnosticStats.totalCases + 1, [statCat]: st.diagnosticStats[statCat] + 1 },
       patients: st.patients.filter(p => p.id !== patientId),
       currentPatient: st.currentPatient?.id === patientId ? null : st.currentPatient,
@@ -173,12 +223,10 @@ const useGameStore = create((set, get) => ({
 
     if (get().diagnosticStats.correct >= 3) get().addAchievement('triple_crown');
     if (get().diagnosticStats.totalCases >= 10) get().addAchievement('epidemiologist');
-    get().logObservation(`Discharged ${patient.name} - Result: ${score.toUpperCase()} (${Math.round(effectiveness)}% effective)`);
+    get().logObservation(`Discharged ${patient.name} - Result: ${score.toUpperCase()}. Drug Cost: $${totalCost}`);
   },
 
   advanceDay: () => set(s => {
-    const historyEntry = { day: s.hospitalDay + 1, patientCount: s.patients.filter(p => p.admitted).length, money: s.money, reputation: s.reputation };
-
     const updatedPatients = s.patients.map(p => {
       let newTemp = p.vitals.temp[0];
       let newHr = p.vitals.hr[0];
@@ -195,7 +243,13 @@ const useGameStore = create((set, get) => ({
           newSeverity = Math.min(20, newSeverity + 1);
         } else {
           const plan = p.treatmentPlan;
-          if (plan.score === 'correct') {
+          
+          if (plan.isToxic) {
+            newTemp = Math.max(35.0, newTemp - 1.5); // Hypothermia from shock
+            newHr = Math.min(180, newHr + 30);       // Tachycardia
+            newO2 = Math.max(75, newO2 - 8);         // Respiratory depression
+            newSeverity = Math.min(20, newSeverity + 3);
+          } else if (plan.score === 'correct') {
             newTemp = Math.max(36.5, newTemp - 0.4 - Math.random() * 0.3);
             newHr = Math.max(60, newHr - 4 - Math.floor(Math.random() * 3));
             newRr = Math.max(12, newRr - 1);
@@ -208,7 +262,6 @@ const useGameStore = create((set, get) => ({
           } else {
             newTemp = Math.min(42, newTemp + 0.5);
             newHr = Math.min(170, newHr + 8);
-            newRr = Math.min(45, newRr + 3);
             newO2 = Math.max(75, newO2 - 2);
             newSeverity = Math.min(20, newSeverity + 2);
           }
@@ -222,23 +275,14 @@ const useGameStore = create((set, get) => ({
       };
     });
 
-    return { hospitalDay: s.hospitalDay + 1, patients: updatedPatients, outcomeHistory: [...s.outcomeHistory, historyEntry] };
+    return { hospitalDay: s.hospitalDay + 1, patients: updatedPatients };
   }),
 
+  // --- UNTOUCHED LAB LOGIC ---
   recordParasitemia: (infected, total) => {
     const percentage = total > 0 ? parseFloat(((infected / total) * 100).toFixed(2)) : 0;
     set({ parasitemiaCount: { total, infected, percentage } });
     get().addAchievement('parasite_hunter');
-  },
-
-  addAchievement: (key) => {
-    const existing = get().achievements;
-    if (existing.includes(key)) return;
-    const achievement = ACHIEVEMENTS[key];
-    if (!achievement) return;
-    set(s => ({ achievements: [...s.achievements, key] }));
-    toast.success(`🏆 Achievement Unlocked: ${achievement.name}!`, { autoClose: 5000, hideProgressBar: false });
-    get().logObservation(`Achievement unlocked: ${achievement.name}`);
   },
 
   setCultureResult: (patientId, result) => {
@@ -250,14 +294,11 @@ const useGameStore = create((set, get) => ({
     set(s => ({ microscopeSettings: { ...s.microscopeSettings, [setting]: value } }));
   },
 
-  // --- ALGORITHM ACTIONS ---
   recordGramStainResult: (patientId, gramResult, errors) => {
     const p = get().patients.find(pat => pat.id === patientId);
     const newFindings = { ...p.labFindings, gramStain: { result: gramResult, errors: errors || [], timestamp: Date.now() } };
     const diffs = get().generateDifferentials(newFindings);
-    
     get().updatePatient(patientId, { labFindings: { ...newFindings, differentials: diffs } });
-    
     if (!errors || errors.length === 0) get().addAchievement('stain_expert');
     if (errors && errors.length > 0) set(s => ({ stainErrors: [...s.stainErrors, ...errors] }));
     get().logObservation(`Gram stain completed for patient: ${gramResult}`);
@@ -267,7 +308,6 @@ const useGameStore = create((set, get) => ({
     const p = get().patients.find(pat => pat.id === patientId);
     const newFindings = { ...p.labFindings, acidFast: { result: afbResult, timestamp: Date.now() } };
     const diffs = get().generateDifferentials(newFindings);
-
     get().updatePatient(patientId, { labFindings: { ...newFindings, differentials: diffs } });
     get().logObservation(`Acid-fast stain completed: ${afbResult}`);
   },
@@ -276,7 +316,6 @@ const useGameStore = create((set, get) => ({
     const p = get().patients.find(pat => pat.id === patientId);
     const newFindings = { ...p.labFindings, parasitemia: { infected, total, percentage, timestamp: Date.now() }, bloodSmear: { completed: true } };
     const diffs = get().generateDifferentials(newFindings);
-
     get().updatePatient(patientId, { labFindings: { ...newFindings, differentials: diffs } });
     get().logObservation(`Blood smear: ${percentage}% parasitemia`);
   },
@@ -285,7 +324,6 @@ const useGameStore = create((set, get) => ({
     const p = get().patients.find(pat => pat.id === patientId);
     const newFindings = { ...p.labFindings, culture: cultureData };
     const diffs = get().generateDifferentials(newFindings);
-
     get().updatePatient(patientId, { labFindings: { ...newFindings, differentials: diffs } });
     get().logObservation(`Culture result saved for patient`);
   },
@@ -294,12 +332,10 @@ const useGameStore = create((set, get) => ({
     const p = get().patients.find(pat => pat.id === patientId);
     const newFindings = { ...p.labFindings, observations: checklist };
     const diffs = get().generateDifferentials(newFindings);
-
     get().updatePatient(patientId, { labFindings: { ...newFindings, differentials: diffs } });
     get().logObservation(`Microscopy observations logged.`);
   },
 
-  // --- DIFFERENTIAL ENGINE ---
   generateDifferentials: (labFindings) => {
     if (!labFindings) return [];
     const obs = labFindings.observations || {};

@@ -38,6 +38,21 @@ import {
 } from './PhaserScenes.js';
 import PhaserSceneManager from './PhaserSceneManager.js';
 
+const formatAnalysis = (shape, arrangement) => {
+  if (shape === 'cocci' && arrangement === 'pairs') return 'Cocci in pairs (Diplococci)';
+  if (shape === 'cocci' && arrangement === 'chains') return 'Cocci in chains (Streptococci)';
+  if (shape === 'cocci' && arrangement === 'clusters') return 'Cocci in clusters (Staphylococci)';
+  if (shape === 'bacilli' && arrangement === 'chains') return 'Bacilli in chains (Streptobacilli)';
+  if (shape === 'bacilli' && arrangement === 'pairs') return 'Bacilli in pairs (Diplobacilli)';
+
+  const shapeText = shape ? shape.charAt(0).toUpperCase() + shape.slice(1).replace('_', ' ') : '';
+  const arrText = arrangement ? arrangement.charAt(0).toUpperCase() + arrangement.slice(1) : '';
+
+  if (shapeText && arrText) return `${shapeText} in arrangement: ${arrText}`;
+  if (shapeText) return shapeText;
+  return 'Pending';
+};
+
 // ============================================================
 // TUTORIAL CARD COMPONENT
 // ============================================================
@@ -72,71 +87,58 @@ const TutorialCard = ({ title, content, icon, onClose }) => (
 );
 
 // ============================================================
-// REFERENCE LIBRARY COMPONENT
+// REFERENCE LIBRARY COMPONENT (FIXED)
 // ============================================================
 const ReferenceLibrary = ({ open, onClose }) => {
   const [selectedTab, setSelectedTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const pathogens = Object.entries(DISEASES).map(([key, disease]) => ({
-    key,
-    name: disease.name,
-    organism: disease.pathogen,
-    type: disease.type,
-    symptoms: disease.symptoms,
-    media: disease.cultureMedia,
-    stain: disease.observations
-  }));
-
-  const filteredPathogens = pathogens.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.organism.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPathogens = Object.entries(DISEASES).filter(([_, d]) =>
+    d.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <MenuBookIcon /> Reference Library
-        </Box>
-        <TextField
-          placeholder="Search pathogens..."
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ width: 250 }}
-        />
-      </DialogTitle>
+      <DialogTitle>Reference Library</DialogTitle>
       <DialogContent>
         <Tabs value={selectedTab} onChange={(_, val) => setSelectedTab(val)} sx={{ mb: 2 }}>
-          <Tab label="Pathogens" icon={<ScienceIcon />} iconPosition="start" />
-          <Tab label="Antibiotics" icon={<MedicationIcon />} iconPosition="start" />
-          <Tab label="Lab Techniques" icon={<BiotechIcon />} iconPosition="start" />
+          <Tab label="Pathogens" />
+          <Tab label="Antibiotics" />
+          <Tab label="Lab Techniques" />
+          <Tab label="Treatment Manual" />
         </Tabs>
 
         {selectedTab === 0 && (
           <Box>
-            {filteredPathogens.map(p => (
-              <Accordion key={p.key} sx={{ mb: 1 }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search pathogens..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+            {filteredPathogens.map(([key, d]) => (
+              <Accordion key={key} sx={{ mb: 1 }}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                    {p.name}
+                    {d.name}
                   </Typography>
-                  <Chip label={p.organism} size="small" sx={{ ml: 2 }} />
+                  <Chip label={d.pathogen} size="small" sx={{ ml: 2 }} />
                 </AccordionSummary>
                 <AccordionDetails>
                   <Box>
                     <Typography variant="caption" color="textSecondary" display="block" sx={{ mb: 1 }}>
-                      <strong>Type:</strong> {p.type}
+                      <strong>Type:</strong> {d.type}
                     </Typography>
                     <Typography variant="caption" color="textSecondary" display="block" sx={{ mb: 1 }}>
-                      <strong>Symptoms:</strong> {p.symptoms.join(', ')}
+                      <strong>Symptoms:</strong> {d.symptoms.join(', ')}
                     </Typography>
                     <Typography variant="caption" color="textSecondary" display="block" sx={{ mb: 1 }}>
-                      <strong>Culture Media:</strong> {p.media || 'Does not culture on standard media'}
+                      <strong>Culture Media:</strong> {d.cultureMedia || 'Does not culture on standard media'}
                     </Typography>
                     <Typography variant="caption" color="textSecondary">
-                      <strong>Stain Results:</strong> Gram: {p.stain.gram || 'N/A'}, AFB: {p.stain.acidFast || 'Negative'}
+                      <strong>Stain Results:</strong> Gram: {d.observations.gram || 'N/A'}, AFB: {d.observations.acidFast || 'Negative'}
                     </Typography>
                   </Box>
                 </AccordionDetails>
@@ -146,7 +148,7 @@ const ReferenceLibrary = ({ open, onClose }) => {
         )}
 
         {selectedTab === 1 && (
-          <TableContainer>
+          <TableContainer component={Paper}>
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ bgcolor: '#f5f5f5' }}>
@@ -200,7 +202,7 @@ const ReferenceLibrary = ({ open, onClose }) => {
             <Accordion>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                  Acid-Fast (Ziehl-Neelsen) Stain
+                  Acid‑Fast (Ziehl‑Neelsen) Stain
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
@@ -223,7 +225,37 @@ const ReferenceLibrary = ({ open, onClose }) => {
             </Accordion>
           </Box>
         )}
+
+        {selectedTab === 3 && (
+          <TableContainer sx={{ maxHeight: 400 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell><strong>Pathogen</strong></TableCell>
+                  <TableCell><strong>Required Regimen</strong></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredPathogens.map(([key, d]) => (
+                  <TableRow key={key}>
+                    <TableCell>{d.pathogen}</TableCell>
+                    <TableCell>
+                      {d.treatments.map((t, i) => (
+                        <Typography key={i} variant="caption" display="block">
+                          {t.drug}: {t.dose}, {t.frequency} ({t.days} days)
+                        </Typography>
+                      ))}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+      </DialogActions>
     </Dialog>
   );
 };
@@ -244,7 +276,6 @@ const PatientChart = ({ patient }) => {
       </Typography>
 
       <Grid container spacing={2}>
-        {/* Vitals */}
         <Grid item xs={12} md={6}>
           <Box sx={{ p: 1.5, bgcolor: '#f5f5f5', borderRadius: 1 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
@@ -259,7 +290,6 @@ const PatientChart = ({ patient }) => {
           </Box>
         </Grid>
 
-        {/* Disease Info */}
         <Grid item xs={12} md={6}>
           <Box sx={{ p: 1.5, bgcolor: '#f5f5f5', borderRadius: 1 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
@@ -277,7 +307,6 @@ const PatientChart = ({ patient }) => {
           </Box>
         </Grid>
 
-        {/* Lab Findings */}
         <Grid item xs={12}>
           <Box sx={{ p: 1.5, bgcolor: '#f0f4ff', borderRadius: 1 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
@@ -319,7 +348,6 @@ const PatientChart = ({ patient }) => {
           </Box>
         </Grid>
 
-        {/* Differentials */}
         <Grid item xs={12}>
           <Box sx={{ p: 1.5, bgcolor: '#f0f8f0', borderRadius: 1 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
@@ -364,8 +392,8 @@ const ObservationChecklist = ({ checklist, setChecklist, diseaseId, patientObser
   const calcConfidence = () => {
     let score = 0;
     let total = 0;
-    ['shape', 'arrangement', 'stain', 'special'].forEach(key => {
-      if (checklist[key] && checklist[key] !== 'none') {
+    ['shape', 'arrangement'].forEach(key => {
+      if (checklist[key]) {
         total++;
         if (checklist[key] === correct[key]) score++;
       }
@@ -377,19 +405,29 @@ const ObservationChecklist = ({ checklist, setChecklist, diseaseId, patientObser
   const confidenceColor = confidence >= 80 ? 'success' : confidence >= 50 ? 'warning' : 'error';
 
   const categories = [
-    { label: 'Shape', key: 'shape', options: [{ value: 'cocci', label: 'Cocci (Spheres)' }, { value: 'bacilli', label: 'Bacilli (Rods)' }, { value: 'diplococci', label: 'Diplococci (Pairs)' }, { value: 'yeast', label: 'Yeast (Oval)' }, { value: 'ring_form', label: 'Ring Forms' }, { value: 'curved_rod', label: 'Curved Rod' }] },
-    { label: 'Arrangement', key: 'arrangement', options: [{ value: 'chains', label: 'Chains' }, { value: 'pairs', label: 'Pairs' }, { value: 'clusters', label: 'Clusters' }, { value: 'single', label: 'Single' }] },
-    { label: 'Stain', key: 'stain', options: [{ value: 'gram_positive', label: 'Gram Positive (Purple)' }, { value: 'gram_negative', label: 'Gram Negative (Pink)' }, { value: 'acid_fast', label: 'Acid Fast (Red)' }] },
-    { label: 'Special Features', key: 'special', options: [{ value: 'budding', label: 'Budding' }, { value: 'pseudohyphae', label: 'Pseudohyphae' }, { value: 'capsule', label: 'Capsule' }, { value: 'ring_forms', label: 'Ring Forms' }, { value: 'spores', label: 'Spores' }] }
+    { label: 'Shape', key: 'shape', options: [
+      { value: 'cocci', label: 'Cocci (Spheres)' },
+      { value: 'bacilli', label: 'Bacilli (Rods)' },
+      { value: 'yeast', label: 'Yeast (Oval)' },
+      { value: 'ring_form', label: 'Ring Forms' },
+      { value: 'none', label: 'None Visible' }
+    ]},
+    { label: 'Arrangement', key: 'arrangement', options: [
+      { value: 'chains', label: 'Chains (Strepto-)' },
+      { value: 'pairs', label: 'Pairs (Diplo-)' },
+      { value: 'clusters', label: 'Clusters (Staphylo-)' },
+      { value: 'single', label: 'Single' },
+      { value: 'none', label: 'None Visible' }
+    ]}
   ];
 
   return (
     <Paper sx={{ p: 2, bgcolor: '#f8faff' }}>
       <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <MenuBookIcon fontSize="small" /> Observation Checklist
+        <MenuBookIcon fontSize="small" /> Microscopy Checklist
       </Typography>
       <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: 'block' }}>
-        Check all observed features from the microscope view
+        Identify the organism's morphology
       </Typography>
 
       {categories.map(cat => (
@@ -432,10 +470,7 @@ const ObservationChecklist = ({ checklist, setChecklist, diseaseId, patientObser
       {patientObservations && Object.values(patientObservations).filter(Boolean).length > 0 && (
         <Box sx={{ mt: 1, p: 1, bgcolor: '#f0f8f0', borderRadius: 1 }}>
           <Typography variant="caption" color="success.main">
-            ✓ Recorded: {Object.entries(patientObservations)
-              .filter(([, v]) => v && v !== 'none')
-              .map(([k, v]) => `${k}: ${v}`)
-              .join(', ')}
+            ✓ Recorded: {formatAnalysis(patientObservations.shape, patientObservations.arrangement)}
           </Typography>
         </Box>
       )}
@@ -444,7 +479,7 @@ const ObservationChecklist = ({ checklist, setChecklist, diseaseId, patientObser
 };
 
 // ============================================================
-// PHASER LAB MODAL (FIXED)
+// PHASER LAB MODAL (FIXED LAYOUT)
 // ============================================================
 const SCENE_KEY_MAP = {
   microscope: MS,
@@ -485,7 +520,6 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
         const SceneClass = SCENE_KEY_MAP[sceneType];
         if (!SceneClass) throw new Error(`Unknown scene type: ${sceneType}`);
 
-        // Wait for container to be ready
         await new Promise(resolve => {
           const checkContainer = () => {
             if (containerRef.current && containerRef.current.getBoundingClientRect().width > 0) {
@@ -501,17 +535,10 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
 
         const initData = getSceneInitData();
 
-        const manager = new PhaserSceneManager(containerRef, {
-          sceneType,
-          SceneClass,
-          initData
-        });
-
-        await manager.initialize();
-
-        if (!mounted) return;
-
+        const manager = new PhaserSceneManager(containerRef, { sceneType, SceneClass, initData });
         sceneManagerRef.current = manager;
+        await manager.initialize();
+        if (!mounted) return;
         setupSceneListeners(manager);
         setIsGameLoading(false);
       } catch (error) {
@@ -527,7 +554,6 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
       const scene = manager.getScene();
       if (!scene) return;
 
-      // Listen to scene events
       scene.events.on('procedure-complete', (data) => {
         if (sceneType === 'gram') {
           setGramErrors(data.errors || []);
@@ -590,6 +616,41 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
       if (tutorial) setTutorialCard(tutorial);
     };
 
+    const generateGramTutorial = (result, errors) => {
+      const explanations = {
+        gram_positive:
+          'Gram-positive bacteria have a thick peptidoglycan layer that retains Crystal Violet-Iodine complex, appearing purple. Common Gram-positive pathogens include Streptococcus and Staphylococcus species.',
+        gram_negative:
+          'Gram-negative bacteria have a thin peptidoglycan layer surrounded by an outer membrane, which is disrupted by alcohol decolorization. They retain Safranin, appearing pink. Examples: E. coli, Neisseria.'
+      };
+      const errorMessages = errors.length > 0
+        ? `Your errors: ${errors.join('; ')}. Remember: proper decolorization timing is critical. Too much alcohol removes dye from all bacteria.`
+        : 'Perfect technique! You performed the stain correctly.';
+      return {
+        title: '📚 Gram Stain Result',
+        content: `${explanations[result] || ''} ${errorMessages}`,
+        icon: <ScienceIcon />
+      };
+    };
+
+    const generateCultureTutorial = (result) => {
+      const mediaExplanations = {
+        'Blood Agar': 'Blood Agar is enriched with sheep red blood cells. It supports growth of many fastidious organisms and allows observation of hemolysis patterns.',
+        'MacConkey Agar': 'MacConkey Agar is selective for Gram-negative bacteria and differential for lactose fermentation. Pink colonies = lactose fermenters (like E. coli); colorless = non-fermenters.',
+        'Chocolate Agar': 'Chocolate Agar contains lysed RBCs, providing X (hematin) and V (NAD) factors. Essential for fastidious organisms like Neisseria and Haemophilus.',
+        'Sabouraud Agar': 'Sabouraud Agar has acidic pH and high sugar content, selective for fungi and yeasts. Inhibits bacterial growth.'
+      };
+      const explanation = mediaExplanations[result.media] || `${result.media} was selected.`;
+      const growthStatus = result.growth
+        ? `Growth observed: ${result.description}. Colony count: ~${result.colonyCount} CFU.`
+        : 'No growth observed. This may indicate the wrong medium was selected or the organism requires special conditions.';
+      return {
+        title: '📚 Culture Media Guide',
+        content: `${explanation} ${growthStatus}`,
+        icon: <BiotechIcon />
+      };
+    };
+
     initializeScene();
 
     return () => {
@@ -641,48 +702,6 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
       toast.success('Observations saved');
       scene.events.emit('save-observations', {});
     }
-  };
-
-  const generateGramTutorial = (result, errors) => {
-    const explanations = {
-      gram_positive:
-        'Gram-positive bacteria have a thick peptidoglycan layer that retains Crystal Violet-Iodine complex, appearing purple. Common Gram-positive pathogens include Streptococcus and Staphylococcus species.',
-      gram_negative:
-        'Gram-negative bacteria have a thin peptidoglycan layer surrounded by an outer membrane, which is disrupted by alcohol decolorization. They retain Safranin, appearing pink. Examples: E. coli, Neisseria.'
-    };
-
-    const errorMessages = errors.length > 0
-      ? `Your errors: ${errors.join('; ')}. Remember: proper decolorization timing is critical. Too much alcohol removes dye from all bacteria.`
-      : 'Perfect technique! You performed the stain correctly.';
-
-    return {
-      title: '📚 Gram Stain Result',
-      content: `${explanations[result] || ''} ${errorMessages}`,
-      icon: <ScienceIcon />
-    };
-  };
-
-  const generateCultureTutorial = (result) => {
-    const mediaExplanations = {
-      'Blood Agar':
-        'Blood Agar is enriched with sheep red blood cells. It supports growth of many fastidious organisms and allows observation of hemolysis patterns.',
-      'MacConkey Agar':
-        'MacConkey Agar is selective for Gram-negative bacteria and differential for lactose fermentation. Pink colonies = lactose fermenters (like E. coli); colorless = non-fermenters.',
-      'Chocolate Agar':
-        'Chocolate Agar contains lysed RBCs, providing X (hematin) and V (NAD) factors. Essential for fastidious organisms like Neisseria and Haemophilus.',
-      'Sabouraud Agar': 'Sabouraud Agar has acidic pH and high sugar content, selective for fungi and yeasts. Inhibits bacterial growth.'
-    };
-
-    const explanation = mediaExplanations[result.media] || `${result.media} was selected.`;
-    const growthStatus = result.growth
-      ? `Growth observed: ${result.description}. Colony count: ~${result.colonyCount} CFU.`
-      : 'No growth observed. This may indicate the wrong medium was selected or the organism requires special conditions.';
-
-    return {
-      title: '📚 Culture Media Guide',
-      content: `${explanation} ${growthStatus}`,
-      icon: <BiotechIcon />
-    };
   };
 
   const renderSidePanel = () => {
@@ -904,7 +923,7 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
   if (!patient) return null;
 
   return (
-    <Dialog open fullScreen onClose={onClose} keepMounted TransitionProps={{ timeout: 200 }}>
+    <Dialog open fullScreen onClose={onClose} keepMounted transitionDuration={200}>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between', bgcolor: '#1e293b', color: '#fff' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {sceneType === 'microscope' && <><BiotechIcon /> Microscopy Lab</>}
@@ -927,19 +946,19 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ display: 'flex', gap: 2, p: 2, bgcolor: '#0b0f1a', overflow: 'hidden' }}>
-        {/* Phaser Container - flex: 1 makes it stretch across the whole screen */}
-        <Box
-          sx={{
-            flex: 1, 
-            borderRadius: 2,
-            overflow: 'hidden',
-            border: '2px solid #1e293b',
-            position: 'relative'
-          }}
-        >
-          <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-          
+      <DialogContent
+        sx={{
+          display: 'flex',
+          gap: 2,
+          p: 2,
+          bgcolor: '#0b0f1a',
+          height: 'calc(100vh - 64px)',
+          overflow: 'hidden'
+        }}
+      >
+        <Box sx={{ flex: 1, borderRadius: 2, overflow: 'hidden', border: '2px solid #1e293b', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          <div ref={containerRef} style={{ flex: 1, minHeight: 0, width: '100%' }} />
+
           {isGameLoading && !initError && (
             <Box
               sx={{
@@ -983,8 +1002,18 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
           )}
         </Box>
 
-        {/* Side Panel - Fixed width next to full screen canvas */}
-        <Box sx={{ width: 340, display: 'flex', flexDirection: 'column', gap: 1, overflowY: 'auto' }}>
+        <Box
+          sx={{
+            width: 340,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1,
+            overflowY: 'auto',
+            height: '100%',
+            flexShrink: 0,
+            pr: 1
+          }}
+        >
           {tutorialCard && (
             <TutorialCard
               title={tutorialCard.title}
@@ -997,7 +1026,6 @@ const PhaserLabModal = ({ sceneType, patientId, onClose }) => {
         </Box>
       </DialogContent>
 
-      {/* Patient Chart Modal */}
       <Dialog open={showChart} onClose={() => setShowChart(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Patient Chart</DialogTitle>
         <DialogContent>
@@ -1134,8 +1162,8 @@ const HospitalDashboard = () => {
 const PharmacyPanel = () => {
   const store = useGameStore();
   const patient = store.currentPatient;
-  const [plan, setPlan] = useState({ drug: '', dose: '', frequency: '', days: '' });
-  const [showInfo, setShowInfo] = useState(false);
+  const [draftDrug, setDraftDrug] = useState({ drug: '', dose: '', frequency: '', days: '' });
+  const [regimenCart, setRegimenCart] = useState([]);
 
   if (!patient) {
     return (
@@ -1146,124 +1174,184 @@ const PharmacyPanel = () => {
     );
   }
 
-  const selectedDrug = MEDICATION_INVENTORY[plan.drug];
+  const selectedDrug = MEDICATION_INVENTORY[draftDrug.drug];
+  const totalCost = regimenCart.reduce((sum, rx) => sum + MEDICATION_INVENTORY[rx.drug].cost, 0);
+  // Inside PharmacyPanel component, after the cart display and before the Administer button
+
+// Helper to get the standard regimen for the current patient's disease
+const getStandardRegimen = () => {
   const disease = DISEASES[patient.diseaseId];
+  if (!disease || !disease.treatments) return [];
+  // Map directly to cart format
+  return disease.treatments.map(tx => ({
+    drug: tx.drug,
+    dose: tx.dose,
+    frequency: tx.frequency,
+    days: tx.days
+  }));
+};
+
+// Function to load standard regimen into cart (respecting allergies – shows warning)
+const loadStandardRegimen = () => {
+  const standard = getStandardRegimen();
+  if (standard.length === 0) {
+    toast.info("No standard drug regimen defined for this disease.");
+    return;
+  }
+  // Check for allergies
+  const allergicDrug = standard.find(rx => patient.allergies.includes(MEDICATION_INVENTORY[rx.drug]?.class));
+  if (allergicDrug) {
+    toast.error(`Cannot use standard regimen: ${allergicDrug.drug} is contraindicated due to allergy.`);
+    return;
+  }
+  setRegimenCart(standard);
+  toast.success("Standard regimen loaded. Review and administer.");
+};
+
+// Then add the button somewhere in the JSX, e.g., next to the total cost display:
+
+<Button
+  variant="outlined"
+  color="secondary"
+  onClick={loadStandardRegimen}
+  sx={{ ml: 2 }}
+  disabled={!patient}
+>
+  Use Standard Regimen
+</Button>
+  const handleAddToCart = () => {
+    if (regimenCart.some(rx => rx.drug === draftDrug.drug)) {
+      toast.error(`${draftDrug.drug} is already in the regimen.`);
+      return;
+    }
+    setRegimenCart([...regimenCart, { ...draftDrug }]);
+    setDraftDrug({ drug: '', dose: '', frequency: '', days: '' });
+  };
+
+  const handleRemoveFromCart = (indexToRemove) => {
+    setRegimenCart(regimenCart.filter((_, idx) => idx !== indexToRemove));
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-      <Paper sx={{ p: 3, maxWidth: 700 }}>
-        <Typography variant="h5" mb={2}>
-          <MedicationIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Pharmacy & Treatment
+      <Paper sx={{ p: 3, maxWidth: 800 }}>
+        <Typography variant="h5" mb={2} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span><MedicationIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Pharmacy & Treatment</span>
+          <Chip label={`Budget: $${store.money}`} color={store.money < totalCost ? "error" : "success"} />
         </Typography>
-        <Paper sx={{ p: 2, mb: 2, bgcolor: '#f8f9fa' }}>
-          <Typography variant="subtitle1">
-            Prescribing for: <b>{patient.name}</b>
+
+        <Paper sx={{ p: 2, mb: 3, bgcolor: '#fff3e0', borderLeft: '4px solid #ff9800' }}>
+          <Typography variant="subtitle1" fontWeight="bold">
+            Patient Profile: {patient.name}
           </Typography>
-          <Typography variant="body2" color="textSecondary">
-            Symptoms: {patient.symptoms.join(', ')}
-          </Typography>
-          <Typography variant="body2" color="error">
-            Temp: {patient.vitals.temp[0].toFixed(1)}°C | HR: {patient.vitals.hr[0]} | O2: {patient.vitals.o2sat[0]}%
-          </Typography>
-          <Typography variant="caption" color="info" sx={{ display: 'block', mt: 1 }}>
-            Suspected: {disease?.name} (Treat with {disease?.treatment?.drug})
-          </Typography>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12} sm={4}>
+              <Typography variant="body2"><b>Age:</b> {patient.age} yrs</Typography>
+              <Typography variant="body2"><b>Weight:</b> {patient.weight} kg</Typography>
+            </Grid>
+            <Grid item xs={12} sm={8}>
+              <Typography variant="body2" color="error">
+                <b>Known Allergies:</b> {patient.allergies?.length > 0 ? patient.allergies.join(', ') : 'None'}
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                Vitals: Temp {patient.vitals.temp[0].toFixed(1)}°C | HR {patient.vitals.hr[0]}
+              </Typography>
+            </Grid>
+          </Grid>
         </Paper>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
-          <Box sx={{ gridColumn: { xs: '1fr', md: 'span 3' } }}>
-            <FormControl fullWidth>
+
+        <Typography variant="subtitle2" gutterBottom>Build Regimen</Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
+          <Box sx={{ gridColumn: { xs: '1fr', md: 'span 4' } }}>
+            <FormControl fullWidth size="small">
               <InputLabel>Select Medication</InputLabel>
               <Select
-                value={plan.drug}
-                label="Select Medication"
+                value={draftDrug.drug} label="Select Medication"
                 onChange={e => {
                   const drug = e.target.value;
                   const info = MEDICATION_INVENTORY[drug];
-                  setPlan({ ...plan, drug, dose: '', frequency: '', days: info?.doseRange?.[0] ? plan.days : '' });
+                  setDraftDrug({ ...draftDrug, drug, dose: '', frequency: '', days: info?.doseRange?.[0] ? draftDrug.days : '' });
                 }}
               >
                 {Object.entries(MEDICATION_INVENTORY).map(([name, info]) => (
                   <MenuItem key={name} value={name}>
-                    {name} <Typography variant="caption" color="textSecondary">
-                      ({info.class})
+                    {name} <Typography variant="caption" color="textSecondary" sx={{ ml: 1 }}>
+                      ({info.class}) - ${info.cost}
                     </Typography>
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Box>
+
           {selectedDrug && (
             <>
-              <Box>
-                <FormControl fullWidth>
-                  <InputLabel>Dose</InputLabel>
-                  <Select value={plan.dose} label="Dose" onChange={e => setPlan({ ...plan, dose: e.target.value })}>
-                    {selectedDrug.doseRange.map(d => (
-                      <MenuItem key={d} value={d}>
-                        {d}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-              <Box>
-                <FormControl fullWidth>
-                  <InputLabel>Frequency</InputLabel>
-                  <Select value={plan.frequency} label="Frequency" onChange={e => setPlan({ ...plan, frequency: e.target.value })}>
-                    {selectedDrug.freqRange.map(f => (
-                      <MenuItem key={f} value={f}>
-                        {f}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-              <Box>
-                <FormControl fullWidth>
-                  <InputLabel>Duration</InputLabel>
-                  <Select value={plan.days} label="Duration" onChange={e => setPlan({ ...plan, days: e.target.value })}>
-                    {DURATIONS.map(d => (
-                      <MenuItem key={d} value={d}>
-                        {d} Days
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-              <Box sx={{ gridColumn: { xs: '1fr', md: 'span 3' } }}>
-                <Button size="small" variant="text" onClick={() => setShowInfo(!showInfo)}>
-                  {showInfo ? 'Hide' : 'Show'} drug information
-                </Button>
-                <Collapse in={showInfo}>
-                  <Paper sx={{ p: 1.5, mt: 1, bgcolor: '#f0f4ff' }}>
-                    <Typography variant="caption">
-                      <b>Class:</b> {selectedDrug.class}
-                      <br />
-                      <b>Category:</b> {selectedDrug.category}
-                      <br />
-                      <b>Available doses:</b> {selectedDrug.doseRange.join(', ')}
-                      <br />
-                      <b>Available frequencies:</b> {selectedDrug.freqRange.join(', ')}
-                    </Typography>
-                  </Paper>
-                </Collapse>
-              </Box>
+              <FormControl fullWidth size="small">
+                <InputLabel>Dose</InputLabel>
+                <Select value={draftDrug.dose} label="Dose" onChange={e => setDraftDrug({ ...draftDrug, dose: e.target.value })}>
+                  {selectedDrug.doseRange.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>Frequency</InputLabel>
+                <Select value={draftDrug.frequency} label="Frequency" onChange={e => setDraftDrug({ ...draftDrug, frequency: e.target.value })}>
+                  {selectedDrug.freqRange.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>Duration</InputLabel>
+                <Select value={draftDrug.days} label="Duration" onChange={e => setDraftDrug({ ...draftDrug, days: e.target.value })}>
+                  {DURATIONS.map(d => <MenuItem key={d} value={d}>{d} Days</MenuItem>)}
+                </Select>
+              </FormControl>
+              <Button
+                variant="outlined"
+                onClick={handleAddToCart}
+                disabled={!draftDrug.drug || !draftDrug.dose || !draftDrug.frequency || !draftDrug.days}
+              >
+                Add to Cart
+              </Button>
             </>
           )}
         </Box>
+
+        <Paper sx={{ p: 2, bgcolor: '#f8f9fa' }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, borderBottom: '1px solid #ddd', pb: 1, display: 'flex', justifyContent: 'space-between' }}>
+            <span>Prescription Cart ({regimenCart.length} item{regimenCart.length !== 1 ? 's' : ''})</span>
+            <span>Total Cost: ${totalCost}</span>
+          </Typography>
+          {regimenCart.length === 0 ? (
+            <Typography variant="caption" color="textSecondary">Cart is empty. Add drugs above to build a combination therapy.</Typography>
+          ) : (
+            <List dense disablePadding>
+              {regimenCart.map((rx, idx) => (
+                <ListItem key={idx} sx={{ bgcolor: '#fff', mb: 0.5, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                  <ListItemText
+                    primary={<b>{rx.drug}</b>}
+                    secondary={`${rx.dose} | ${rx.frequency} | ${rx.days} Days`}
+                  />
+                  <IconButton size="small" color="error" onClick={() => handleRemoveFromCart(idx)}>
+                    <CloseIcon />
+                  </IconButton>
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </Paper>
+
         <Button
           fullWidth
           variant="contained"
           color="success"
           size="large"
           sx={{ mt: 3 }}
-          disabled={!plan.drug || !plan.dose || !plan.frequency || !plan.days}
+          disabled={regimenCart.length === 0 || store.money < totalCost}
           onClick={() => {
-            store.evaluateTreatment(patient.id, plan);
-            setPlan({ drug: '', dose: '', frequency: '', days: '' });
+            store.evaluateTreatment(patient.id, regimenCart);
+            setRegimenCart([]);
           }}
         >
-          Administer Treatment
+          {store.money < totalCost ? 'Insufficient Hospital Funds' : 'Administer Regimen'}
         </Button>
       </Paper>
     </motion.div>
@@ -1454,114 +1542,62 @@ const LabPanel = ({ currentPatient }) => {
   return (
     <Box>
       <Typography variant="h5" mb={2}>
-        <ScienceIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Laboratory — {currentPatient.name}
+        🔬 Laboratory Tests
       </Typography>
-      <Typography variant="caption" color="textSecondary" sx={{ mb: 2, display: 'block' }}>
-        Disease: {DISEASES[currentPatient.diseaseId]?.name || 'Unknown'}
-      </Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 1.5, mb: 3 }}>
-        {labTests.map(test => (
-          <MuiTooltip key={test.type} title={`Shortcut: ${test.shortcut}`}>
-            <Button
-              fullWidth
-              variant="contained"
-              sx={{
-                py: 1.5,
-                bgcolor: test.done ? `${test.color}22` : test.color,
-                color: test.done ? test.color : '#fff',
-                border: test.done ? `2px solid ${test.color}` : 'none',
-                '&:hover': { bgcolor: test.color, color: '#fff', opacity: 0.9 }
-              }}
-              startIcon={test.done ? <CheckCircleIcon /> : test.icon}
-              onClick={() => store.startLabScene(test.type, currentPatient.id)}
-            >
-              {test.done ? '✓ ' : ''}
-              {test.label}
-            </Button>
-          </MuiTooltip>
-        ))}
-      </Box>
-      <Paper sx={{ p: 2, bgcolor: '#f8f9fa', mb: 2 }}>
-        <Typography variant="h6" mb={1}>
-          📋 Case File
+
+      <Box sx={{ mb: 3, p: 2, bgcolor: '#f8f9fa', borderRadius: 1 }}>
+        <Typography variant="caption" fontWeight="bold">
+          Microscopy:
         </Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
-          <Box>
-            <Typography variant="caption" fontWeight="bold">
-              Microscopy:
-            </Typography>
-            {lf.observations && Object.keys(lf.observations).length > 0 ? (
-              <Box>
-                {Object.entries(lf.observations)
-                  .filter(([, v]) => v)
-                  .map(([k, v]) => (
-                    <Chip key={k} size="small" label={`${k}: ${v}`} variant="outlined" sx={{ m: 0.2, fontSize: 9 }} />
-                  ))}
-              </Box>
-            ) : (
-              <Typography variant="caption" color="textSecondary">
-                Pending
-              </Typography>
+        {lf.observations && Object.keys(lf.observations).length > 0 ? (
+          <Box sx={{ mt: 0.5 }}>
+            <Chip
+              size="small"
+              label={formatAnalysis(lf.observations.shape, lf.observations.arrangement)}
+              variant="outlined"
+              sx={{ m: 0.2, fontSize: 11 }}
+            />
+            {lf.observations.stain && (
+              <Chip size="small" label={lf.observations.stain} variant="outlined" sx={{ m: 0.2, fontSize: 11 }} />
             )}
           </Box>
-          <Box>
-            <Typography variant="caption" fontWeight="bold">
-              Gram Stain:
-            </Typography>
-            <Typography variant="caption" display="block">
-              {lf.gramStain ? lf.gramStain.result : 'Pending'}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" fontWeight="bold">
-              AFB Stain:
-            </Typography>
-            <Typography variant="caption" display="block">
-              {lf.acidFast ? lf.acidFast.result : 'Pending'}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" fontWeight="bold">
-              Parasitemia:
-            </Typography>
-            <Typography variant="caption" display="block">
-              {lf.parasitemia ? `${lf.parasitemia.percentage}%` : 'Pending'}
-            </Typography>
-          </Box>
-        </Box>
-      </Paper>
-      <Paper sx={{ p: 2, bgcolor: '#f0f4ff' }}>
-        <Typography variant="subtitle1" mb={1}>
-          🧬 Differential Diagnosis Engine
-        </Typography>
-        {currentPatient.labFindings.differentials?.length > 0 ? (
-          currentPatient.labFindings.differentials.map((d, i) => (
-            <Box key={i} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body2" sx={{ width: { xs: 120, sm: 200 } }}>
-                {d.organism}
-              </Typography>
-              <LinearProgress
-                variant="determinate"
-                value={d.confidence}
-                sx={{ flex: 1, mx: 2, height: 10, borderRadius: 5, bgcolor: '#e0e0e0' }}
-                color={d.confidence > 80 ? 'success' : d.confidence > 50 ? 'warning' : 'error'}
-              />
-              <Typography variant="body2" sx={{ minWidth: 40, textAlign: 'right' }}>
-                {d.confidence}%
-              </Typography>
-            </Box>
-          ))
         ) : (
-          <Typography variant="body2" color="textSecondary">
-            Collect lab data to generate differential diagnoses.
+          <Typography variant="caption" color="textSecondary" sx={{ ml: 1 }}>
+            Pending
           </Typography>
         )}
-        {currentPatient.labFindings.differentials?.length > 0 && (
-          <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
-            Higher confidence = better evidence match. Use all lab tests to narrow down.
-          </Typography>
-        )}
-      </Paper>
+      </Box>
+
+      <Grid container spacing={2}>
+        {labTests.map(test => (
+          <Grid item xs={12} sm={6} md={4} key={test.type}>
+            <Paper
+              sx={{
+                p: 2,
+                textAlign: 'center',
+                cursor: 'pointer',
+                bgcolor: test.done ? '#f0f8f0' : '#fff',
+                border: `1px solid ${test.done ? '#4caf50' : '#e0e0e0'}`,
+                '&:hover': { boxShadow: 3 }
+              }}
+              onClick={() => store.startLabScene(test.type, currentPatient.id)}
+            >
+              <Box sx={{ color: test.done ? '#4caf50' : test.color, mb: 1 }}>
+                {test.icon}
+              </Box>
+              <Typography variant="body2" fontWeight="bold">
+                {test.label}
+              </Typography>
+              <Typography variant="caption" color="textSecondary" display="block">
+                Shortcut: {test.shortcut}
+              </Typography>
+              {test.done && (
+                <CheckCircleIcon color="success" sx={{ fontSize: 16, mt: 1 }} />
+              )}
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
     </Box>
   );
 };

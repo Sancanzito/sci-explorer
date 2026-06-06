@@ -1,1151 +1,735 @@
 // src/Simulations/MicrobeRPG/PhaserScenes.js
-// Enhanced Phaser scenes with proper event communication
-
 import Phaser from 'phaser';
 import { DISEASES, MEDIA_OPTIONS, CORRECT_MEDIA_MAP, COLONY_APPEARANCES, STAIN_STEPS } from './gameData.js';
 
 // ============================================================
-// MICROSCOPE SCENE
+// MICROSCOPE SCENE (Accurate Morphology & Arrangements)
 // ============================================================
 export class MicroscopeScene extends Phaser.Scene {
   constructor() {
-    super('MicroscopeScene');
+    super(); 
     this.zoom = 1;
-    this.focus = 50;
+    this.focus = 10; // Start out of focus
     this.light = 80;
     this.organisms = [];
-    this.specimenField = 0;
-    this.currentChecklist = { shape: '', arrangement: '', stain: '', special: '' };
   }
 
   init(data) {
     this.patient = data.patient;
     this.disease = data.patient ? DISEASES[data.patient.diseaseId] : null;
-    this.onSave = data.onSave || (() => {});
   }
 
   create() {
     const { width, height } = this.cameras.main;
-    this.add.rectangle(0, 0, width, height, 0x1a1a2e).setOrigin(0);
-    this.add.text(width / 2, 10, '🔬 Microscope View', { fontSize: '14px', color: '#ccc' }).setOrigin(0.5, 0);
+    this.add.rectangle(0, 0, width, height, 0x111118).setOrigin(0);
 
+    // Microscope lens mask
     const lens = this.make.graphics();
     lens.fillStyle(0xffffff);
-    lens.fillCircle(width / 2, height / 2, Math.min(width, height) * 0.38);
+    lens.fillCircle(width / 2, height / 2, Math.min(width, height) * 0.45);
     const mask = new Phaser.Display.Masks.BitmapMask(this, lens);
 
     this.viewport = this.add.container(width / 2, height / 2);
     this.viewport.setMask(mask);
 
-    this.bgLight = this.add.circle(0, 0, 300, 0xdddddd);
+    // Light background
+    this.bgLight = this.add.circle(0, 0, 400, 0xe2ecee); 
     this.viewport.add(this.bgLight);
+
+    // Debris for realism
+    const debrisGraphics = this.add.graphics();
+    debrisGraphics.fillStyle(0xccdadd, 0.4);
+    for(let i = 0; i < 40; i++) {
+      debrisGraphics.fillCircle(Phaser.Math.Between(-350, 350), Phaser.Math.Between(-350, 350), Phaser.Math.Between(5, 30));
+    }
+    this.viewport.add(debrisGraphics);
 
     this.stage = this.add.container(0, 0);
     this.viewport.add(this.stage);
 
-    this.slideBg = this.add.rectangle(0, 0, 600, 600, 0xffffff, 0.03);
-    this.slideBg.setStrokeStyle(1, 0x88aaff, 0.2);
-    this.stage.add(this.slideBg);
-
-    const gridGfx = this.add.graphics();
-    gridGfx.lineStyle(1, 0x88aaff, 0.08);
-    for (let i = -300; i <= 300; i += 50) {
-      gridGfx.moveTo(i, -300);
-      gridGfx.lineTo(i, 300);
-      gridGfx.moveTo(-300, i);
-      gridGfx.lineTo(300, i);
-    }
-    gridGfx.strokePath();
-    this.stage.add(gridGfx);
+    // Blur filter
+    this.blurFilter = this.cameras.main.postFX.addBlur();
 
     this.spawnOrganisms();
 
-    const hitArea = this.add.rectangle(0, 0, 600, 600, 0xffffff, 0);
-    hitArea.setInteractive(new Phaser.Geom.Rectangle(-300, -300, 600, 600), Phaser.Geom.Rectangle.Contains);
-    this.input.setDraggable(hitArea);
-    this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
-      this.stage.x = dragX - 300;
-      this.stage.y = dragY - 250;
+    // Panning
+    const hitArea = this.add.rectangle(width / 2, height / 2, 800, 800, 0x000000, 0);
+    hitArea.setInteractive({ useHandCursor: true });
+    this.input.on('pointermove', (pointer) => {
+      if (pointer.isDown) {
+        this.stage.x = Phaser.Math.Clamp(this.stage.x + (pointer.x - pointer.prevPosition.x), -250, 250);
+        this.stage.y = Phaser.Math.Clamp(this.stage.y + (pointer.y - pointer.prevPosition.y), -250, 250);
+      }
     });
 
-    this.fieldLabel = this.add.text(width / 2, height - 12, '', { fontSize: '11px', color: '#666' }).setOrigin(0.5);
+    // Scientific HUD
+    this.hudBg = this.add.rectangle(width / 2, height - 40, 450, 40, 0x000000, 0.7).setStrokeStyle(1, 0x4ade80);
+    this.hudText = this.add.text(width / 2, height - 40, 'Initializing Optics...', {
+      fontSize: '14px', color: '#4ade80', fontFamily: 'monospace'
+    }).setOrigin(0.5);
 
     this.applyLight();
     this.updateBlur();
+    this.events.emit('scene-ready', { type: 'microscope' });
+  }
 
-    this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
-      const zoomDelta = deltaY > 0 ? -0.5 : 0.5;
-      this.setZoom(Math.max(1, Math.min(6, this.zoom + zoomDelta)));
-    });
+  // ------------------------------------------------------------
+  // Core drawing methods for accurate shapes & arrangements
+  // ------------------------------------------------------------
+  getShapeForPathogen(pathogen) {
+    if (!pathogen) return 'cocci';
+    switch(pathogen) {
+      case 'Streptococcus pyogenes':
+      case 'Streptococcus pneumoniae':
+      case 'Neisseria meningitidis':
+        return 'cocci';
+      case 'Escherichia coli':
+      case 'Mycobacterium tuberculosis':
+        return 'bacilli';
+      case 'Candida albicans':
+        return 'yeast';
+      case 'Plasmodium falciparum':
+        return 'ring_form';
+      default:
+        return 'cocci';
+    }
+  }
 
-    // EMIT READY EVENT
-    this.events.emit('scene-ready', { type: 'microscope', zoom: this.zoom, focus: this.focus, light: this.light });
+  getGramColor(pathogen) {
+    switch(pathogen) {
+      case 'Streptococcus pyogenes':
+      case 'Streptococcus pneumoniae':
+      case 'Candida albicans':
+        return 0x4b0082; // purple (Gram+)
+      case 'Escherichia coli':
+      case 'Neisseria meningitidis':
+        return 0xff1493; // pink (Gram-)
+      case 'Mycobacterium tuberculosis':
+        return 0xdc143c; // red (acid-fast)
+      default:
+        return 0xcccccc;
+    }
+  }
 
-    // LISTEN FOR UPDATES FROM REACT
-    this.events.on('update-checklist', (data) => {
-      this.currentChecklist = data;
-      this.events.emit('checklist-updated', this.currentChecklist);
-    });
+  getArrangement() {
+    if (!this.disease) return 'single';
+    // Use correctChecklist.arrangement from disease data if available
+    const correct = this.disease.correctChecklist;
+    if (correct && correct.arrangement) return correct.arrangement;
+    // Fallback based on pathogen
+    const pathogen = this.disease.pathogen;
+    switch(pathogen) {
+      case 'Streptococcus pyogenes': return 'chains';
+      case 'Streptococcus pneumoniae': return 'pairs';
+      case 'Neisseria meningitidis': return 'pairs';
+      case 'Escherichia coli': return 'single';
+      case 'Mycobacterium tuberculosis': return 'single';
+      case 'Candida albicans': return 'clusters';
+      default: return 'single';
+    }
+  }
 
-    this.events.on('save-observations', () => {
-      this.events.emit('observations-saved', {
-        checklist: this.currentChecklist,
-        zoom: this.zoom,
-        focus: this.focus,
-        light: this.light,
-        organisms: this.getOrganismCounts()
-      });
-    });
+  drawOrganism(pathogen) {
+    const shape = this.getShapeForPathogen(pathogen);
+    const arrangement = this.getArrangement();
+    const group = this.add.container(0, 0);
+    const color = this.getGramColor(pathogen);
+    const opacity = 0.9;
+
+    if (shape === 'cocci') {
+      // Cocci are circles
+      const radius = 4;
+      if (arrangement === 'chains') {
+        const count = Phaser.Math.Between(4, 8);
+        for (let i = 0; i < count; i++) {
+          const x = i * (radius * 2 + 2) - (count-1)*(radius+1);
+          const circle = this.add.circle(x, 0, radius, color, opacity);
+          group.add(circle);
+        }
+      } else if (arrangement === 'pairs') {
+        const left = this.add.circle(-(radius+1), 0, radius, color, opacity);
+        const right = this.add.circle(radius+1, 0, radius, color, opacity);
+        group.add([left, right]);
+      } else if (arrangement === 'clusters') {
+        // Irregular cluster of 5-8 cells
+        const count = Phaser.Math.Between(5, 8);
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const rad = Phaser.Math.Between(2, radius*2);
+          const x = Math.cos(angle) * rad;
+          const y = Math.sin(angle) * rad;
+          const circle = this.add.circle(x, y, radius, color, opacity);
+          group.add(circle);
+        }
+      } else {
+        // single
+        group.add(this.add.circle(0, 0, radius, color, opacity));
+      }
+    } 
+    else if (shape === 'bacilli') {
+      // Rods: rectangles with rounded appearance (we use rectangle)
+      const length = Phaser.Math.Between(12, 18);
+      const width = 5;
+      if (arrangement === 'chains') {
+        const count = Phaser.Math.Between(3, 6);
+        for (let i = 0; i < count; i++) {
+          const x = i * (length - 2) - (count-1)*(length/2);
+          const rect = this.add.rectangle(x, 0, length, width, color, opacity);
+          group.add(rect);
+        }
+      } else {
+        const rect = this.add.rectangle(0, 0, length, width, color, opacity);
+        group.add(rect);
+      }
+    }
+    else if (shape === 'yeast') {
+      // Oval with budding
+      const body = this.add.ellipse(0, 0, 12, 8, 0x6a0dad, opacity);
+      const bud = this.add.circle(8, -4, 4, 0x8e5db3, opacity);
+      group.add([body, bud]);
+    }
+    else if (shape === 'ring_form') {
+      // Malaria ring form inside pale RBC
+      const rbc = this.add.circle(0, 0, 10, 0xffaaaa, 0.5);
+      const ring = this.add.ellipse(0, 0, 8, 6, 0x4b0082, 1);
+      ring.setStrokeStyle(1, 0x8b008b);
+      group.add([rbc, ring]);
+    }
+    else {
+      // fallback dot
+      group.add(this.add.circle(0, 0, 3, 0xcccccc, opacity));
+    }
+    return group;
   }
 
   spawnOrganisms() {
-    const type = this.disease ? this.disease.pathogen : 'none';
-    const isCOVID = this.disease?.type === 'virus';
+    const pathogen = this.disease ? this.disease.pathogen : null;
+    if (!pathogen || this.disease?.type === 'virus') return;
 
-    if (isCOVID || type === 'none') {
-      this.add.text(0, -20, 'No organisms visible', { fontSize: '14px', color: '#888' }).setOrigin(0.5);
-      return;
-    }
+    const count = 60;
+    for (let i = 0; i < count; i++) {
+      const x = Phaser.Math.Between(-350, 350);
+      const y = Phaser.Math.Between(-350, 350);
+      const organism = this.drawOrganism(pathogen);
+      if (organism) {
+        organism.setPosition(x, y);
+        organism.setRotation(Math.random() * Math.PI * 2);
+        this.organisms.push(organism);
+        this.stage.add(organism);
 
-    const organismsPerField = this.specimenField === 0 ? 40 : 30;
-
-    for (let i = 0; i < organismsPerField; i++) {
-      const x = Phaser.Math.Between(-250, 250);
-      const y = Phaser.Math.Between(-250, 250);
-      const org = this.drawOrganism(type, x, y);
-
-      if (org) {
-        org.setPosition(x, y);
-        org._vx = (Math.random() - 0.5) * 0.6;
-        org._vy = (Math.random() - 0.5) * 0.6;
-        org._type = type;
-        this.organisms.push(org);
-        this.stage.add(org);
+        // Gentle Brownian motion
+        this.tweens.add({
+          targets: organism,
+          x: x + Phaser.Math.Between(-15, 15),
+          y: y + Phaser.Math.Between(-15, 15),
+          rotation: organism.rotation + Phaser.Math.Between(-0.2, 0.2),
+          duration: Phaser.Math.Between(2500, 4500),
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
       }
     }
   }
 
-  drawOrganism(type, x, y) {
-    const g = this.add.graphics();
-
-    switch (type) {
-      case 'Streptococcus pyogenes': {
-        const chainLen = Phaser.Math.Between(4, 8);
-        const color = 0x8844cc;
-        g.fillStyle(color, 0.9);
-        for (let j = 0; j < chainLen; j++) {
-          const offX = j * 6 + (Math.random() - 0.5) * 2;
-          const offY = (Math.random() - 0.5) * 3;
-          g.fillCircle(offX, offY, 3 + Math.random() * 1.5);
-        }
-        break;
-      }
-      case 'Escherichia coli': {
-        const color = 0xff66bb;
-        g.fillStyle(color, 0.85);
-        const rodLen = 12 + Math.random() * 6;
-        const rodWid = 4 + Math.random() * 2;
-        g.fillRoundedRect(0, 0, rodLen, rodWid, 2);
-        g.fillStyle(0xff88cc, 0.4);
-        g.fillCircle(rodLen / 4, rodWid / 2, 1.5);
-        g.fillCircle((rodLen * 3) / 4, rodWid / 2, 1.5);
-        break;
-      }
-      case 'Streptococcus pneumoniae': {
-        const color = 0x9944dd;
-        g.fillStyle(color, 0.9);
-        g.fillStyle(0x9944dd, 0.15);
-        g.fillEllipse(-1, 1, 16, 12);
-        g.fillStyle(color, 0.9);
-        g.fillCircle(-3, 0, 4 + Math.random() * 1);
-        g.fillCircle(3, 0, 4 + Math.random() * 1);
-        break;
-      }
-      case 'Candida albicans': {
-        g.fillStyle(0x8844aa, 0.85);
-        g.fillEllipse(0, 0, 10, 14);
-        g.fillStyle(0xaa66cc, 0.6);
-        g.fillCircle(0, -1, 2);
-        if (Math.random() > 0.55) {
-          g.fillStyle(0x8844aa, 0.7);
-          g.fillEllipse(8, -7, 6, 8);
-          g.fillStyle(0xaa66cc, 0.3);
-          g.fillCircle(4, -4, 1);
-        }
-        if (Math.random() > 0.7) {
-          g.lineStyle(2, 0x8844aa, 0.6);
-          g.beginPath();
-          g.moveTo(8, -7);
-          g.lineTo(16, -14);
-          g.strokePath();
-          g.fillStyle(0x8844aa, 0.4);
-          g.fillCircle(12, -10, 1.5);
-        }
-        break;
-      }
-      case 'Mycobacterium tuberculosis': {
-        g.fillStyle(0xff4444, 0.8);
-        const rodLen = 10 + Math.random() * 6;
-        const rodWid = 2 + Math.random() * 1;
-        g.fillRoundedRect(0, 0, rodLen, rodWid, 1);
-        g.fillStyle(0xff6666, 0.6);
-        for (let b = 0; b < rodLen; b += 3) {
-          g.fillCircle(b + 1, rodWid / 2, 0.8);
-        }
-        break;
-      }
-      case 'Plasmodium falciparum': {
-        g.fillStyle(0xffaaaa, 0.5);
-        g.fillCircle(0, 0, 12);
-        g.lineStyle(1, 0xcc6666, 0.6);
-        g.strokeCircle(0, 0, 12);
-
-        if (Math.random() > 0.3) {
-          const rx = -3 + Math.random() * 6;
-          const ry = -3 + Math.random() * 6;
-          g.lineStyle(2, 0x8b0000, 0.9);
-          g.strokeCircle(rx, ry, 3);
-          g.fillStyle(0x8b0000, 0.9);
-          g.fillCircle(rx + 2, ry - 1, 1);
-          if (Math.random() > 0.8) {
-            g.lineStyle(1.5, 0x8b0000, 0.6);
-            g.strokeCircle(rx + 5, ry + 3, 2);
-            g.fillStyle(0x8b0000, 0.6);
-            g.fillCircle(rx + 6, ry + 2, 0.8);
-          }
-        }
-        break;
-      }
-      case 'Neisseria meningitidis': {
-        const color = 0xff66bb;
-        g.fillStyle(color, 0.85);
-        g.fillEllipse(-3, 0, 6, 5);
-        g.fillEllipse(3, 0, 6, 5);
-        g.lineStyle(1, 0xcc88aa, 0.2);
-        g.strokeCircle(0, 0, 8);
-        break;
-      }
-      default:
-        return null;
-    }
-
-    return g;
+  // ------------------------------------------------------------
+  // Microscope controls and HUD
+  // ------------------------------------------------------------
+  applyLight() { 
+    this.bgLight.setAlpha(Math.min(1, this.light / 80)); 
   }
-
-  update(time, delta) {
-    const speedMultiplier = Math.min(2, delta / 16);
-    this.organisms.forEach(org => {
-      if (!org || !org._type) return;
-      const type = org._type;
-
-      org.x += (Math.random() - 0.5) * 0.8 * speedMultiplier;
-      org.y += (Math.random() - 0.5) * 0.8 * speedMultiplier;
-
-      if (type === 'Escherichia coli') {
-        org.x += org._vx * speedMultiplier;
-        org.y += org._vy * speedMultiplier;
-        if (Math.random() < 0.02) {
-          org._vx = (Math.random() - 0.5) * 2;
-          org._vy = (Math.random() - 0.5) * 2;
-        }
-      }
-    });
-
-    const zoomNames = { 1: '10x', 3: '40x', 6: '100x' };
-    const zoomLabel = Object.entries(zoomNames).reduce((acc, [k, v]) =>
-      Math.abs(this.zoom - parseFloat(k)) < 0.3 ? v : acc, 'Custom');
-    this.fieldLabel.setText(`Field ${this.specimenField + 1} | ${zoomLabel} | Focus: ${Math.round(this.focus)}%`);
-  }
-
-  applyLight() {
-    const brightness = 0.3 + (this.light / 100) * 0.7;
-    this.viewport.setAlpha(brightness);
-    this.bgLight.setAlpha(Math.min(1, this.light / 80));
-    this.bgLight.setScale(1 + (100 - this.light) / 100);
-  }
-
+  
   updateBlur() {
-    const deviation = Math.abs(50 - this.focus);
-    const blurAmount = (deviation / 55) * 8; // Up to 8px blur
-    
-    // Apply Gaussian blur effect
-    if (this.blur) {
-      this.blur.destroy();
+    const focusDistance = Math.abs(50 - this.focus);
+    if (this.blurFilter) {
+      this.blurFilter.strength = (focusDistance / 50) * 4;
     }
-    
-    if (blurAmount > 0) {
-      this.blur = this.cameras.main.postFX.addBlur(blurAmount, blurAmount);
+    const actualZoom = 1 + (this.zoom - 1) * 0.4;
+    this.viewport.setScale(actualZoom);
+
+    // Update HUD text with morphology hints when resolved
+    if (this.hudText) {
+      if (this.disease?.type === 'virus' || !this.disease) {
+        this.hudText.setText(`[MAG: ${this.zoom}x] Slide clear. No organisms detected.`);
+        this.hudText.setColor('#4ade80');
+        this.hudBg.setStrokeStyle(1, 0x4ade80);
+      } else if (this.zoom < 3) {
+        this.hudText.setText(`[MAG: ${this.zoom}x] Need more zoom to resolve structures.`);
+        this.hudText.setColor('#facc15');
+        this.hudBg.setStrokeStyle(1, 0xfacc15);
+      } else if (focusDistance > 10) {
+        this.hudText.setText(this.focus < 50 ? `[MAG: ${this.zoom}x] Out of focus. Increase fine focus.` : `[MAG: ${this.zoom}x] Out of focus. Decrease fine focus.`);
+        this.hudText.setColor('#facc15');
+        this.hudBg.setStrokeStyle(1, 0xfacc15);
+      } else {
+        const shape = this.getShapeForPathogen(this.disease.pathogen);
+        let shapeText = '';
+        switch(shape) {
+          case 'cocci': shapeText = 'Cocci (spherical)'; break;
+          case 'bacilli': shapeText = 'Bacilli (rod-shaped)'; break;
+          case 'yeast': shapeText = 'Yeast (oval with buds)'; break;
+          case 'ring_form': shapeText = 'Ring forms (intracellular)'; break;
+          default: shapeText = 'Morphology visible';
+        }
+        this.hudText.setText(`[MAG: ${this.zoom}x] RESOLVED. ${shapeText}.`);
+        this.hudText.setColor('#4ade80');
+        this.hudBg.setStrokeStyle(1, 0x4ade80);
+      }
     }
-    
-    this.viewport.setScale(this.zoom);
   }
 
-  setZoom(val) {
-    this.zoom = Math.max(1, Math.min(6, val));
-    this.updateBlur();
-    this.events.emit('zoom-changed', { zoom: this.zoom });
-  }
+  setZoom(val) { this.zoom = val; this.updateBlur(); }
+  setFocus(val) { this.focus = val; this.updateBlur(); }
+  setLight(val) { this.light = val; this.applyLight(); }
+}
 
-  setFocus(val) {
-    this.focus = Math.max(0, Math.min(100, val));
-    this.updateBlur();
-    this.events.emit('focus-changed', { focus: this.focus });
-  }
+// ============================================================
+// PATIENT EXAMINATION SCENE (Unchanged)
+// ============================================================
+export class PatientExamScene extends Phaser.Scene {
+  constructor() { super(); this.findings = {}; }
+  init(data) { this.exam = data.exam || {}; }
+  create() {
+    const { width, height } = this.cameras.main; const cx = width / 2;
+    this.add.rectangle(0, 0, width, height, 0x1e293b).setOrigin(0);
+    this.add.text(30, 30, 'Physical Examination', { fontSize: '24px', color: '#ffffff', fontStyle: 'bold' });
+    this.add.text(30, 60, 'Click on the labeled regions to perform an assessment.', { fontSize: '14px', color: '#94a3b8' });
 
-  setLight(val) {
-    this.light = Math.max(0, Math.min(100, val));
-    this.applyLight();
-    this.events.emit('light-changed', { light: this.light });
-  }
+    const g = this.add.graphics();
+    const skinTone = 0xdeaa88; const outline = 0x94a3b8;
+    g.lineStyle(2, outline, 1); g.fillStyle(skinTone, 1);
+    g.fillCircle(cx, 130, 45); g.strokeCircle(cx, 130, 45);
+    g.fillStyle(0xffffff, 1); g.fillEllipse(cx - 15, 125, 14, 8); g.fillEllipse(cx + 15, 125, 14, 8);
+    g.fillStyle(0x0f172a, 1); g.fillCircle(cx - 15, 125, 3); g.fillCircle(cx + 15, 125, 3);
+    g.fillStyle(skinTone, 1); g.fillRect(cx - 15, 170, 30, 25); g.strokeRect(cx - 15, 170, 30, 25);
+    g.fillRoundedRect(cx - 60, 190, 120, 170, 20); g.strokeRoundedRect(cx - 60, 190, 120, 170, 20);
+    g.fillRoundedRect(cx - 95, 200, 30, 150, 15); g.strokeRoundedRect(cx - 95, 200, 30, 150, 15);
+    g.fillRoundedRect(cx + 65, 200, 30, 150, 15); g.strokeRoundedRect(cx + 65, 200, 30, 150, 15);
+    g.fillRoundedRect(cx - 55, 350, 45, 180, 20); g.strokeRoundedRect(cx - 55, 350, 45, 180, 20);
+    g.fillRoundedRect(cx + 10, 350, 45, 180, 20); g.strokeRoundedRect(cx + 10, 350, 45, 180, 20);
 
-  getOrganismCounts() {
-    const type = this.disease ? this.disease.pathogen : 'none';
-    const organismsPresent = ['Streptococcus pyogenes', 'Escherichia coli', 'Streptococcus pneumoniae',
-      'Candida albicans', 'Mycobacterium tuberculosis', 'Plasmodium falciparum', 'Neisseria meningitidis'];
-    return organismsPresent.reduce((acc, o) => ({ ...acc, [o]: type === o ? this.organisms.length : 0 }), {});
+    const regions = [
+      { id: 'head', x: cx, y: 95, r: 25, label: 'Head / Scalp', labelX: cx - 180, labelY: 95 },
+      { id: 'eyes', x: cx, y: 125, r: 15, label: 'Ocular / Eyes', labelX: cx + 180, labelY: 125 },
+      { id: 'throat', x: cx, y: 180, r: 15, label: 'Oropharynx', labelX: cx - 180, labelY: 180 },
+      { id: 'chest', x: cx, y: 240, r: 35, label: 'Thorax / Chest', labelX: cx + 180, labelY: 240 },
+      { id: 'abdomen', x: cx, y: 310, r: 35, label: 'Abdomen', labelX: cx - 180, labelY: 310 },
+      { id: 'skin', x: cx + 80, y: 270, r: 25, label: 'Dermatological', labelX: cx + 200, labelY: 310 }
+    ];
+
+    regions.forEach(reg => {
+      const line = this.add.graphics();
+      line.lineStyle(1, 0x4ade80, 0.5); line.beginPath(); line.moveTo(reg.labelX + (reg.labelX < cx ? 70 : -70), reg.labelY); line.lineTo(reg.x, reg.y); line.strokePath();
+      const labelBg = this.add.rectangle(reg.labelX, reg.labelY, 140, 30, 0x0f172a, 0.9).setStrokeStyle(1, 0x4ade80);
+      const labelText = this.add.text(reg.labelX, reg.labelY, reg.label, { fontSize: '12px', color: '#4ade80', fontFamily: 'monospace' }).setOrigin(0.5);
+      let zone = this.add.circle(reg.x, reg.y, reg.r, 0x4ade80, 0);
+      zone.setInteractive({ useHandCursor: true });
+      zone.on('pointerover', () => { zone.setFillStyle(0x4ade80, 0.3); labelBg.setFillStyle(0x4ade80, 1); labelText.setColor('#0f172a'); });
+      zone.on('pointerout', () => { zone.setFillStyle(0x4ade80, 0); labelBg.setFillStyle(0x0f172a, 0.9); labelText.setColor('#4ade80'); });
+      zone.on('pointerdown', () => {
+        const finding = this.exam[reg.id] || 'Normal'; this.findings[reg.id] = finding;
+        const isNormal = finding === 'Normal';
+        const findingBg = this.add.rectangle(reg.labelX, reg.labelY + 28, 140, 25, isNormal ? 0x064e3b : 0x7f1d1d, 1).setOrigin(0.5).setStrokeStyle(1, isNormal ? 0x10b981 : 0xef4444);
+        const findingText = this.add.text(reg.labelX, reg.labelY + 28, finding, { fontSize: '11px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+        this.tweens.add({ targets: [findingBg, findingText], y: '-=15', alpha: 0, duration: 2500, ease: 'Power2', onComplete: () => { findingBg.destroy(); findingText.destroy(); } });
+        this.events.emit('exam-finding', { region: reg.id, finding });
+      });
+    });
   }
 }
 
 // ============================================================
-// GRAM STAIN SCENE
+// GRAM STAIN SCENE (Enhanced Scientifically)
 // ============================================================
 export class GramStainScene extends Phaser.Scene {
   constructor() {
-    super('GramStainScene');
-    this.step = 0;
-    this.alcoholCount = 0;
+    super(); 
     this.errors = [];
-    this.disease = null;
-    this.startTime = null;
+    this.stepsCompleted = [];
   }
 
   init(data) {
-    this.disease = data.disease || null;
-    this.onFinish = data.onFinish || (() => {});
+    this.disease = data.disease;
+    this.onFinish = data.onFinish;
   }
 
   create() {
     const { width, height } = this.cameras.main;
-    this.add.rectangle(0, 0, width, height, 0x1a1a2e).setOrigin(0);
+    this.add.rectangle(0, 0, width, height, 0xeeeeee).setOrigin(0);
+    this.add.text(50, 50, 'Gram Stain Procedure', { fontSize: '24px', color: '#000' });
 
-    this.add.rectangle(0, height - 60, width, 120, 0x333355).setOrigin(0).setAlpha(0.5);
+    this.slide = this.add.rectangle(width / 2, height / 2, 300, 150, 0xffffff).setStrokeStyle(2, 0x000000);
+    this.bacteriaGraphics = this.add.graphics();
+    this.drawBacteria();
 
-    this.slide = this.add.rectangle(width / 2, height / 2 - 20, 300, 160, 0xeeeeee);
-    this.slide.setStrokeStyle(3, 0xffffff);
-
-    this.stepLabel = this.add.text(width / 2, 15, 'Gram Stain Procedure', {
-      fontSize: '16px', color: '#fff', fontStyle: 'bold'
-    }).setOrigin(0.5, 0);
-
-    this.progressText = this.add.text(width / 2, 35, 'Step 0/4: Place slide', {
-      fontSize: '12px', color: '#aaa'
-    }).setOrigin(0.5, 0);
-
-    this.resultLabel = this.add.text(width / 2, height / 2 + 100, '', {
-      fontSize: '14px', color: '#ffd700'
-    }).setOrigin(0.5, 0.5);
-
-    this.errorLabel = this.add.text(width / 2, height / 2 + 120, '', {
-      fontSize: '11px', color: '#ff6666'
-    }).setOrigin(0.5, 0.5);
-
-    this.timerText = this.add.text(width / 2, 55, 'Timer: 00:00', {
-      fontSize: '11px', color: '#aaa'
-    }).setOrigin(0.5, 0);
-
-    const bottles = STAIN_STEPS.gram;
-    bottles.forEach((b, i) => {
-      const bx = 40 + i * 130;
-      const by = height - 40;
-      const bottle = this.add.rectangle(bx, by, 30, 40, b.color, 0.7);
-      bottle.setStrokeStyle(1, 0xffffff, 0.3);
-      bottle.setInteractive({ useHandCursor: false });
-      this.add.text(bx, by - 30, b.name.split(' ')[0], {
-        fontSize: '8px', color: '#ccc'
-      }).setOrigin(0.5);
-    });
-
-    this.startTime = this.time.now;
-
-    // EMIT READY EVENT
-    this.events.emit('scene-ready', { type: 'gram', step: this.step, errors: this.errors });
-
-    // LISTEN FOR COMMANDS FROM REACT
     this.events.on('apply-chemical', (data) => {
-      this.applyChemical(data.chemicalName);
-    });
-
-    this.events.on('reset-procedure', () => {
-      this.reset();
+      const chemical = data.chemicalName;
+      this.stepsCompleted.push(chemical);
+      this.playDropperAnimation(chemical);
     });
   }
 
-  applyChemical(chemicalName) {
-    const { width, height } = this.cameras.main;
-    const expectedStep = this.step;
-    const expectedChemical = STAIN_STEPS.gram[expectedStep]?.name || '';
-
-    if (chemicalName !== expectedChemical) {
-      this.errors.push(`Wrong sequence: applied ${chemicalName} instead of ${expectedChemical}`);
-      this.errorLabel.setText(`⚠️ Wrong sequence! Expected ${expectedChemical}`);
-      this.time.addEvent({
-        delay: 2000,
-        callback: () => {
-          this.errorLabel.setText('');
-        }
-      });
-      this.events.emit('error-occurred', { error: this.errors[this.errors.length - 1] });
-      return;
-    }
-
-    this.step++;
-    this.progressText.setText(`Step ${this.step}/4: ${chemicalName}`);
-
-    switch (chemicalName) {
-      case 'Crystal Violet':
-        this.slide.setFillStyle(0x6a0dad, 0.8);
-        this.flashEffect(0x6a0dad);
-        break;
-      case "Gram's Iodine":
-        this.slide.setFillStyle(0x3d0c02, 0.85);
-        this.flashEffect(0x3d0c02);
-        break;
-      case 'Alcohol Decolorizer':
-        this.alcoholCount++;
-        if (this.alcoholCount >= 3) {
-          this.slide.setFillStyle(0xdddddd, 0.95);
-          this.errors.push('Over-decolorization: excess alcohol removed CV from Gram-positive cells');
-          this.errorLabel.setText('⚠️ Excess alcohol! Slide over-decolorized.');
-          this.events.emit('procedural-error', { type: 'over-decolorization' });
-        } else {
-          this.slide.setFillStyle(0xcccccc, 0.6);
-        }
-        this.shakeEffect();
-        break;
-      case 'Safranin':
-        let resultGram = 'gram_negative';
-        let resultText = '';
-        if (this.alcoholCount >= 3) {
-          this.slide.setFillStyle(0xff66bb, 0.7);
-          resultText = 'Result: Gram Negative (Pink) - May be FALSE due to over-decolorization';
-        } else if (this.disease?.observations?.gram === 'gram_positive') {
-          this.slide.setFillStyle(0x6a0dad, 0.9);
-          resultGram = 'gram_positive';
-          resultText = '✓ Result: Gram Positive (Purple)';
-        } else {
-          this.slide.setFillStyle(0xff66bb, 0.8);
-          resultText = '✓ Result: Gram Negative (Pink)';
-        }
-        this.resultLabel.setText(resultText);
-        this.flashEffect(0xffd700);
-        
-        // EMIT RESULT EVENT
-        this.events.emit('procedure-complete', {
-          result: resultGram,
-          errors: this.errors,
-          accuracy: (1 - (this.errors.length / 4)) * 100
-        });
-        break;
-      default:
-        break;
-    }
-  }
-
-  flashEffect(color) {
-    const { width, height } = this.cameras.main;
-    const flash = this.add.rectangle(width / 2, height / 2, width, height, color, 0.3);
+  playDropperAnimation(chemical) {
+    const colorMap = {
+      'Crystal Violet': 0x6a0dad,
+      'Gram\'s Iodine': 0x3d0c02,
+      'Alcohol Decolorizer': 0xdddddd,
+      'Safranin': 0xff1493
+    };
+    
+    // Animate fake fluid drop
+    const drop = this.add.circle(400, 200, 15, colorMap[chemical]);
     this.tweens.add({
-      targets: flash,
+      targets: drop,
+      y: 300,
+      scaleX: 5,
+      scaleY: 0.5,
       alpha: 0,
-      duration: 800,
-      onComplete: () => flash.destroy()
+      duration: 500,
+      onComplete: () => {
+        drop.destroy();
+        this.evaluateStep(chemical);
+      }
     });
   }
 
-  shakeEffect() {
-    const originalX = this.slide.x;
-    this.tweens.add({
-      targets: this.slide,
-      x: originalX + 5,
-      duration: 50,
-      yoyo: true,
-      repeat: 3,
-      onComplete: () => this.slide.x = originalX
-    });
-  }
-
-  update(time, delta) {
-    if (this.startTime) {
-      const elapsed = Math.floor((time - this.startTime) / 1000);
-      const minutes = Math.floor(elapsed / 60);
-      const seconds = elapsed % 60;
-      this.timerText.setText(`Timer: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+  drawBacteria() {
+    this.bacteriaGraphics.clear();
+    const type = this.disease?.type;
+    const pathogen = this.disease?.pathogen;
+    
+    // Wash away non-applicable organisms
+    if (this.stepsCompleted.includes('Alcohol Decolorizer')) {
+      if (type === 'virus') return; // Viruses wash away entirely
     }
-  }
 
-  reset() {
-    this.step = 0;
-    this.alcoholCount = 0;
-    this.errors = [];
-    this.slide.setFillStyle(0xeeeeee);
-    this.progressText.setText('Step 0/4: Place slide');
-    this.resultLabel.setText('');
-    this.errorLabel.setText('');
-    this.events.emit('procedure-reset', {});
-  }
-}
-
-// ============================================================
-// ACID FAST SCENE
-// ============================================================
-export class AcidFastScene extends Phaser.Scene {
-  constructor() {
-    super('AcidFastScene');
-    this.step = 0;
-    this.disease = null;
-  }
-
-  init(data) {
-    this.disease = data.disease || null;
-    this.onFinish = data.onFinish || (() => {});
-  }
-
-  create() {
-    const { width, height } = this.cameras.main;
-    this.add.rectangle(0, 0, width, height, 0x0d0d1a).setOrigin(0);
-
-    this.slide = this.add.rectangle(width / 2, height / 2 - 20, 300, 160, 0xf5f5f5);
-    this.slide.setStrokeStyle(3, 0xffffff);
-
-    this.add.text(width / 2, 15, 'Ziehl-Neelsen Acid-Fast Stain', {
-      fontSize: '15px', color: '#fff', fontStyle: 'bold'
-    }).setOrigin(0.5, 0);
-
-    this.progressText = this.add.text(width / 2, 35, 'Step 0/4', {
-      fontSize: '12px', color: '#aaa'
-    }).setOrigin(0.5, 0);
-
-    this.resultLabel = this.add.text(width / 2, height / 2 + 100, '', {
-      fontSize: '14px', color: '#ffd700'
-    }).setOrigin(0.5, 0.5);
-
-    this.afbGraphics = this.add.graphics();
-    this.drawAFBOrganisms();
-
-    this.events.emit('scene-ready', { type: 'acidfast', step: this.step });
-
-    this.events.on('apply-step', (data) => {
-      this.applyChemical(data.stepNumber);
-    });
-
-    this.events.on('reset-procedure', () => {
-      this.reset();
-    });
-  }
-
-  drawAFBOrganisms() {
-    const isAFBPositive = this.disease?.observations?.acidFast === 'positive';
-    const isTB = this.disease?.pathogen === 'Mycobacterium tuberculosis';
-
-    if (isAFBPositive || isTB) {
-      for (let i = 0; i < 20; i++) {
-        const x = Phaser.Math.Between(-120, 120);
-        const y = Phaser.Math.Between(-60, 60);
-        this.afbGraphics.fillStyle(0xff4444, 0.15);
-        this.afbGraphics.fillRoundedRect(x, y, 10 + Math.random() * 6, 2 + Math.random(), 1);
-        this.afbGraphics.fillStyle(0xff6666, 0.1);
-        for (let b = 0; b < 10; b += 3) {
-          this.afbGraphics.fillCircle(x + b + 1, y + 1, 0.6);
-        }
+    const color = this.stepsCompleted.includes('Safranin') ? 0xff69b4 : (this.stepsCompleted.includes('Crystal Violet') ? 0x6a0dad : 0xcccccc);
+    
+    if (type === 'protozoa') {
+      // Draw messy eukaryotic debris
+      this.bacteriaGraphics.fillStyle(color, 0.5);
+      for (let i = 0; i < 15; i++) {
+        this.bacteriaGraphics.fillEllipse(400 + (Math.random()-0.5)*200, 300 + (Math.random()-0.5)*100, 20 + Math.random()*15, 15 + Math.random()*15);
+      }
+    } else if (pathogen === 'Mycobacterium tuberculosis') {
+      // Ghost cells (poorly stained)
+      this.bacteriaGraphics.lineStyle(1, color, 0.3);
+      for (let i = 0; i < 30; i++) {
+        this.bacteriaGraphics.strokeRect(400 + (Math.random()-0.5)*200, 300 + (Math.random()-0.5)*100, 8, 3);
+      }
+    } else if (type === 'bacteria') {
+      // Normal bacteria
+      this.bacteriaGraphics.fillStyle(color, 0.8);
+      for (let i = 0; i < 50; i++) {
+        this.bacteriaGraphics.fillCircle(400 + (Math.random() - 0.5) * 200, 300 + (Math.random() - 0.5) * 100, 3);
       }
     }
   }
 
-  applyChemical(stepNumber) {
-    this.step = stepNumber;
-    const steps = STAIN_STEPS.acidFast;
-    const step = steps[stepNumber - 1];
-    if (!step) return;
-
-    this.progressText.setText(`Step ${stepNumber}/4: ${step.name}`);
-
-    switch (stepNumber) {
-      case 1:
-        this.slide.setFillStyle(0xff3333, 0.7);
-        this.flashEffect(0xff0000);
-        break;
-      case 2:
-        this.slide.setFillStyle(0xcc2222, 0.85);
-        this.heatEffect();
-        this.afbGraphics.setAlpha(0.5);
-        break;
-      case 3:
-        this.slide.setFillStyle(0xdddddd, 0.6);
-        this.afbGraphics.setAlpha(0.9);
-        break;
-      case 4:
-        this.slide.setFillStyle(0x2244aa, 0.4);
-        this.afbGraphics.setAlpha(1.0);
-
-        const isAFB = this.disease?.observations?.acidFast === 'positive';
-        if (isAFB) {
-          this.afbGraphics.clear();
-          for (let i = 0; i < 25; i++) {
-            const x = Phaser.Math.Between(-130, 130);
-            const y = Phaser.Math.Between(-65, 65);
-            this.afbGraphics.fillStyle(0xff3333, 0.9);
-            const rodLen = 10 + Math.random() * 8;
-            this.afbGraphics.fillRoundedRect(x, y, rodLen, 3, 1);
-            this.afbGraphics.fillStyle(0xff6666, 0.7);
-            for (let b = 0; b < rodLen; b += 3) {
-              this.afbGraphics.fillCircle(x + b + 1, y + 1.5, 0.8);
-            }
-          }
-          this.resultLabel.setText('✓ Acid-Fast Positive: Red rods visible on blue background');
-        } else {
-          this.resultLabel.setText('Acid-Fast Negative: No red rods (only blue background)');
-        }
-        this.fadeEffect();
-
-        this.events.emit('procedure-complete', {
-          result: isAFB ? 'positive' : 'negative'
-        });
-        break;
+  evaluateStep(chemical) {
+    const expectedOrder = STAIN_STEPS.gram.map(s => s.name);
+    const idx = expectedOrder.indexOf(chemical);
+    if (idx !== this.stepsCompleted.length - 1) {
+      this.errors.push(`Out of order: ${chemical} applied before ${expectedOrder[this.stepsCompleted.length - 1] || 'finish'}`);
     }
+    if (chemical === 'Alcohol Decolorizer' && !this.stepsCompleted.includes('Gram\'s Iodine')) {
+      this.errors.push('Decolorizer applied before iodine mordant');
+    }
+    if (chemical === 'Safranin') {
+      const finalGram = this.determineGramResult();
+      this.onFinish?.(finalGram, this.errors);
+      this.events.emit('procedure-complete', { result: finalGram, errors: this.errors });
+      this.add.text(400, 500, `Result: ${finalGram}`, { fontSize: '18px', color: '#000', backgroundColor: '#fff', padding: 4 }).setOrigin(0.5);
+    }
+    this.drawBacteria();
   }
 
-  flashEffect(color) {
-    const { width, height } = this.cameras.main;
-    const flash = this.add.rectangle(width / 2, height / 2, width, height, color, 0.25);
-    this.tweens.add({
-      targets: flash,
-      alpha: 0,
-      duration: 1000,
-      onComplete: () => flash.destroy()
-    });
-  }
-
-  heatEffect() {
-    const { width, height } = this.cameras.main;
-    const glow = this.add.circle(width / 2, height / 2, 100, 0xff4400, 0.15);
-    this.tweens.add({
-      targets: glow,
-      alpha: 0.4,
-      scaleX: 1.5,
-      scaleY: 1.5,
-      duration: 1500,
-      yoyo: true,
-      onComplete: () => glow.destroy()
-    });
-  }
-
-  fadeEffect() {
-    const { width, height } = this.cameras.main;
-    const fade = this.add.rectangle(width / 2, height / 2, width, height, 0xffffff, 0.1);
-    this.tweens.add({
-      targets: fade,
-      alpha: 0,
-      duration: 500,
-      onComplete: () => fade.destroy()
-    });
-  }
-
-  reset() {
-    this.step = 0;
-    this.slide.setFillStyle(0xf5f5f5);
-    this.progressText.setText('Step 0/4');
-    this.resultLabel.setText('');
-    this.afbGraphics.clear();
-    this.drawAFBOrganisms();
-    this.events.emit('procedure-reset', {});
+  determineGramResult() {
+    if (!this.disease) return 'unknown';
+    if (this.disease.type === 'virus') return 'No organisms visible (Viral agents do not stain)';
+    if (this.disease.type === 'protozoa') return 'Atypical eukaryotic cells/debris seen';
+    if (this.disease.pathogen === 'Mycobacterium tuberculosis') return 'Weakly Gram+ / Ghost Cells';
+    
+    const correct = this.disease.observations.gram;
+    if (this.errors.length > 2) return correct === 'gram_positive' ? 'gram_negative' : 'gram_positive';
+    return correct;
   }
 }
 
 // ============================================================
-// BLOOD SMEAR SCENE
+// ACID FAST SCENE (Interactive & Accurate)
+// ============================================================
+export class AcidFastScene extends Phaser.Scene {
+  constructor() {
+    super(); 
+    this.step = 0;
+  }
+
+  init(data) {
+    this.disease = data.disease;
+    this.onFinish = data.onFinish;
+  }
+
+  create() {
+    const { width, height } = this.cameras.main;
+    this.add.rectangle(0, 0, width, height, 0xeeeeee).setOrigin(0);
+    this.add.text(50, 50, 'Acid-Fast (Ziehl-Neelsen) Stain', { fontSize: '24px', color: '#000' });
+
+    this.slide = this.add.rectangle(width / 2, height / 2, 300, 150, 0xffffff).setStrokeStyle(2, 0x000000);
+    this.bacteriaGraphics = this.add.graphics();
+    this.drawBacteria();
+
+    this.events.on('apply-step', (data) => {
+      this.playDropperAnimation(data.stepNumber);
+    });
+  }
+
+  playDropperAnimation(stepNumber) {
+    const colorMap = { 1: 0xff0000, 2: 0xcc0000, 3: 0xdddddd, 4: 0x0000cc };
+    const drop = this.add.circle(400, 200, 15, colorMap[stepNumber]);
+    
+    this.tweens.add({
+      targets: drop, y: 300, scaleX: 5, scaleY: 0.5, alpha: 0, duration: 500,
+      onComplete: () => {
+        drop.destroy();
+        this.step = stepNumber;
+        this.evaluateStep();
+      }
+    });
+  }
+
+  evaluateStep() {
+    if (this.step === 4) {
+      let result = 'negative';
+      if (this.disease?.type === 'virus' || this.disease?.type === 'protozoa') result = 'No cells visible';
+      else if (this.disease?.observations?.acidFast === 'positive') result = 'positive';
+      
+      this.onFinish?.(result);
+      this.events.emit('procedure-complete', { result });
+      this.add.text(400, 500, `Acid-Fast: ${result}`, { fontSize: '20px', color: '#000' }).setOrigin(0.5);
+    }
+    this.drawBacteria();
+  }
+
+  drawBacteria() {
+    this.bacteriaGraphics.clear();
+    const type = this.disease?.type;
+    
+    // Wash away non-bacteria
+    if (this.step >= 3 && (type === 'virus' || type === 'protozoa')) return;
+
+    let color = 0xdddddd;
+    if (this.step === 4) {
+      color = this.disease?.observations?.acidFast === 'positive' ? 0xff0000 : 0x0000cc; // Non-AFB turn blue!
+    } else if (this.step >= 1) {
+      color = 0xff0000;
+    }
+
+    this.bacteriaGraphics.fillStyle(color, 0.8);
+    for (let i = 0; i < 50; i++) {
+      this.bacteriaGraphics.fillRoundedRect(350 + Math.random() * 100, 250 + Math.random() * 100, 8, 3, 1);
+    }
+  }
+}
+
+// ============================================================
+// BLOOD SMEAR SCENE (Automated Scanning)
 // ============================================================
 export class BloodSmearScene extends Phaser.Scene {
   constructor() {
-    super('BloodSmearScene');
-    this.infectedFound = 0;
-    this.totalRBCs = 0;
-    this.infectedRBCs = [];
-    this.allRBCs = [];
+    super(); 
+    this.totalCells = 0;
+    this.infectedCells = 0;
+    this.cellsArray = [];
   }
 
   init(data) {
     this.patient = data.patient;
-    this.disease = data.patient ? DISEASES[data.patient.diseaseId] : null;
-    this.onComplete = data.onComplete || (() => {});
+    this.onComplete = data.onComplete;
+    this.disease = this.patient ? DISEASES[this.patient.diseaseId] : null;
   }
 
   create() {
     const { width, height } = this.cameras.main;
-    this.add.rectangle(0, 0, width, height, 0xfff5ee).setOrigin(0);
+    this.add.rectangle(0, 0, width, height, 0xfef5e7).setOrigin(0);
+    this.add.text(50, 50, 'Blood Smear Examination', { fontSize: '24px', color: '#000' });
+    this.add.text(50, 90, 'Click [START AUTO-SCAN] to analyze 100 RBCs.', { fontSize: '16px', color: '#333' });
 
-    this.add.text(width / 2, 12, 'Peripheral Blood Smear', {
-      fontSize: '15px', color: '#333', fontStyle: 'bold'
-    }).setOrigin(0.5, 0);
+    this.scoreText = this.add.text(width - 200, 50, 'Total: 0 | Infected: 0', { fontSize: '18px', color: '#000' });
+    this.stage = this.add.container(0, 0);
 
-    this.counterText = this.add.text(10, 32, 'RBCs: 0 | Infected: 0 | 0.00%', {
-      fontSize: '12px', color: '#555'
-    });
-
-    this.fieldText = this.add.text(width - 10, 32, 'Field 1/3', {
-      fontSize: '11px', color: '#888'
-    }).setOrigin(1, 0);
-
-    this.add.text(width / 2, height - 8, 'Click infected RBCs (ring forms) to count parasitemia', {
-      fontSize: '10px', color: '#999'
-    }).setOrigin(0.5, 0.5);
-
-    this.add.text(5, height - 8, 'Guide: <1% mild, 1-5% moderate, >5% severe', {
-      fontSize: '8px', color: '#bbb'
-    }).setOrigin(0, 0.5);
-
-    this.generateBloodCells(width, height);
-
-    this.events.emit('scene-ready', { type: 'bloodsmear', infected: this.infectedFound, total: this.totalRBCs });
-  }
-
-  generateBloodCells(width, height) {
-    const isMalaria = this.disease?.pathogen === 'Plasmodium falciparum';
-    const margin = 25;
-    const cellSpacing = 28;
-    const startX = margin;
-    const startY = 48;
-    const cols = Math.floor((width - margin * 2) / cellSpacing);
-    const rows = Math.floor((height - 80) / cellSpacing);
-    this.totalRBCs = cols * rows;
-
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const offsetX = row % 2 === 0 ? 0 : cellSpacing / 2;
-        const x = startX + col * cellSpacing + offsetX;
-        const y = startY + row * cellSpacing * 0.87;
-
-        const jx = x + (Math.random() - 0.5) * 3;
-        const jy = y + (Math.random() - 0.5) * 3;
-        const radius = 11 + Math.random() * 3;
-
-        const isInfected = isMalaria && Math.random() < 0.08;
-
-        const g = this.add.graphics();
-        const rbcColor = isInfected ? 0xffaaaa : 0xffcccc;
-        g.fillStyle(rbcColor, 0.85);
-        g.fillCircle(jx, jy, radius);
-        g.lineStyle(1, 0xcc8888, 0.5);
-        g.strokeCircle(jx, jy, radius);
-        g.fillStyle(0xffdddd, 0.3);
-        g.fillCircle(jx, jy, radius * 0.35);
-
-        this.allRBCs.push({ x: jx, y: jy, radius, g, isInfected, counted: false });
-
-        if (isInfected) {
-          const rx = jx + (Math.random() - 0.5) * 4;
-          const ry = jy + (Math.random() - 0.5) * 4;
-          const ringG = this.add.graphics();
-          ringG.lineStyle(2, 0x8b0000, 0.9);
-          ringG.strokeCircle(rx, ry, 3);
-          ringG.fillStyle(0x8b0000, 0.9);
-          ringG.fillCircle(rx + 2, ry - 1, 1.2);
-
-          this.infectedRBCs.push({ rbc: this.allRBCs[this.allRBCs.length - 1], ringG, rx, ry });
-        }
-      }
+    for (let i = 0; i < 200; i++) {
+      const x = Phaser.Math.Between(0, 1200); 
+      const y = Phaser.Math.Between(150, 800);
+      const isInfected = (this.disease?.pathogen === 'Plasmodium falciparum' && Math.random() < 0.15);
+      
+      const cell = this.add.circle(x, y, 8, 0xffaaaa);
+      
+      this.tweens.add({
+        targets: cell, y: y + Phaser.Math.Between(-5, 5), duration: Phaser.Math.Between(2000, 4000), yoyo: true, repeat: -1
+      });
+      
+      this.stage.add(cell);
+      this.cellsArray.push({ sprite: cell, isInfected });
     }
 
-    this.counterText.setText(`RBCs: ${this.totalRBCs} | Infected: 0 | 0.00%`);
+    const scanBtn = this.add.rectangle(width / 2, height - 50, 200, 40, 0x1976d2).setInteractive({ useHandCursor: true });
+    const scanTxt = this.add.text(width / 2, height - 50, 'START AUTO-SCAN', { fontSize: '16px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
 
-    this.infectedRBCs.forEach((item, index) => {
-      const hitZone = this.add.circle(item.rbc.x, item.rbc.y, item.rbc.radius + 2, 0xffffff, 0);
-      hitZone.setInteractive({ useHandCursor: true });
-      hitZone.on('pointerdown', () => this.countInfected(item, index));
-      hitZone.on('pointerover', () => {
-        if (!item.rbc.counted) {
-          item.ringG.clear();
-          item.ringG.lineStyle(2, 0x00ff00, 0.5);
-          item.ringG.strokeCircle(item.rx, item.ry, 3);
-        }
-      });
-      hitZone.on('pointerout', () => {
-        if (!item.rbc.counted) {
-          item.ringG.clear();
-          item.ringG.lineStyle(2, 0x8b0000, 0.9);
-          item.ringG.strokeCircle(item.rx, item.ry, 3);
-          item.ringG.fillStyle(0x8b0000, 0.9);
-          item.ringG.fillCircle(item.rx + 2, item.ry - 1, 1.2);
-        }
-      });
+    scanBtn.on('pointerdown', () => {
+      scanBtn.destroy();
+      scanTxt.destroy();
+      this.startAutoScan();
     });
   }
 
-  countInfected(item, index) {
-    if (item.rbc.counted) return;
-    item.rbc.counted = true;
-    this.infectedFound++;
+  startAutoScan() {
+    const cellsToScan = Phaser.Utils.Array.Shuffle(this.cellsArray).slice(0, 100);
+    let currentIndex = 0;
 
-    item.ringG.clear();
-    item.ringG.lineStyle(2, 0x00ff00, 1);
-    item.ringG.strokeCircle(item.rx, item.ry, 3);
-    item.ringG.fillStyle(0x00ff00, 0.8);
-    item.ringG.fillCircle(item.rx + 2, item.ry - 1, 1.2);
+    this.time.addEvent({
+      delay: 40, // 40ms per cell = 4 seconds total scanning time
+      callback: () => {
+        if (currentIndex >= 100) return;
 
-    const pulse = this.add.circle(item.rbc.x, item.rbc.y, item.rbc.radius, 0x00ff00, 0.25);
-    this.tweens.add({
-      targets: pulse,
-      scaleX: 1.5,
-      scaleY: 1.5,
-      alpha: 0,
-      duration: 400,
-      onComplete: () => pulse.destroy()
+        const target = cellsToScan[currentIndex];
+        this.totalCells++;
+
+        if (target.isInfected) {
+          this.infectedCells++;
+          target.sprite.setFillStyle(0xff3333);
+          this.stage.add(this.add.circle(target.sprite.x, target.sprite.y, 3, 0x4b0082).setDepth(1));
+        } else {
+          target.sprite.setFillStyle(0xcccccc); // Grey out healthy cells
+        }
+
+        this.scoreText.setText(`Total: ${this.totalCells} | Infected: ${this.infectedCells}`);
+
+        // Lightly pan the camera toward the area currently being scanned
+        this.cameras.main.pan(target.sprite.x, target.sprite.y, 100, 'Linear', false);
+
+        currentIndex++;
+
+        if (this.totalCells === 100) {
+          this.cameras.main.pan(400, 300, 500, 'Power2'); // Return to center
+          this.complete();
+        }
+      },
+      repeat: 99
     });
+  }
 
-    const percentage = parseFloat(((this.infectedFound / this.totalRBCs) * 100).toFixed(2));
-    this.counterText.setText(`RBCs: ${this.totalRBCs} | Infected: ${this.infectedFound} | ${percentage}%`);
-
-    this.events.emit('rbc-counted', { infected: this.infectedFound, total: this.totalRBCs, percentage });
-
-    if (this.infectedFound >= this.infectedRBCs.length) {
-      this.counterText.setText(`✓ All infected RBCs found! ${percentage}% parasitemia`);
-      this.events.emit('scan-complete', { infected: this.infectedFound, total: this.totalRBCs, percentage });
-    }
+  complete() {
+    const percentage = (this.infectedCells / 100) * 100;
+    this.onComplete?.(this.infectedCells, 100, percentage);
+    this.events.emit('scan-complete', { infected: this.infectedCells, total: 100, percentage });
+    this.add.text(400, 500, `Parasitemia: ${percentage.toFixed(1)}%`, { fontSize: '20px', color: '#000', backgroundColor: '#fff', padding: 4 }).setOrigin(0.5);
   }
 }
 
 // ============================================================
-// CULTURE SCENE
+// CULTURE SCENE (Interactive Streaking)
 // ============================================================
 export class CultureScene extends Phaser.Scene {
   constructor() {
-    super('CultureScene');
-    this.disease = null;
+    super(); 
     this.selectedMedia = null;
-    this.colonies = [];
+    this.isStreaking = false;
+    this.streakCount = 0;
   }
 
   init(data) {
-    this.disease = data.disease || null;
-    this.patient = data.patient || null;
-    this.onFinish = data.onFinish || (() => {});
+    this.disease = data.disease;
+    this.patient = data.patient;
+    this.onFinish = data.onFinish;
   }
 
   create() {
     const { width, height } = this.cameras.main;
-    this.add.rectangle(0, 0, width, height, 0x2a2a3e).setOrigin(0);
+    this.add.rectangle(0, 0, width, height, 0xe8f0e8).setOrigin(0);
+    this.instructionText = this.add.text(50, 50, 'Microbiology Culture: Select Media', { fontSize: '24px', color: '#000' });
 
-    this.add.text(width / 2, 15, 'Culture Laboratory', {
-      fontSize: '16px', color: '#fff', fontStyle: 'bold'
-    }).setOrigin(0.5, 0);
-
-    this.instructionText = this.add.text(width / 2, 35, 'Select a culture media plate:', {
-      fontSize: '12px', color: '#aaa'
-    }).setOrigin(0.5, 0);
-
-    this.dishArea = this.add.container(width / 2, height / 2 - 20);
-
-    this.petriDish = this.add.graphics();
-    this.petriDish.lineStyle(3, 0x888888, 0.8);
-    this.petriDish.strokeEllipse(0, 0, 200, 120);
-    this.petriDish.fillStyle(0xeeeeee, 0.15);
-    this.petriDish.fillEllipse(0, 0, 196, 116);
-    this.dishArea.add(this.petriDish);
-
-    this.mediaLabel = this.add.text(0, -10, 'No media selected', {
-      fontSize: '13px', color: '#888'
-    }).setOrigin(0.5);
-    this.dishArea.add(this.mediaLabel);
-
-    this.colonyContainer = this.add.container(0, 0);
-    this.dishArea.add(this.colonyContainer);
-
-    this.growthLabel = this.add.text(0, 40, '', {
-      fontSize: '11px', color: '#aaa'
-    }).setOrigin(0.5);
-    this.dishArea.add(this.growthLabel);
-
-    const plateY = height - 50;
-    MEDIA_OPTIONS.forEach((media, i) => {
-      const px = 40 + i * (width - 80) / MEDIA_OPTIONS.length;
-      const plate = this.add.rectangle(px, plateY, (width - 100) / MEDIA_OPTIONS.length - 10, 60, media.color, 0.8);
-      plate.setStrokeStyle(2, 0xffffff, 0.3);
-      plate.setInteractive({ useHandCursor: true });
-
-      const label = this.add.text(px, plateY - 15, media.label, {
-        fontSize: '10px', color: '#fff', fontStyle: 'bold'
-      }).setOrigin(0.5);
-
-      const desc = this.add.text(px, plateY + 5, media.description, {
-        fontSize: '7px', color: '#ddd'
-      }).setOrigin(0.5);
-
-      plate.on('pointerdown', () => this.selectMedia(media, plate));
-      plate.on('pointerover', () => plate.setStrokeStyle(2, 0xffff00));
-      plate.on('pointerout', () => plate.setStrokeStyle(2, 0xffffff, 0.3));
+    this.mediaButtons = [];
+    const startY = 150;
+    MEDIA_OPTIONS.forEach((media, idx) => {
+      const btn = this.add.rectangle(150, startY + idx * 60, 200, 40, 0x4a6fa5).setInteractive({ useHandCursor: true });
+      const txt = this.add.text(150, startY + idx * 60, media.label, { fontSize: '16px', color: '#fff' }).setOrigin(0.5);
+      btn.on('pointerdown', () => this.startStreakingPhase(media));
+      this.mediaButtons.push(btn, txt);
     });
 
-    this.loop = this.add.text(10, height - 8, '🔄 Inoculation loop ready', {
-      fontSize: '10px', color: '#666'
+    // Input logic for streaking
+    this.input.on('pointermove', (pointer) => {
+      if (this.isStreaking && pointer.isDown) {
+        const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, 450, 300);
+        if (dist < 140) { // Keep within the plate
+          this.streakLines.fillCircle(pointer.x, pointer.y, 4);
+          this.streakCount++;
+          if (this.streakCount > 60) {
+            this.isStreaking = false;
+            this.showIncubationResult();
+          }
+        }
+      }
     });
-
-    this.events.emit('scene-ready', { type: 'culture', selectedMedia: this.selectedMedia });
   }
 
-  selectMedia(media, plateElement) {
-    if (this.selectedMedia === media.id) return;
+  startStreakingPhase(media) {
     this.selectedMedia = media.id;
-    this.mediaLabel.setText(media.id);
+    this.mediaButtons.forEach(b => b.destroy());
+    
+    this.instructionText.setText(`Inoculating ${media.id}\nDrag your mouse across the plate in a zig-zag to streak.`);
+    
+    // Draw big plate
+    this.plateBg = this.add.circle(450, 300, 150, media.color).setStrokeStyle(4, 0xcccccc);
+    this.streakLines = this.add.graphics();
+    this.streakLines.fillStyle(0x000000, 0.1);
+    
+    this.isStreaking = true;
+    this.streakCount = 0;
+  }
 
-    this.dishArea.setScale(1);
-    this.tweens.add({
-      targets: this.dishArea,
-      scaleX: 1.05,
-      scaleY: 1.05,
-      duration: 200,
-      yoyo: true
-    });
+  showIncubationResult() {
+    this.instructionText.setText('Incubating... (24 hours later)');
+    this.streakLines.clear();
 
-    this.colonyContainer.removeAll(true);
-    this.colonies = [];
+    const expectedMedia = CORRECT_MEDIA_MAP[this.disease?.pathogen];
+    const isCorrect = (this.selectedMedia === expectedMedia);
+    
+    let growth = false;
+    let description = 'No growth';
+    let hemolysis = 'none';
+    let colonyCount = 0;
 
-    const pathogen = this.disease?.pathogen;
-    const correctMedia = CORRECT_MEDIA_MAP[pathogen];
-    const colonyInfo = COLONY_APPEARANCES[pathogen];
-
-    if (correctMedia === media.id && colonyInfo) {
-      this.growthLabel.setText('✓ Growth observed!');
-      this.growthLabel.setColor('#44ff44');
-      this.loop.setText('🔄 Inoculation complete - colonies forming...');
-      this.growColonies(colonyInfo);
-    } else if (correctMedia === null && colonyInfo) {
-      this.growthLabel.setText('No growth after 48 hours');
-      this.growthLabel.setColor('#ffaa44');
-      const result = { media: this.selectedMedia, growth: false, description: 'No growth observed' };
-      this.events.emit('culture-result', result);
+    if (isCorrect && expectedMedia) {
+      growth = true;
+      colonyCount = 50 + Math.floor(Math.random() * 200);
+      const appearance = COLONY_APPEARANCES[this.disease?.pathogen];
+      if (appearance) {
+        description = appearance.description;
+        hemolysis = appearance.hemolysis || 'none';
+      }
+      // Draw simulated colonies along the streak lines
+      this.streakLines.fillStyle(appearance?.color || 0xdddddd, 1);
+      for(let i=0; i<40; i++) {
+         const angle = Math.random() * Math.PI * 2;
+         const r = Math.random() * 120;
+         this.streakLines.fillCircle(450 + Math.cos(angle)*r, 300 + Math.sin(angle)*r, 3);
+      }
+    } else if (expectedMedia === null && this.disease?.type === 'virus') {
+      description = 'No growth – viral agents require specialized cell culture.';
+    } else if (expectedMedia === null && this.disease?.type === 'protozoa') {
+      description = 'Parasite does not grow on routine bacterial agar.';
     } else {
-      this.growthLabel.setText('No growth observed');
-      this.growthLabel.setColor('#ff6666');
-      this.growContaminants();
-      const result = { media: this.selectedMedia, growth: false, description: 'No growth observed (contaminants)' };
-      this.events.emit('culture-result', result);
+      description = 'No growth – incorrect media selection for this pathogen.';
     }
 
-    if (this.lastPlate) this.lastPlate.setStrokeStyle(2, 0xffffff, 0.3);
-    if (plateElement) {
-      plateElement.setStrokeStyle(3, 0xffff00, 0.8);
-      this.lastPlate = plateElement;
-    }
-  }
-
-  growColonies(colonyInfo) {
-    const numColonies = 15 + Math.floor(Math.random() * 15);
-
-    for (let i = 0; i < numColonies; i++) {
-      const cx = Phaser.Math.Between(-80, 80);
-      const cy = Phaser.Math.Between(-45, 45);
-      const size = 3 + Math.random() * 6;
-
-      const colony = this.add.graphics();
-
-      colony.fillStyle(colonyInfo.color, 0.7);
-      colony.fillCircle(cx, cy, size);
-
-      colony.fillStyle(colonyInfo.color, 0.5);
-      colony.fillCircle(cx - 1, cy - 1, size * 0.5);
-
-      if (colonyInfo.hemolysis === 'beta') {
-        colony.lineStyle(2, 0xffffcc, 0.2);
-        colony.strokeCircle(cx, cy, size + 8);
-      }
-
-      if (colonyInfo.hemolysis === 'alpha') {
-        colony.lineStyle(2, 0x88ff88, 0.15);
-        colony.strokeCircle(cx, cy, size + 6);
-      }
-
-      colony.setScale(0.1);
-      this.colonies.push(colony);
-      this.colonyContainer.add(colony);
-
-      this.tweens.add({
-        targets: colony,
-        scaleX: 1,
-        scaleY: 1,
-        duration: 600 + Math.random() * 400,
-        delay: i * 50,
-        ease: 'Back.easeOut'
-      });
-    }
-
-    const result = {
-      media: this.selectedMedia,
-      growth: true,
-      colonyCount: numColonies,
-      description: colonyInfo.description,
-      hemolysis: colonyInfo.hemolysis
-    };
-    this.time.delayedCall(1000, () => {
-      this.events.emit('culture-result', result);
-    });
-  }
-
-  growContaminants() {
-    const numColonies = 2 + Math.floor(Math.random() * 4);
-
-    for (let i = 0; i < numColonies; i++) {
-      const cx = Phaser.Math.Between(-60, 60);
-      const cy = Phaser.Math.Between(-30, 30);
-      const colony = this.add.graphics();
-      colony.fillStyle(0x88aa88, 0.3);
-      colony.fillCircle(cx, cy, 2 + Math.random() * 3);
-      colony.setScale(0.1);
-      this.colonies.push(colony);
-      this.colonyContainer.add(colony);
-
-      this.tweens.add({
-        targets: colony,
-        scaleX: 1,
-        scaleY: 1,
-        duration: 300,
-        delay: i * 100
-      });
-    }
+    const result = { media: this.selectedMedia, growth, description, hemolysis, colonyCount };
+    
+    this.resultBox = this.add.rectangle(450, 500, 500, 100, 0xffffff, 0.9).setStrokeStyle(2, 0x000000);
+    this.add.text(450, 500, `Result: ${growth ? 'Positive' : 'Negative'}\n${description}\nCFU: ~${colonyCount}`, { fontSize: '16px', color: '#333', align: 'center' }).setOrigin(0.5);
+    
+    this.onFinish?.(result);
+    this.events.emit('culture-result', result);
   }
 }
-
-// ============================================================
-// PATIENT EXAMINATION SCENE
-// ============================================================
-export class PatientExamScene extends Phaser.Scene {
-  constructor() {
-    super('PatientExamScene');
-    this.findings = {};
-  }
-
-  init(data) {
-    this.exam = data.exam || {};
-    this.onLog = data.onLog || (() => {});
-    this.onSave = data.onSave || (() => {});
-  }
-
-  create() {
-    const { width, height } = this.cameras.main;
-    this.add.rectangle(0, 0, width, height, 0xd0e8f2).setOrigin(0);
-
-    this.add.rectangle(width / 2, height - 20, width - 20, 30, 0x4477aa, 0.3);
-    this.add.text(width / 2, 8, 'Patient Examination', {
-      fontSize: '14px', color: '#333', fontStyle: 'bold'
-    }).setOrigin(0.5, 0);
-
-    const g = this.add.graphics();
-
-    g.fillStyle(0xffddbb, 1);
-    g.fillRoundedRect(width / 2 - 50, 150, 100, 160, 20);
-    g.lineStyle(2, 0xccaa88, 0.5);
-    g.strokeRoundedRect(width / 2 - 50, 150, 100, 160, 20);
-
-    g.fillStyle(0xffddbb, 1);
-    g.fillCircle(width / 2, 90, 45);
-    g.lineStyle(2, 0xccaa88, 0.5);
-    g.strokeCircle(width / 2, 90, 45);
-
-    g.fillStyle(0xffffff, 0.8);
-    g.fillCircle(width / 2 - 12, 85, 8);
-    g.fillCircle(width / 2 + 12, 85, 8);
-    g.fillStyle(0x444444, 0.8);
-    g.fillCircle(width / 2 - 12, 85, 4);
-    g.fillCircle(width / 2 + 12, 85, 4);
-
-    g.lineStyle(2, 0xcc8888, 0.6);
-    g.beginPath();
-    g.arc(width / 2, 105, 12, 0.2, Math.PI - 0.2, false);
-    g.strokePath();
-
-    g.fillStyle(0xffddbb, 1);
-    g.fillRoundedRect(width / 2 - 80, 155, 30, 120, 10);
-    g.fillRoundedRect(width / 2 + 50, 155, 30, 120, 10);
-
-    g.fillRoundedRect(width / 2 - 40, 310, 30, 100, 10);
-    g.fillRoundedRect(width / 2 + 10, 310, 30, 100, 10);
-
-    const regions = [
-      { id: 'head', x: width / 2, y: 85, r: 30, label: 'Head' },
-      { id: 'eyes', x: width / 2, y: 85, r: 15, label: 'Eyes' },
-      { id: 'throat', x: width / 2, y: 140, r: 15, label: 'Throat' },
-      { id: 'chest', x: width / 2, y: 190, r: 25, label: 'Chest' },
-      { id: 'abdomen', x: width / 2, y: 250, r: 25, label: 'Abdomen' },
-      { id: 'skin', x: width / 2 - 65, y: 225, w: 20, h: 70, label: 'Skin' }
-    ];
-
-    regions.forEach(reg => {
-      const lbl = this.add.text(reg.x, reg.y, '', {
-        fontSize: '8px', color: '#0066cc', fontStyle: 'bold'
-      }).setOrigin(0.5);
-      lbl.setAlpha(0);
-
-      let zone;
-      if (reg.r) {
-        zone = this.add.circle(reg.x, reg.y, reg.r + 5, 0x00ff00, 0.01);
-      } else {
-        zone = this.add.rectangle(reg.x, reg.y, reg.w + 10, reg.h + 10, 0x00ff00, 0.01);
-      }
-
-      zone.setInteractive({ useHandCursor: true });
-
-      zone.on('pointerover', () => {
-        lbl.setText(reg.label);
-        lbl.setAlpha(1);
-        zone.setAlpha(0.08);
-      });
-
-      zone.on('pointerout', () => {
-        lbl.setAlpha(0);
-        zone.setAlpha(0.01);
-      });
-
-      zone.on('pointerdown', () => {
-        const highlight = this.add.circle(reg.x, reg.y, reg.r || Math.max(reg.w, reg.h) / 2, 0x00aaff, 0.35);
-        this.tweens.add({
-          targets: highlight,
-          scaleX: 1.8,
-          scaleY: 1.8,
-          alpha: 0,
-          duration: 500,
-          onComplete: () => highlight.destroy()
-        });
-
-        const finding = this.exam[reg.id] || 'Normal';
-        this.findings[reg.id] = finding;
-
-        const ft = this.add.text(reg.x, reg.y - 20, finding, {
-          fontSize: '9px', color: '#006600', fontStyle: 'bold', backgroundColor: '#ffffffaa',
-          padding: { x: 4, y: 2 }
-        }).setOrigin(0.5);
-        this.tweens.add({
-          targets: ft,
-          y: ft.y - 30,
-          alpha: 0,
-          duration: 2000,
-          onComplete: () => ft.destroy()
-        });
-
-        this.events.emit('exam-finding', { region: reg.id, finding });
-      });
-    });
-
-    this.findingsText = this.add.text(width / 2, height - 8, 'Click body regions to examine', {
-      fontSize: '10px', color: '#888'
-    }).setOrigin(0.5, 0.5);
-
-    this.events.emit('scene-ready', { type: 'exam', findings: this.findings });
-  }
-}
-
-export const ALL_SCENES = [
-  MicroscopeScene,
-  GramStainScene,
-  AcidFastScene,
-  BloodSmearScene,
-  CultureScene,
-  PatientExamScene
-];

@@ -1,3 +1,4 @@
+// src/Simulations/MicrobeRPG/PhaserSceneManager.js
 import Phaser from 'phaser';
 
 export class PhaserSceneManager {
@@ -7,6 +8,7 @@ export class PhaserSceneManager {
     this.sceneConfig = sceneConfig;
     this.isInitialized = false;
     this.actualSceneKey = null;
+    this.isDestroyed = false;
   }
 
   async initialize() {
@@ -20,13 +22,13 @@ export class PhaserSceneManager {
         this.game = new Phaser.Game({
           type: Phaser.AUTO,
           parent: this.containerRef.current,
-          width: 800, // Upgraded base resolution for fullscreen
+          width: 800,
           height: 600,
           backgroundColor: '#0b0f1a',
           audio: { noAudio: true },
           banner: false,
           scale: {
-            mode: Phaser.Scale.FIT, // Ensures it maintains aspect ratio but fills modal
+            mode: Phaser.Scale.FIT,
             autoCenter: Phaser.Scale.CENTER_BOTH,
             width: 800,
             height: 600
@@ -34,24 +36,35 @@ export class PhaserSceneManager {
         });
 
         const onReady = () => {
+          if (this.isDestroyed || !this.game || !this.game.scene) {
+            resolve(this);
+            return;
+          }
+
           try {
-            // game.scene is now safely available
-            const addedScene = this.game.scene.add(
-              this.sceneConfig.sceneType,
-              this.sceneConfig.SceneClass,
-              true,
-              this.sceneConfig.initData
-            );
+            this.actualSceneKey = `${this.sceneConfig.sceneType}_${Date.now()}`;
 
-            // Safely get the assigned key
-            this.actualSceneKey = addedScene.sys.config.key || addedScene.sys.settings.key;
+            // Add scene class and start with initData payload
+            this.game.scene.add(this.actualSceneKey, this.sceneConfig.SceneClass, false);
+            this.game.scene.start(this.actualSceneKey, this.sceneConfig.initData);
 
+            let attempts = 0;
             const checkScene = () => {
+              // Bail out cleanly if the component was unmounted during boot
+              if (this.isDestroyed) {
+                resolve(this);
+                return;
+              }
+              
               if (this.game && this.game.scene && this.game.scene.isActive(this.actualSceneKey)) {
                 this.isInitialized = true;
                 resolve(this);
+              } else if (attempts > 100) { 
+                // Circuit breaker: Reject after ~5 seconds (100 * 50ms) to prevent infinite loops
+                reject(new Error(`Phaser scene failed to become active: ${this.sceneConfig.sceneType}`));
               } else {
-                setTimeout(checkScene, 100);
+                attempts++;
+                setTimeout(checkScene, 50);
               }
             };
             checkScene();
@@ -60,7 +73,6 @@ export class PhaserSceneManager {
           }
         };
 
-        // Phaser Game instances emit a 'ready' event when they are fully booted
         if (this.game.isBooted) {
           onReady();
         } else {
@@ -77,41 +89,14 @@ export class PhaserSceneManager {
     return this.game.scene.getScene(this.actualSceneKey);
   }
 
-  sendEvent(eventName, data) {
-    const scene = this.getScene();
-    if (scene && scene.events) {
-      scene.events.emit(eventName, data);
-    }
-  }
-
-  onSceneEvent(eventName, callback) {
-    const scene = this.getScene();
-    if (scene && scene.events) {
-      scene.events.on(eventName, callback);
-      return () => scene.events.off(eventName, callback);
-    }
-  }
-
   shutdown() {
+    this.isDestroyed = true;
     if (this.game) {
       this.game.destroy(true);
       this.game = null;
-      this.isInitialized = false;
-      this.actualSceneKey = null;
     }
-  }
-
-  getSceneState() {
-    const scene = this.getScene();
-    if (!scene) return null;
-
-    const state = {};
-    if (scene.data) {
-      Object.keys(scene.data.list).forEach(key => {
-        state[key] = scene.data.get(key);
-      });
-    }
-    return state;
+    this.isInitialized = false;
+    this.actualSceneKey = null;
   }
 }
 
