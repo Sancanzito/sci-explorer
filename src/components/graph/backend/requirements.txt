@@ -27,3 +27,7 @@ pingouin==0.5.3  # Alternative for effect sizes, ANOVA post-hoc
 # For handling Excel files (if needed)
 openpyxl==3.1.2
 xlrd==2.0.1
+
+# Gemini & Environment Configuration
+google-generativeai==0.8.3
+python-dotenv==1.0.1

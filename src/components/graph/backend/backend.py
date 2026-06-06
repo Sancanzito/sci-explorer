@@ -16,10 +16,17 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.metrics import roc_curve, auc
 
+# gemini requirements
+import os
+from dotenv import load_dotenv
+import google.generativeai as genai
+from fastapi import Request
+
+# statsbackend
 try:
     from factor_analyzer.factor_analyzer import calculate_kmo, calculate_bartlett_sphericity
 except ImportError:
-    pass # Will handle gracefully if not installed
+    pass  # Will handle gracefully if not installed
 
 app = FastAPI(title="StatsPro Advanced Analysis API")
 
@@ -31,6 +38,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ---------- Gemini Backend ----------
+if os.path.exists('.env.local'):
+    load_dotenv('.env.local')
+else:
+    load_dotenv('.env')
+
+# Fetch the key and strip any rogue whitespace, newlines, or quotes
+raw_api_key = os.environ.get("GEMINI_API_KEY", "")
+clean_api_key = raw_api_key.strip().strip("\"'")
+
+genai.configure(api_key=clean_api_key)
+
+@app.post("/api/gemini")
+async def handle_gemini(request: Request):
+    try:
+        data = await request.json()
+        messages = data.get("messages", [])
+        context = data.get("context", "")
+        
+        system_prompt = """You are a science laboratory learning assistant for middle school students. 
+        Guide students step-by-step, encourage critical thinking, and give hints instead of answers."""
+        
+        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_prompt)
+        
+        history = []
+        for msg in messages[:-1]:
+            role = 'user' if msg['role'] == 'user' else 'model'
+            history.append({"role": role, "parts": [msg['text']]})
+            
+        chat = model.start_chat(history=history)
+        user_message = messages[-1]['text']
+        
+        if context:
+            user_message = f"[System: Student is in '{context}' section.]\n\nStudent: {user_message}"
+            
+        response = chat.send_message(user_message)
+        return {"reply": response.text}
+        
+    except Exception as e:
+        print(f"Backend AI Error: {e}")
+        raise HTTPException(status_code=500, detail="AI service unavailable.")
+
+# ---------- Stats Backend ----------
 class DataPayload(BaseModel):
     columns: Dict[str, List[Any]]
 
@@ -58,7 +108,6 @@ def get_friendly_error(e: Exception) -> str:
     err_str = str(e).lower()
     
     if isinstance(e, ValueError):
-        # Pass through intentionally raised validation errors safely
         if "exceeds" in err_str or "infinite" in err_str or "cannot be empty" in err_str or "could not be converted" in err_str:
             return str(e)
             
@@ -76,6 +125,10 @@ def get_friendly_error(e: Exception) -> str:
     return f"Analysis error ({type(e).__name__}): {str(e)}"
 
 def clean_data(data_dict: Dict[str, List[Any]], paired: bool = False, numeric_only: bool = True, missing_method: str = 'listwise') -> List[np.ndarray]:
+    """
+    Clean and extract numeric arrays from the data dictionary.
+    For paired=True, always uses listwise deletion on the two columns (pairwise incomplete pairs are dropped).
+    """
     keys = list(data_dict.keys())
     df = pd.DataFrame(data_dict)
     
@@ -83,27 +136,27 @@ def clean_data(data_dict: Dict[str, List[Any]], paired: bool = False, numeric_on
         for col in keys:
             raw_series = df[col].copy()
             df[col] = pd.to_numeric(df[col], errors='coerce')
-            # Detect if conversion wiped out data that wasn't originally null
             if df[col].isna().all() and not raw_series.isna().all():
                 raise ValueError(f"Column '{col}' could not be converted to numbers. Ensure data contains no text.")
         
-    if missing_method == 'listwise':
-        df = df.dropna()
-    elif missing_method == 'mean_imputation':
-        df = df.fillna(df.mean(numeric_only=True))
-    # Pairwise is handled below by extracting valid columns individually
-        
     if paired:
-        if missing_method == 'pairwise':
-            df = df.dropna() # Paired tests inherently require listwise for the specific pair
-        if len(df) < 3: 
+        # For paired tests, we need complete pairs across exactly two columns
+        if len(keys) != 2:
+            raise ValueError("Paired test requires exactly two columns.")
+        df = df[keys].dropna()  # listwise deletion on the pair
+        if len(df) < 3:
             raise ValueError("Insufficient paired data after cleaning.")
-        return [df[k].to_numpy() for k in keys]
+        return [df[keys[0]].to_numpy(), df[keys[1]].to_numpy()]
     else:
         cleaned = []
         for k in keys:
-            s = df[k].dropna() if missing_method == 'pairwise' else df[k]
-            if len(s) < 3: 
+            if missing_method == 'listwise':
+                s = df[k].dropna()
+            elif missing_method == 'mean_imputation':
+                s = df[k].fillna(df[k].mean(numeric_only=True))
+            else:  # pairwise (for independent tests, we just drop per column)
+                s = df[k].dropna()
+            if len(s) < 3:
                 raise ValueError(f"Insufficient valid data in '{k}'.")
             cleaned.append(s.to_numpy())
         return cleaned
@@ -155,20 +208,22 @@ async def preview_data(payload: DataPayload):
 @app.post("/api/stats/outliers")
 async def get_outliers(payload: DataPayload):
     try:
-        df = pd.DataFrame(payload.columns).apply(pd.to_numeric, errors='coerce').dropna()
         outliers_report = {}
-        
-        for col in df.columns:
-            data = df[col]
-            if len(data) < 4: continue
+        for col, arr in payload.columns.items():
+            # Convert to numeric per column, coerce errors to NaN, then drop NaNs
+            series = pd.Series(arr)
+            numeric_series = pd.to_numeric(series, errors='coerce').dropna()
+            data = numeric_series.values
+            if len(data) < 4:
+                continue
             
             # Z-Score Method
             z_scores = np.abs(stats.zscore(data))
             z_outliers = data[z_scores > 3].tolist()
             
             # IQR Method
-            Q1 = data.quantile(0.25)
-            Q3 = data.quantile(0.75)
+            Q1 = np.percentile(data, 25)
+            Q3 = np.percentile(data, 75)
             IQR = Q3 - Q1
             iqr_outliers = data[(data < (Q1 - 1.5 * IQR)) | (data > (Q3 + 1.5 * IQR))].tolist()
             
@@ -196,8 +251,10 @@ async def get_frequencies(payload: DataPayload):
     try:
         df = pd.DataFrame(payload.columns).dropna()
         keys = list(df.columns)
-        if len(keys) < 1:
+        if len(keys) == 0:
             raise ValueError("Requires at least 1 column for frequency analysis.")
+        if len(keys) > 2:
+            raise ValueError("Frequency analysis supports at most 2 columns. For crosstab use exactly 2 columns; for single variable use 1 column.")
             
         results = {}
         if len(keys) == 1:
@@ -205,7 +262,7 @@ async def get_frequencies(payload: DataPayload):
             percs = df[keys[0]].value_counts(normalize=True) * 100
             results = {str(k): {"count": int(v), "percentage": float(percs[k])} for k, v in counts.items()}
             interp = f"Frequency distribution for {keys[0]} generated."
-        else:
+        else:  # exactly 2 columns
             crosstab = pd.crosstab(df[keys[0]], df[keys[1]])
             row_perc = pd.crosstab(df[keys[0]], df[keys[1]], normalize='index') * 100
             col_perc = pd.crosstab(df[keys[0]], df[keys[1]], normalize='columns') * 100
@@ -277,8 +334,10 @@ async def check_assumptions(payload: DataPayload, outcome: str = None):
 async def get_reliability(payload: DataPayload, missing: str = 'listwise'):
     try:
         df = pd.DataFrame(payload.columns).apply(pd.to_numeric, errors='coerce')
-        if missing == 'listwise': df = df.dropna()
-        elif missing == 'mean_imputation': df = df.fillna(df.mean())
+        if missing == 'listwise': 
+            df = df.dropna()
+        elif missing == 'mean_imputation': 
+            df = df.fillna(df.mean())
         
         k = df.shape[1]
         if k < 2:
@@ -321,8 +380,10 @@ async def get_reliability(payload: DataPayload, missing: str = 'listwise'):
 async def get_pca(payload: DataPayload, missing: str = 'listwise'):
     try:
         df = pd.DataFrame(payload.columns).apply(pd.to_numeric, errors='coerce')
-        if missing == 'listwise': df = df.dropna()
-        elif missing == 'mean_imputation': df = df.fillna(df.mean())
+        if missing == 'listwise': 
+            df = df.dropna()
+        elif missing == 'mean_imputation': 
+            df = df.fillna(df.mean())
 
         if df.shape[1] < 3:
             raise ValueError("PCA requires at least 3 numeric variables.")
@@ -381,7 +442,8 @@ async def get_qq_plot_data(payload: DataPayload):
         results = {}
         for col_name, arr in payload.columns.items():
             clean_arr = pd.to_numeric(pd.Series(arr), errors='coerce').dropna().to_numpy()
-            if len(clean_arr) < 3: continue
+            if len(clean_arr) < 3: 
+                continue
             (osm, osr), (slope, intercept, r) = stats.probplot(clean_arr, dist="norm")
             results[col_name] = {
                 "theoretical_quantiles": osm.tolist(),
@@ -397,11 +459,14 @@ async def get_qq_plot_data(payload: DataPayload):
 async def get_regression(payload: DataPayload, missing: str = 'listwise'):
     try:
         keys = list(payload.columns.keys())
-        if len(keys) != 2: raise HTTPException(status_code=400, detail="Select exactly 1 Predictor and 1 Outcome.")
+        if len(keys) != 2: 
+            raise HTTPException(status_code=400, detail="Select exactly 1 Predictor and 1 Outcome.")
             
         df = pd.DataFrame(payload.columns).apply(pd.to_numeric, errors='coerce')
-        if missing == 'listwise': df = df.dropna()
-        elif missing == 'mean_imputation': df = df.fillna(df.mean())
+        if missing == 'listwise': 
+            df = df.dropna()
+        elif missing == 'mean_imputation': 
+            df = df.fillna(df.mean())
 
         x_name, y_name = keys[0], keys[1]
         
@@ -449,17 +514,19 @@ async def get_regression(payload: DataPayload, missing: str = 'listwise'):
 async def get_multiple_regression(outcome: str, payload: AnalysisPayload, missing: str = 'listwise'):
     try:
         df = pd.DataFrame(payload.columns).apply(pd.to_numeric, errors='coerce')
-        if missing == 'listwise': df = df.dropna()
-        elif missing == 'mean_imputation': df = df.fillna(df.mean())
+        if missing == 'listwise': 
+            df = df.dropna()
+        elif missing == 'mean_imputation': 
+            df = df.fillna(df.mean())
 
         predictors = [col for col in df.columns if col != outcome]
         formula_terms = predictors.copy()
 
-        # Add polynomials
+        # Add polynomials using patsy's I() syntax
         if payload.polynomials:
             for col, degree in payload.polynomials.items():
                 if col in predictors and degree > 1:
-                    formula_terms.append(f"np.power({col}, {degree})")
+                    formula_terms.append(f"I({col}**{degree})")
 
         # Add interactions
         if payload.interactions:
@@ -495,15 +562,15 @@ async def get_multiple_regression(outcome: str, payload: AnalysisPayload, missin
 async def get_logistic_regression(outcome: str, payload: DataPayload, missing: str = 'listwise'):
     try:
         df = pd.DataFrame(payload.columns).apply(pd.to_numeric, errors='coerce')
-        if missing == 'listwise': df = df.dropna()
-        elif missing == 'mean_imputation': df = df.fillna(df.mean())
+        if missing == 'listwise': 
+            df = df.dropna()
+        elif missing == 'mean_imputation': 
+            df = df.fillna(df.mean())
 
-        # Enforce binary outcome
         unique_y = df[outcome].dropna().unique()
         if len(unique_y) != 2:
             raise ValueError(f"Logistic regression requires exactly 2 unique categories in the outcome variable. Found {len(unique_y)}.")
 
-        # Safely encode outcome to 0/1
         unique_y.sort()
         df['__y_encoded'] = df[outcome].map({unique_y[0]: 0, unique_y[1]: 1})
 
@@ -514,18 +581,14 @@ async def get_logistic_regression(outcome: str, payload: DataPayload, missing: s
         X = sm.add_constant(df[predictors])
         Y = df['__y_encoded']
         
-        # Fit Logit model
         model = sm.Logit(Y, X).fit(disp=0)
         
-        # ROC Curve Calculations
         y_pred_prob = model.predict(X)
         fpr, tpr, thresholds = roc_curve(Y, y_pred_prob)
         roc_auc = auc(fpr, tpr)
         
-        # Format coefficients safely
         coef_dict = {str(p): {"coef": float(model.params[p]), "p_val": float(model.pvalues[p])} for p in model.params.index}
         
-        # Structure ROC data for Recharts mapping
         roc_data = [{"fpr": float(f), "tpr": float(t)} for f, t in zip(fpr, tpr)]
 
         interpretation = (f"A logistic regression evaluated {len(predictors)} predictor(s) on '{outcome}'. "
@@ -561,13 +624,11 @@ async def get_ttest(payload: AnalysisPayload, paired: bool = False, missing: str
         arr1, arr2 = arrays[0], arrays[1]
         nx, ny = len(arr1), len(arr2)
         
-        # Assumption checks
         shapiro_1 = stats.shapiro(arr1)[1] if nx >= 3 else 1.0
         shapiro_2 = stats.shapiro(arr2)[1] if ny >= 3 else 1.0
         min_shapiro = min(shapiro_1, shapiro_2)
         levene_p = stats.levene(arr1, arr2)[1] if nx >= 3 and ny >= 3 else 1.0
 
-        # Effect Sizes
         dof = nx + ny - 2 if not paired else nx - 1
         pool_var = ((nx-1)*np.var(arr1, ddof=1) + (ny-1)*np.var(arr2, ddof=1)) / dof
         cohens_d = (np.mean(arr1) - np.mean(arr2)) / np.sqrt(pool_var)
@@ -617,7 +678,6 @@ async def get_anova(payload: AnalysisPayload, missing: str = 'listwise'):
             
         names = list(payload.columns.keys())
         
-        # Assumption checks
         shapiro_ps = [stats.shapiro(arr)[1] for arr in arrays if len(arr) >= 3]
         min_shapiro = min(shapiro_ps) if shapiro_ps else 1.0
         levene_p = stats.levene(*arrays)[1] if len(arrays) >= 2 else 1.0
@@ -632,7 +692,6 @@ async def get_anova(payload: AnalysisPayload, missing: str = 'listwise'):
         ss_between = sum([size * (mean - grand_mean)**2 for size, mean in zip(group_sizes, group_means)])
         ss_total = sum([(val - grand_mean)**2 for val in all_data])
         
-        # Effect sizes
         eta_squared = ss_between / ss_total if ss_total > 0 else 0
         df_between = len(arrays) - 1
         df_within = sum(group_sizes) - len(arrays)
@@ -668,7 +727,6 @@ async def get_manova(group: str, payload: DataPayload, missing: str = 'listwise'
     try:
         df = pd.DataFrame(payload.columns)
         
-        # Determine dependent variables (everything except the group)
         dvs = [col for col in df.columns if col != group]
         if len(dvs) < 2:
             raise ValueError("MANOVA requires at least 2 dependent variables.")
@@ -778,8 +836,10 @@ async def get_ancova(outcome: str, group: str, payload: DataPayload, missing: st
 async def get_anova_posthoc(payload: DataPayload, missing: str = 'listwise'):
     try:
         df = pd.DataFrame(payload.columns).apply(pd.to_numeric, errors='coerce')
-        if missing == 'listwise': df = df.dropna()
-        elif missing == 'mean_imputation': df = df.fillna(df.mean())
+        if missing == 'listwise': 
+            df = df.dropna()
+        elif missing == 'mean_imputation': 
+            df = df.fillna(df.mean())
 
         groups, values = [], []
         for col in df.columns:
@@ -807,13 +867,14 @@ async def get_anova_posthoc(payload: DataPayload, missing: str = 'listwise'):
 async def get_correlation(payload: DataPayload, missing: str = 'listwise'):
     try:
         df = pd.DataFrame(payload.columns).apply(pd.to_numeric, errors='coerce')
-        if missing == 'listwise': df = df.dropna()
-        elif missing == 'mean_imputation': df = df.fillna(df.mean())
+        if missing == 'listwise': 
+            df = df.dropna()
+        elif missing == 'mean_imputation': 
+            df = df.fillna(df.mean())
 
         pearson_corr = df.corr(method='pearson')
         keys = list(df.columns)
         
-        # Calculate p-values for matrix
         p_matrix = pd.DataFrame(np.zeros((len(keys), len(keys))), columns=keys, index=keys)
         for c1 in keys:
             for c2 in keys:
@@ -829,7 +890,7 @@ async def get_correlation(payload: DataPayload, missing: str = 'listwise'):
         if len(keys) >= 2:
             r_val = pearson_corr.iloc[0, 1]
             p_val = p_matrix.iloc[0, 1]
-            interp = (f"There is a correlation of r = {r_val:.3f} (raw p = {p_val:.4f}) between '{keys[0]}' and '{keys[1]}'.")
+            interp = f"There is a correlation of r = {r_val:.3f} (raw p = {p_val:.4f}) between '{keys[0]}' and '{keys[1]}'."
         else:
             interp = "Correlation matrix generated."
 
@@ -848,12 +909,13 @@ async def get_correlation(payload: DataPayload, missing: str = 'listwise'):
         raise HTTPException(status_code=400, detail=friendly_msg)
 
 @app.post("/api/stats/chisquare")
-async def get_chisquare(payload: dict, missing: str = 'listwise'):
+async def get_chisquare(payload: DataPayload, missing: str = 'listwise'):
     try:
-        df = pd.DataFrame(payload.get("columns", {}))
-        if missing == 'listwise': df = df.dropna()
-
+        df = pd.DataFrame(payload.columns).dropna()
         keys = list(df.columns)
+        if len(keys) != 2:
+            raise ValueError("Chi-square test requires exactly 2 categorical columns.")
+        
         contingency_table = pd.crosstab(df[keys[0]], df[keys[1]])
         observed = contingency_table.values
         chi2, p_value, dof, expected = stats.chi2_contingency(observed)

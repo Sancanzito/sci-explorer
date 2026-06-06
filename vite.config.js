@@ -9,14 +9,11 @@ export default defineConfig({
   },
   base: './',
   server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        secure: false,
-      },
-    },
+  proxy: {
+    '/api/stats': { target: 'http://localhost:8000', changeOrigin: true },
+    '/api/gemini': { target: 'http://localhost:8000', changeOrigin: true },  // ← add this
   },
+},
   optimizeDeps: {
     include: ['plotly.js-dist-min', 'react-plotly.js'],
     exclude: ['plotly.js', 'src/components/graph/backend/**/*'],
