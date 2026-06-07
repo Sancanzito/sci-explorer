@@ -1157,13 +1157,14 @@ const HospitalDashboard = () => {
 };
 
 // ============================================================
-// PHARMACY PANEL
+// PHARMACY PANEL (with Standard Regimen Table)
 // ============================================================
 const PharmacyPanel = () => {
   const store = useGameStore();
   const patient = store.currentPatient;
   const [draftDrug, setDraftDrug] = useState({ drug: '', dose: '', frequency: '', days: '' });
   const [regimenCart, setRegimenCart] = useState([]);
+  const [regimenTableOpen, setRegimenTableOpen] = useState(false);
 
   if (!patient) {
     return (
@@ -1175,50 +1176,8 @@ const PharmacyPanel = () => {
   }
 
   const selectedDrug = MEDICATION_INVENTORY[draftDrug.drug];
-  const totalCost = regimenCart.reduce((sum, rx) => sum + MEDICATION_INVENTORY[rx.drug].cost, 0);
-  // Inside PharmacyPanel component, after the cart display and before the Administer button
+  const totalCost = regimenCart.reduce((sum, rx) => sum + (MEDICATION_INVENTORY[rx.drug]?.cost || 0), 0);
 
-// Helper to get the standard regimen for the current patient's disease
-const getStandardRegimen = () => {
-  const disease = DISEASES[patient.diseaseId];
-  if (!disease || !disease.treatments) return [];
-  // Map directly to cart format
-  return disease.treatments.map(tx => ({
-    drug: tx.drug,
-    dose: tx.dose,
-    frequency: tx.frequency,
-    days: tx.days
-  }));
-};
-
-// Function to load standard regimen into cart (respecting allergies – shows warning)
-const loadStandardRegimen = () => {
-  const standard = getStandardRegimen();
-  if (standard.length === 0) {
-    toast.info("No standard drug regimen defined for this disease.");
-    return;
-  }
-  // Check for allergies
-  const allergicDrug = standard.find(rx => patient.allergies.includes(MEDICATION_INVENTORY[rx.drug]?.class));
-  if (allergicDrug) {
-    toast.error(`Cannot use standard regimen: ${allergicDrug.drug} is contraindicated due to allergy.`);
-    return;
-  }
-  setRegimenCart(standard);
-  toast.success("Standard regimen loaded. Review and administer.");
-};
-
-// Then add the button somewhere in the JSX, e.g., next to the total cost display:
-
-<Button
-  variant="outlined"
-  color="secondary"
-  onClick={loadStandardRegimen}
-  sx={{ ml: 2 }}
-  disabled={!patient}
->
-  Use Standard Regimen
-</Button>
   const handleAddToCart = () => {
     if (regimenCart.some(rx => rx.drug === draftDrug.drug)) {
       toast.error(`${draftDrug.drug} is already in the regimen.`);
@@ -1260,7 +1219,18 @@ const loadStandardRegimen = () => {
           </Grid>
         </Paper>
 
-        <Typography variant="subtitle2" gutterBottom>Build Regimen</Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="subtitle2">Build Regimen</Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<MenuBookIcon />}
+            onClick={() => setRegimenTableOpen(true)}
+          >
+            View All Standard Regimens
+          </Button>
+        </Box>
+
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
           <Box sx={{ gridColumn: { xs: '1fr', md: 'span 4' } }}>
             <FormControl fullWidth size="small">
@@ -1354,10 +1324,62 @@ const loadStandardRegimen = () => {
           {store.money < totalCost ? 'Insufficient Hospital Funds' : 'Administer Regimen'}
         </Button>
       </Paper>
+
+      {/* Standard Regimen Table Dialog - All Diseases */}
+      <Dialog open={regimenTableOpen} onClose={() => setRegimenTableOpen(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          <Typography variant="h6">📚 Standard Treatment Regimens (All Diseases)</Typography>
+          <Typography variant="caption" color="textSecondary">
+            Recommended first‑line treatments. Check allergies and resistance before prescribing.
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          <TableContainer sx={{ maxHeight: 500 }}>
+            <Table stickyHeader size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell><strong>Disease</strong></TableCell>
+                  <TableCell><strong>Pathogen</strong></TableCell>
+                  <TableCell><strong>Drug(s)</strong></TableCell>
+                  <TableCell><strong>Dose</strong></TableCell>
+                  <TableCell><strong>Frequency</strong></TableCell>
+                  <TableCell><strong>Duration</strong></TableCell>
+                  <TableCell><strong>Fallback</strong></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {Object.entries(DISEASES).map(([key, disease]) => (
+                  disease.treatments.map((tx, idx) => (
+                    <TableRow key={`${key}-${idx}`}>
+                      {idx === 0 && (
+                        <>
+                          <TableCell rowSpan={disease.treatments.length}>{disease.name}</TableCell>
+                          <TableCell rowSpan={disease.treatments.length}>{disease.pathogen}</TableCell>
+                        </>
+                      )}
+                      <TableCell>{tx.drug}</TableCell>
+                      <TableCell>{tx.dose}</TableCell>
+                      <TableCell>{tx.frequency}</TableCell>
+                      <TableCell>{tx.days} days</TableCell>
+                      {idx === 0 && (
+                        <TableCell rowSpan={disease.treatments.length}>
+                          {disease.fallbackClass || '—'}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRegimenTableOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </motion.div>
   );
 };
-
 // ============================================================
 // TRIAGE PANEL
 // ============================================================

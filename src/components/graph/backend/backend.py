@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request  # Ensure Request is included here
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator, ValidationInfo
 from typing import Dict, List, Any, Optional
@@ -20,7 +20,6 @@ from sklearn.metrics import roc_curve, auc
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
-from fastapi import Request
 
 # statsbackend
 try:
@@ -37,18 +36,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+#gemini backend------------------------------------------------
+load_dotenv('.env')
 
-# ---------- Gemini Backend ----------
-if os.path.exists('.env.local'):
-    load_dotenv('.env.local')
-else:
-    load_dotenv('.env')
-
-# Fetch the key and strip any rogue whitespace, newlines, or quotes
-raw_api_key = os.environ.get("GEMINI_API_KEY", "")
-clean_api_key = raw_api_key.strip().strip("\"'")
-
-genai.configure(api_key=clean_api_key)
+# The client automatically picks up GEMINI_API_KEY from environment variables
+client = genai.GenerativeModel('gemini-1.5-flash')
+api_key = os.getenv("GEMINI_API_KEY")
+if api_key:
+    # .strip() removes any accidental spaces, newlines, or quotes
+    genai.configure(api_key=api_key.strip().replace('"', '').replace("'", ""))
 
 @app.post("/api/gemini")
 async def handle_gemini(request: Request):
@@ -60,26 +56,37 @@ async def handle_gemini(request: Request):
         system_prompt = """You are a science laboratory learning assistant for middle school students. 
         Guide students step-by-step, encourage critical thinking, and give hints instead of answers."""
         
-        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_prompt)
-        
+        # Format history for the google.generativeai SDK
         history = []
         for msg in messages[:-1]:
-            role = 'user' if msg['role'] == 'user' else 'model'
-            history.append({"role": role, "parts": [msg['text']]})
+            # Gemini strictly requires roles to be 'user' or 'model'
+            api_role = 'model' if msg['role'] == 'ai' else 'user'
             
-        chat = model.start_chat(history=history)
+            history.append({
+                "role": api_role, 
+                "parts": [msg['text']] # Parts should be a list of strings
+            })
+            
         user_message = messages[-1]['text']
-        
         if context:
             user_message = f"[System: Student is in '{context}' section.]\n\nStudent: {user_message}"
             
+        # Initialize the model with the system instruction
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            system_instruction=system_prompt
+        )
+        
+        # Start chat with history and send the new message
+        chat = model.start_chat(history=history)
         response = chat.send_message(user_message)
+        
         return {"reply": response.text}
         
     except Exception as e:
         print(f"Backend AI Error: {e}")
         raise HTTPException(status_code=500, detail="AI service unavailable.")
-
+    
 # ---------- Stats Backend ----------
 class DataPayload(BaseModel):
     columns: Dict[str, List[Any]]

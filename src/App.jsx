@@ -34,6 +34,7 @@ import CellExplorer from "./Simulations/Cell/Cell";
 import GelElectrophoresis from './Simulations/gelElectrophoresis/gelElectrophoresis';
 import MolView from './Simulations/MolView/Molview';
 import MicrobeRPG from "./Simulations/MicrobeRPG/MicrobeRPG";
+import StellariumPage from './Simulations/Stellarium/StellariumPage';
 
 // Import quiz games
 import MicroscopeGame from './quiz/microscope/MicroscopeGame';
@@ -95,7 +96,7 @@ function AppContent() {
         <Route path="/simulations/cell-explorer" element={<CellExplorer />} />
         <Route path="/simulations/gel-electrophoresis" element={<GelElectrophoresis />} />
         <Route path="/simulations/microbe-rpg" element={<MicrobeRPG />} />
-
+        <Route path="/simulations/stellarium" element={<StellariumPage />} />
         {/* General article routes */}
         <Route path="/articles/:articleId" element={<ArticleReader />} />          
         <Route path="/articles" element={<ArticlesPage />} />                      

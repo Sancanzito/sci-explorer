@@ -13,8 +13,7 @@ import {
   GiMolecule
 } from 'react-icons/gi';
 import { FaGamepad, FaArrowRight, FaFlask } from 'react-icons/fa';
-import { Atom } from 'lucide-react';
-
+import { Atom, Telescope } from 'lucide-react'; // Update this import
 const SimulationsPage = () => {
   const simulations = [
     {
@@ -114,6 +113,21 @@ const SimulationsPage = () => {
         'Time control (0.5x - 20x speed)',
         'Asteroid belt visualization',
         'Saturn ring rendering'
+      ]
+    },{
+      id: 'stellarium',
+      name: 'Stellarium: Virtual Observatory',
+      description: 'Explore the night sky, planets, and constellations in real-time with this interactive web planetarium.',
+      longDescription: 'Powered by Stellarium Web, this tool calculates the exact positions of stars, eclipses, and planets from your location. Perfect for astronomy, identifying constellations, and exploring deep-sky objects.',
+      icon: <Telescope className="w-12 h-12" />,
+      color: 'from-slate-800 to-indigo-900',
+      path: '/simulations/stellarium',
+      features: [
+        'Real-time night sky rendering',
+        'Constellation artwork & tracking',
+        'Deep-sky object zooming',
+        'Location-based star mapping',
+        'Time manipulation'
       ]
     },
     {
