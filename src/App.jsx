@@ -14,11 +14,10 @@ import StatisticalTool from './components/graph/statisticaltool';
 import "@glideapps/glide-data-grid/dist/index.css";
 // Import all page components
 import HomePage from './pages/HomeComponents/HomePage';
-import ArticlesPage from './pages/ArticlePage/ArticlesPage';
 import SimulationsPage from './pages/SimulationsPage/SimulationsPage';
 import QuizzesPage from './pages/QuizzesPage/QuizzesPage';
-import ArticleReader from './pages/ArticlePage/ArticleReader';
-import ArticleNotFound from './pages/ArticlePage/ArticleNotFound';
+import { ArticlesPage, ArticleReader } from './pages/ArticlePage/ArticlesPage';
+import ArticleNotFound from './pages/ArticlePage/ArticleDebugging';
 
 // Import All Custom Article Dashboards
 import ChemistryModelsPage from './Articles/UseofChemModels/ChemistryModelsPage';
@@ -36,7 +35,7 @@ import MolView from './Simulations/MolView/Molview';
 import MicrobeRPG from "./Simulations/MicrobeRPG/MicrobeRPG";
 import StellariumPage from './Simulations/Stellarium/StellariumPage';
 import TectonicExplorer from './Simulations/Earthquake/TectonicExplorer';
-
+import { NaturalSelectionSim, EnergySkateParkSim, GravityOrbitsSim } from './Simulations/PhetSimulations/PhetPage';
 // Import quiz games
 import MicroscopeGame from './quiz/microscope/MicroscopeGame';
 
@@ -99,6 +98,9 @@ function AppContent() {
         <Route path="/simulations/microbe-rpg" element={<MicrobeRPG />} />
         <Route path="/simulations/stellarium" element={<StellariumPage />} />
         <Route path="/simulations/tectonic-explorer" element={<TectonicExplorer />} />
+        <Route path="/simulations/natural-selection" element={<NaturalSelectionSim />} />
+        <Route path="/simulations/energy-skate-park" element={<EnergySkateParkSim />} />
+        <Route path="/simulations/gravity-orbits" element={<GravityOrbitsSim />} />
         {/* General article routes */}
         <Route path="/articles/:articleId" element={<ArticleReader />} />          
         <Route path="/articles" element={<ArticlesPage />} />                      

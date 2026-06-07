@@ -1,500 +1,223 @@
 // pages/SimulationsPage.jsx
-import React from 'react';
+import React, { useState, useMemo, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { 
-  GiPlantRoots, 
-  GiWaterDrop, 
-  GiHeatHaze, 
-  GiPoisonGas,
-  GiMicroscope,
-  GiDna1,
-  GiPlanetCore,
-  GiMolecule
-} from 'react-icons/gi';
-import { FaGamepad, FaArrowRight, FaFlask } from 'react-icons/fa';
-import { Atom, Telescope, Activity } from 'lucide-react'; // Added Activity here
+import { LazyMotion, domAnimation, m, AnimatePresence } from 'framer-motion';
+import { Search, ArrowRight } from 'lucide-react';
+import { simulationsData, CATEGORIES } from './SimulationsData';
+import { AmbientBackground, DataOrbCanvas, BlackHoleFooterCanvas } from './SimulationVisuals';
+import { useTheme } from '../../ThemeProvider'; // adjust import path if needed
 
 const SimulationsPage = () => {
-  const simulations = [
-    {
-      id: 'molview',
-      name: 'Molecular Workstation: 3D Chemical Lab',
-      description: 'Draw, visualize, and analyze molecules in 3D! Search PubChem database, draw custom structures, and explore molecular properties in real-time.',
-      longDescription: 'A professional-grade molecular visualization tool! Draw chemical structures using the JSME editor, search the PubChem database, and analyze molecular properties. Perfect for chemistry students and researchers.',
-      icon: <Atom className="w-12 h-12" />,
-      color: 'from-cyan-600 to-blue-700',
-      path: '/molview',
-      features: [
-        'Interactive molecular drawing canvas',
-        'PubChem database integration',
-        'Real-time molecular analysis',
-        '35+ molecular templates included',
-        'SMILES notation support',
-        '3D molecular visualization'
-      ]
-    },
-    {
-      id: 'gel-electrophoresis',
-      name: 'Forensic DNA Analysis: Gel Electrophoresis',
-      description: 'Solve a forensic mystery using gel electrophoresis! Load DNA samples, run the gel, and match crime scene DNA to suspects.',
-      longDescription: 'Step into a real forensics lab! You are a DNA analyst tasked with identifying a suspect from a crime scene sample. Load DNA samples into an agarose gel, run electrophoresis, visualize with UV light, and analyze banding patterns to solve the case.',
-      icon: <GiDna1 className="w-12 h-12" />,
-      color: 'from-cyan-600 to-blue-700',
-      path: '/simulations/gel-electrophoresis',
-      features: [
-        'Interactive gel loading with micropipette',
-        'Adjustable voltage and gel concentration',
-        'Real-time DNA migration simulation',
-        'UV visualization of DNA bands',
-        'Forensic case scenario with suspects',
-        'Scientific explanation of electrophoresis principles'
-      ]
-    },
-    {
-      id: 'eco-balance',
-      name: 'Eco-Balance: The Trophic Navigator',
-      description: 'An interactive ecosystem simulation where you manipulate environmental conditions and observe how species populations respond. Learn about trophic levels, energy transfer, and ecological balance.',
-      longDescription: 'Step into the role of an ecosystem manager! Control environmental variables, introduce interventions, and watch as predator-prey relationships evolve in real-time. Master the delicate balance of nature through scientific gameplay.',
-      icon: <GiPlantRoots className="w-12 h-12" />,
-      color: 'from-green-600 to-emerald-700',
-      path: '/games/eco-balance',
-      features: [
-        'Real-time population dynamics using ecological models',
-        'Interactive food web visualization',
-        'Environmental intervention system',
-        'Live population charts and analytics',
-        'Educational feedback and ecosystem reports'
-      ]
-    },
-    {
-      id: 'cell-explorer',
-      name: '3D Cell Explorer',
-      description: 'Explore animal and plant cells in stunning 3D! Navigate through organelles, learn their functions, and discover fascinating facts about cellular biology.',
-      longDescription: 'Step inside the microscopic world! Toggle between animal and plant cells, interact with organelles, and learn about their functions in this immersive 3D simulation.',
-      icon: <GiMicroscope className="w-12 h-12" />,
-      color: 'from-purple-600 to-pink-700',
-      path: '/simulations/cell-explorer',
-      features: [
-        'Interactive 3D organelle exploration',
-        'Toggle between animal and plant cells',
-        'X-ray and exploded view modes',
-        'Educational organelle information',
-        'Real-time cellular animations'
-      ]
-    },
-    {
-      id: 'dna-extraction',
-      name: 'DNA Extraction Lab',
-      description: 'Extract DNA from a strawberry in this interactive virtual lab. Learn the steps of DNA extraction: cell disruption, lysis, filtration, and precipitation.',
-      longDescription: 'Become a molecular biologist! Perform mechanical disruption, chemical lysis, filtration, and alcohol precipitation to extract and visualize strawberry DNA. Learn the science behind each step with real-time feedback.',
-      icon: <GiDna1 className="w-12 h-12" />,
-      color: 'from-blue-600 to-purple-700',
-      path: '/simulations/dna-extraction',
-      features: [
-        'Interactive lab equipment simulation',
-        'Step-by-step guided protocol',
-        'Real-time purity scoring system',
-        'Scientific explanations for each step',
-        'Visual DNA precipitation effect'
-      ]
-    },
-    {
-      id: 'solar-system',
-      name: '3D Solar System Explorer',
-      description: 'Explore our solar system in stunning 3D! Navigate through space, observe planetary orbits, and learn fascinating facts about each celestial body.',
-      longDescription: 'Take a journey through our cosmic neighborhood! This immersive 3D simulation lets you explore all planets, control time speed, and discover detailed scientific data about each planet. Perfect for astronomy enthusiasts and space lovers.',
-      icon: <GiPlanetCore className="w-12 h-12" />,
-      color: 'from-purple-600 to-pink-700',
-      path: '/simulations/solar-system',
-      features: [
-        'Real-time 3D planetary orbits',
-        'Interactive camera controls',
-        'Scientific data for each planet',
-        'Time control (0.5x - 20x speed)',
-        'Asteroid belt visualization',
-        'Saturn ring rendering'
-      ]
-    },
-    {
-      id: 'stellarium',
-      name: 'Stellarium: Virtual Observatory',
-      description: 'Explore the night sky, planets, and constellations in real-time with this interactive web planetarium.',
-      longDescription: 'Powered by Stellarium Web, this tool calculates the exact positions of stars, eclipses, and planets from your location. Perfect for astronomy, identifying constellations, and exploring deep-sky objects.',
-      icon: <Telescope className="w-12 h-12" />,
-      color: 'from-slate-800 to-indigo-900',
-      path: '/simulations/stellarium',
-      features: [
-        'Real-time night sky rendering',
-        'Constellation artwork & tracking',
-        'Deep-sky object zooming',
-        'Location-based star mapping',
-        'Time manipulation'
-      ]
-    },
-    // ---- ADDED TECTONIC EXPLORER HERE ----
-    {
-      id: 'tectonics',
-      name: 'Tectonic Plates & Seismic Monitor',
-      description: 'Interact with an accurate 3D Earth globe to explore tectonic plate boundaries, fault lines, and live earthquake hotspots.',
-      longDescription: 'Powered by CesiumJS, this 3D simulation maps major historical and structural earthquakes. Learn the difference between divergent, convergent, and transform boundaries by analyzing seismic data along the Ring of Fire and Mid-Atlantic Ridge.',
-      icon: <Activity className="w-12 h-12" />,
-      color: 'from-slate-700 to-emerald-900',
-      path: '/simulations/tectonic-explorer',
-      features: [
-        'Accurate CesiumJS 3D Earth',
-        'Seismic data visualization',
-        'Tectonic boundary classifications',
-        'Earthquake magnitude scaling',
-        'Dynamic geological information'
-      ]
-    },
-    // --------------------------------------
-    {
-      id: 'microbe-rpg',
-      name: 'Microbiology & Clinical Parasitology RPG',
-      description: 'Navigate a microscopic environment to classify and identify pathogens in a top-down 2D simulation.',
-      longDescription: 'Explore host cellular structures and use diagnostic tools to identify bacteria, fungi, protozoa, and helminths in this interactive clinical simulation.',
-      icon: <GiMicroscope className="w-12 h-12" />,
-      color: 'from-green-600 to-lime-700',
-      path: '/simulations/microbe-rpg',
-      features: [
-        'Top-down 2D exploration',
-        'Procedural microbe generation',
-        'Taxonomy identification challenges',
-        'Interactive encyclopedia'
-      ]
-    },
-    {
-      id: 'dna-lab',
-      name: 'DNA Structure Lab',
-      description: 'Explore the double helix structure of DNA and learn about genetics.',
-      icon: <GiMicroscope className="w-12 h-12" />,
-      color: 'from-blue-600 to-cyan-700',
-      path: '#',
-      features: ['3D DNA visualization', 'Base pair matching', 'Genetic code explorer'],
-      comingSoon: true
-    },
-    {
-      id: 'physics-lab',
-      name: 'Physics Motion Lab',
-      description: 'Experiment with forces, motion, and energy conservation.',
-      icon: <GiHeatHaze className="w-12 h-12" />,
-      color: 'from-purple-600 to-indigo-700',
-      path: '#',
-      features: ['Projectile motion', 'Force vectors', 'Energy tracking'],
-      comingSoon: true
-    },
-    {
-      id: 'chem-reactions',
-      name: 'Chemical Reactions Lab',
-      description: 'Mix virtual compounds and observe chemical reactions.',
-      icon: <GiPoisonGas className="w-12 h-12" />,
-      color: 'from-orange-600 to-red-700',
-      path: '#',
-      features: ['Reaction balancing', 'pH simulation', 'Heat measurement'],
-      comingSoon: true
-    }
-  ];
+  const { isDarkMode } = useTheme();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [isFooterHovered, setIsFooterHovered] = useState(false);
 
-  // Featured simulations - now showing 4 featured simulations (including MolView)
-  const featuredSimulations = simulations.slice(0, 4);
-  const allSimulations = simulations;
+  const filteredSimulations = useMemo(() => {
+    return simulationsData.filter(sim => {
+      const matchesSearch = sim.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            sim.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'All' || sim.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [searchQuery, selectedCategory]);
+
+  // Theme-aware base classes
+  const bgClass = isDarkMode ? 'bg-[#020617]' : 'bg-gray-50';
+  const textClass = isDarkMode ? 'text-slate-200' : 'text-slate-800';
+  const cardBgClass = isDarkMode ? 'bg-slate-900/40' : 'bg-white/70';
+  const cardBorderClass = isDarkMode ? 'border-white/10' : 'border-gray-200';
+  const inputBgClass = isDarkMode ? 'bg-slate-900/50 border-white/5' : 'bg-white/80 border-gray-200';
+  const filterBarBgClass = isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white/60 border-gray-200 shadow-sm';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 dark:from-dark-bg dark:via-dark-surface dark:to-dark-bg">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-green-900 via-emerald-800 to-teal-900 text-white">
-        <div className="absolute inset-0 bg-black/20"></div>
-        <div className="relative max-w-7xl mx-auto px-6 py-16 lg:py-24">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+    <LazyMotion features={domAnimation}>
+      <div className={`min-h-screen ${bgClass} ${textClass} selection:bg-cyan-500/30 font-sans relative overflow-x-hidden`}>
+        
+        <Suspense fallback={<div className={`fixed inset-0 ${isDarkMode ? 'bg-[#020617]' : 'bg-gray-50'} z-0`} />}>
+          <AmbientBackground opacity={isDarkMode ? 0.4 : 0.15} />
+        </Suspense>
+
+        {/* Hero Section */}
+        <div className="relative pt-32 pb-20 px-6 z-10 border-b border-white/5">
+          <m.div
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center"
+            transition={{ type: "spring", stiffness: 100, damping: 20 }}
+            className="max-w-4xl mx-auto text-center"
           >
-            <h1 className="text-5xl lg:text-6xl font-bold mb-4 bg-gradient-to-r from-green-300 via-emerald-200 to-teal-300 bg-clip-text text-transparent">
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${isDarkMode ? 'bg-cyan-900/30 border-cyan-500/30 text-cyan-300' : 'bg-cyan-100 border-cyan-300 text-cyan-700'} text-sm font-bold mb-8 uppercase tracking-widest backdrop-blur-md`}>
+              <span className="relative flex h-2 w-2 mr-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+              </span>
               Virtual Laboratories
+            </div>
+            <h1 className={`text-5xl md:text-7xl font-black mb-6 tracking-tight drop-shadow-2xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Simulate the <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">Universe</span>
             </h1>
-            <p className="text-xl lg:text-2xl text-gray-200 max-w-3xl mx-auto">
-              Interactive simulations that bring science to life through hands-on exploration and discovery
+            <p className={`text-xl font-light max-w-2xl mx-auto leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+              Manipulate variables, observe reactions, and explore hyper-realistic scientific models directly in your browser.
             </p>
-          </motion.div>
+          </m.div>
         </div>
-        {/* Wave divider */}
-        <div className="absolute bottom-0 left-0 right-0">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 120" className="w-full h-12 text-gray-100 dark:text-dark-bg">
-            <path fill="currentColor" fillOpacity="1" d="M0,64L80,69.3C160,75,320,85,480,80C640,75,800,53,960,48C1120,43,1280,53,1360,58.7L1440,64L1440,120L1360,120C1280,120,1120,120,960,120C800,120,640,120,480,120C320,120,160,120,80,120L0,120Z"/>
-          </svg>
-        </div>
-      </div>
 
-      {/* Featured Simulations Banner - Show four featured simulations */}
-      <div className="max-w-7xl mx-auto px-6 -mt-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-          {/* MolView Featured */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            <div className="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl shadow-2xl overflow-hidden h-full">
-              <div className="p-6">
-                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-3 py-1 mb-3">
-                  <Atom className="w-3 h-3" />
-                  <span className="text-xs font-semibold">NEW! Chemistry Lab</span>
-                </div>
-                <h2 className="text-xl lg:text-2xl font-bold text-white mb-2">
-                  Molecular Workstation
-                </h2>
-                <p className="text-cyan-100 text-xs mb-3 line-clamp-2">
-                  Draw, analyze, and explore molecules with PubChem integration!
-                </p>
-                <Link to="/molview">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="bg-white text-cyan-700 px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
-                  >
-                    Launch Lab
-                    <FaArrowRight size={10} />
-                  </motion.button>
-                </Link>
-              </div>
+        {/* Search & Filter */}
+        <div className="max-w-7xl mx-auto px-6 py-12 relative z-10">
+          <div className={`flex flex-col md:flex-row gap-4 items-center justify-between backdrop-blur-2xl p-4 rounded-3xl shadow-md ${filterBarBgClass} ${cardBorderClass}`}>
+            <div className="relative w-full md:w-1/2 flex items-center">
+              <Search className={`absolute left-4 ${isDarkMode ? 'text-cyan-500' : 'text-cyan-600'}`} size={20} />
+              <input
+                type="text"
+                placeholder="Query simulations, topics, or phenomena..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full ${inputBgClass} border ${cardBorderClass} rounded-2xl py-3 pl-12 pr-4 ${isDarkMode ? 'text-white placeholder-slate-500' : 'text-gray-800 placeholder-gray-400'} focus:outline-none focus:border-cyan-500/50 transition-colors font-light`}
+              />
             </div>
-          </motion.div>
-
-          {/* Gel Electrophoresis Featured */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-2xl shadow-2xl overflow-hidden h-full">
-              <div className="p-6">
-                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-3 py-1 mb-3">
-                  <GiDna1 className="w-3 h-3" />
-                  <span className="text-xs font-semibold">Forensics Lab</span>
-                </div>
-                <h2 className="text-xl lg:text-2xl font-bold text-white mb-2">
-                  Forensic DNA Analysis
-                </h2>
-                <p className="text-purple-100 text-xs mb-3 line-clamp-2">
-                  Solve a crime using gel electrophoresis!
-                </p>
-                <Link to="/simulations/gel-electrophoresis">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="bg-white text-purple-700 px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
-                  >
-                    Start Investigation
-                    <FaArrowRight size={10} />
-                  </motion.button>
-                </Link>
-              </div>
+            <div className="flex flex-wrap gap-2 w-full md:w-auto justify-center">
+              {CATEGORIES.map(category => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                    selectedCategory === category 
+                      ? isDarkMode
+                        ? 'bg-cyan-500 text-[#020617] shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+                        : 'bg-cyan-600 text-white shadow-md'
+                      : isDarkMode
+                        ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 border border-white/5'
+                        : 'bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 border border-gray-200'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
             </div>
-          </motion.div>
-
-          {/* Eco-Balance Featured */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            <div className="bg-gradient-to-r from-green-600 to-emerald-700 rounded-2xl shadow-2xl overflow-hidden h-full">
-              <div className="p-6">
-                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-3 py-1 mb-3">
-                  <FaGamepad className="w-3 h-3" />
-                  <span className="text-xs font-semibold">Featured Simulation</span>
-                </div>
-                <h2 className="text-xl lg:text-2xl font-bold text-white mb-2">
-                  Eco-Balance
-                </h2>
-                <p className="text-green-100 text-xs mb-3 line-clamp-2">
-                  Experience ecosystem balance in this immersive simulation.
-                </p>
-                <Link to="/games/eco-balance">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="bg-white text-green-700 px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
-                  >
-                    Play Now
-                    <FaArrowRight size={10} />
-                  </motion.button>
-                </Link>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* 3D Cell Explorer Featured */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <div className="bg-gradient-to-r from-pink-600 to-rose-700 rounded-2xl shadow-2xl overflow-hidden h-full">
-              <div className="p-6">
-                <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-3 py-1 mb-3">
-                  <GiMicroscope className="w-3 h-3" />
-                  <span className="text-xs font-semibold">3D Biology Lab</span>
-                </div>
-                <h2 className="text-xl lg:text-2xl font-bold text-white mb-2">
-                  3D Cell Explorer
-                </h2>
-                <p className="text-pink-100 text-xs mb-3 line-clamp-2">
-                  Explore animal and plant cells in stunning 3D!
-                </p>
-                <Link to="/simulations/cell-explorer">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="bg-white text-pink-700 px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
-                  >
-                    Explore Cells
-                    <FaArrowRight size={10} />
-                  </motion.button>
-                </Link>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* All Simulations Grid */}
-      <div className="max-w-7xl mx-auto px-6 py-16">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="mb-12"
-        >
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            Explore All Simulations
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 text-lg">
-            Choose from our growing collection of interactive science labs
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {allSimulations.map((sim, index) => (
-            <motion.div
-              key={sim.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 + index * 0.1 }}
-              whileHover={{ y: -8 }}
-              className="group"
-            >
-              <div className={`bg-white dark:bg-dark-surface rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-2xl ${sim.comingSoon ? 'opacity-75' : ''}`}>
-                <div className={`bg-gradient-to-r ${sim.color} p-6 text-white`}>
-                  <div className="flex justify-between items-start">
-                    {sim.icon}
-                    {sim.comingSoon && (
-                      <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-semibold">
-                        Coming Soon
-                      </span>
-                    )}
-                    {sim.id === 'molview' && (
-                      <span className="px-3 py-1 bg-yellow-400/30 rounded-full text-xs font-semibold">
-                        NEW
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-xl font-bold mt-4">{sim.name}</h3>
-                </div>
-                <div className="p-6">
-                  <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-3">
-                    {sim.description}
-                  </p>
-                  <div className="flex flex-wrap gap-2 mb-6">
-                    {sim.features.slice(0, 3).map(feature => (
-                      <span key={feature} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs text-gray-600 dark:text-gray-400">
-                        {feature}
-                      </span>
-                    ))}
-                  </div>
-                  {sim.comingSoon ? (
-                    <button disabled className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400 cursor-not-allowed">
-                      Coming Soon
-                    </button>
-                  ) : (
-                    <Link to={sim.path}>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="w-full px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all"
-                      >
-                        Launch Simulation
-                      </motion.button>
-                    </Link>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* Educational Resources Section */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 py-16">
-        <div className="max-w-7xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              Why Use Our Simulations?
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 text-lg max-w-3xl mx-auto">
-              Our interactive labs are designed to make complex scientific concepts accessible and engaging
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                title: 'Hands-on Learning',
-                description: 'Manipulate variables in real-time and observe immediate outcomes',
-                icon: '🔬'
-              },
-              {
-                title: 'Visual Feedback',
-                description: 'Dynamic visualizations help understand abstract concepts',
-                icon: '📊'
-              },
-              {
-                title: 'Self-Paced',
-                description: 'Learn at your own speed with unlimited experimentation',
-                icon: '⏱️'
-              }
-            ].map((item, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="bg-white dark:bg-dark-surface rounded-xl p-6 text-center shadow-md"
-              >
-                <div className="text-5xl mb-4">{item.icon}</div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                  {item.title}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  {item.description}
-                </p>
-              </motion.div>
-            ))}
           </div>
         </div>
+
+        {/* Dynamic Grid */}
+        <div className="max-w-7xl mx-auto px-6 pb-24 relative z-10 min-h-[400px]">
+          <m.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <AnimatePresence mode="popLayout">
+              {filteredSimulations.length > 0 ? (
+                filteredSimulations.map((sim) => (
+                  <m.div
+                    key={sim.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
+                  >
+                    <m.div 
+                      whileHover={{ y: -10, scale: 1.02 }}
+                      className={`h-full ${cardBgClass} backdrop-blur-xl border ${cardBorderClass} rounded-[2rem] p-6 flex flex-col group relative overflow-hidden`}
+                    >
+                      <div className={`absolute top-0 left-0 w-full h-full bg-gradient-to-br from-cyan-500/0 to-purple-500/0 group-hover:from-cyan-500/${isDarkMode ? '10' : '5'} group-hover:to-purple-500/${isDarkMode ? '10' : '5'} transition-colors duration-500 pointer-events-none`} />
+                      
+                      <div className="flex justify-between items-start mb-6 relative z-10">
+                        <m.div 
+                          whileHover={{ rotate: 180 }} 
+                          transition={{ duration: 0.5 }}
+                          className={`p-3 rounded-2xl bg-gradient-to-br ${sim.color} text-white shadow-lg`}
+                        >
+                          {sim.icon}
+                        </m.div>
+                        <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border ${cardBorderClass} ${isDarkMode ? 'text-slate-400 bg-black/30' : 'text-gray-500 bg-white/60'}`}>
+                          {sim.category}
+                        </span>
+                      </div>
+
+                      <h3 className={`text-xl font-black mb-3 group-hover:text-cyan-300 transition-colors line-clamp-2 relative z-10 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                        {sim.name}
+                      </h3>
+                      <p className={`text-sm mb-6 line-clamp-3 font-light relative z-10 ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                        {sim.description}
+                      </p>
+
+                      <div className="mt-auto relative z-10">
+                        <Link to={sim.path}>
+                          <m.button
+                            whileTap={{ scale: 0.95 }}
+                            className={`w-full py-3 px-4 rounded-xl border ${cardBorderClass} font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-[0_0_0_rgba(6,182,212,0)] group-hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] ${
+                              isDarkMode
+                                ? 'bg-white/5 text-white group-hover:bg-cyan-500 group-hover:text-[#020617] group-hover:border-cyan-400'
+                                : 'bg-gray-100 text-gray-800 group-hover:bg-cyan-500 group-hover:text-white group-hover:border-cyan-400'
+                            }`}
+                          >
+                            Launch Parameters
+                            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                          </m.button>
+                        </Link>
+                      </div>
+                    </m.div>
+                  </m.div>
+                ))
+              ) : (
+                <div className="col-span-full py-24 text-center">
+                  <div className={`${isDarkMode ? 'text-slate-500' : 'text-gray-400'} mb-4 flex justify-center`}><Search size={48} /></div>
+                  <h3 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>No Observational Data</h3>
+                  <p className={isDarkMode ? 'text-slate-400' : 'text-gray-500'}>Adjust your parameters to find matching simulations.</p>
+                </div>
+              )}
+            </AnimatePresence>
+          </m.div>
+        </div>
+
+        {/* 3D Data Orbs Section (unchanged but theme-aware) */}
+        <div className={`relative py-24 border-t ${cardBorderClass} ${isDarkMode ? 'bg-slate-900/50' : 'bg-white/40'} z-10`}>
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 className={`text-3xl font-black mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Laboratory Advantages</h2>
+              <p className={`max-w-2xl mx-auto ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>Theoretical concepts made tangible through computational modeling.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+              {[
+                { title: 'Variable Manipulation', desc: 'Control physics and chemistry inputs in real-time.', color: '#06b6d4' },
+                { title: 'Abstract to Concrete', desc: 'Visual models for concepts invisible to the naked eye.', color: '#a855f7' },
+                { title: 'Iterative Testing', desc: 'Fail safely and retry infinitely without material costs.', color: '#10b981' }
+              ].map((item, i) => (
+                <m.div 
+                  key={i}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-50px" }}
+                  className="text-center"
+                >
+                  <Suspense fallback={<div className="w-24 h-24 mx-auto mb-6 rounded-full bg-white/5 animate-pulse" />}>
+                    <DataOrbCanvas color={item.color} />
+                  </Suspense>
+                  <h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.title}</h3>
+                  <p className={`text-sm font-light ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{item.desc}</p>
+                </m.div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Interactive Black Hole Footer */}
+        <div 
+          className={`relative py-32 overflow-hidden border-t ${cardBorderClass} cursor-crosshair group`}
+          onMouseEnter={() => setIsFooterHovered(true)}
+          onMouseLeave={() => setIsFooterHovered(false)}
+        >
+          <Suspense fallback={null}>
+            <BlackHoleFooterCanvas isHovered={isFooterHovered} />
+          </Suspense>
+          <div className="relative z-10 max-w-4xl mx-auto text-center px-6 pointer-events-none">
+            <h2 className={`text-4xl md:text-5xl font-black transition-colors duration-700 ${isFooterHovered ? 'text-red-400' : (isDarkMode ? 'text-white' : 'text-gray-800')}`}>
+              {isFooterHovered ? 'Event Horizon Reached' : 'Ready to begin your research?'}
+            </h2>
+            <p className={`mt-4 max-w-xl mx-auto ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+              Select a module above to initiate your virtual laboratory session.
+            </p>
+          </div>
+        </div>
+
       </div>
-    </div>
+    </LazyMotion>
   );
 };
 
