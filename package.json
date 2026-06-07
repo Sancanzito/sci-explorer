@@ -49,6 +49,7 @@
     "@vercel/analytics": "^2.0.1",
     "bootstrap": "^5.3.8",
     "canvas-confetti": "^1.9.4",
+    "cesium": "^1.142.0",
     "convert": "^7.0.0",
     "convert-units": "^2.3.4",
     "cors": "^2.8.6",
@@ -92,6 +93,7 @@
     "reactflow": "^11.11.4",
     "recharts": "^3.8.1",
     "remark-gfm": "^4.0.1",
+    "resium": "^1.23.0",
     "rxjs": "^7.8.2",
     "three": "^0.184.0",
     "xlsx": "^0.18.5",
@@ -113,6 +115,7 @@
     "globals": "^17.6.0",
     "postcss": "^8.5.14",
     "tailwindcss": "^4.3.0",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vite-plugin-cesium": "^1.2.23"
   }
 }

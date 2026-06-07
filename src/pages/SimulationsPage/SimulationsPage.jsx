@@ -13,7 +13,8 @@ import {
   GiMolecule
 } from 'react-icons/gi';
 import { FaGamepad, FaArrowRight, FaFlask } from 'react-icons/fa';
-import { Atom, Telescope } from 'lucide-react'; // Update this import
+import { Atom, Telescope, Activity } from 'lucide-react'; // Added Activity here
+
 const SimulationsPage = () => {
   const simulations = [
     {
@@ -114,7 +115,8 @@ const SimulationsPage = () => {
         'Asteroid belt visualization',
         'Saturn ring rendering'
       ]
-    },{
+    },
+    {
       id: 'stellarium',
       name: 'Stellarium: Virtual Observatory',
       description: 'Explore the night sky, planets, and constellations in real-time with this interactive web planetarium.',
@@ -130,6 +132,24 @@ const SimulationsPage = () => {
         'Time manipulation'
       ]
     },
+    // ---- ADDED TECTONIC EXPLORER HERE ----
+    {
+      id: 'tectonics',
+      name: 'Tectonic Plates & Seismic Monitor',
+      description: 'Interact with an accurate 3D Earth globe to explore tectonic plate boundaries, fault lines, and live earthquake hotspots.',
+      longDescription: 'Powered by CesiumJS, this 3D simulation maps major historical and structural earthquakes. Learn the difference between divergent, convergent, and transform boundaries by analyzing seismic data along the Ring of Fire and Mid-Atlantic Ridge.',
+      icon: <Activity className="w-12 h-12" />,
+      color: 'from-slate-700 to-emerald-900',
+      path: '/simulations/tectonic-explorer',
+      features: [
+        'Accurate CesiumJS 3D Earth',
+        'Seismic data visualization',
+        'Tectonic boundary classifications',
+        'Earthquake magnitude scaling',
+        'Dynamic geological information'
+      ]
+    },
+    // --------------------------------------
     {
       id: 'microbe-rpg',
       name: 'Microbiology & Clinical Parasitology RPG',

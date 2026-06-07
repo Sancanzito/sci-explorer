@@ -35,6 +35,7 @@ import GelElectrophoresis from './Simulations/gelElectrophoresis/gelElectrophore
 import MolView from './Simulations/MolView/Molview';
 import MicrobeRPG from "./Simulations/MicrobeRPG/MicrobeRPG";
 import StellariumPage from './Simulations/Stellarium/StellariumPage';
+import TectonicExplorer from './Simulations/Earthquake/TectonicExplorer';
 
 // Import quiz games
 import MicroscopeGame from './quiz/microscope/MicroscopeGame';
@@ -97,6 +98,7 @@ function AppContent() {
         <Route path="/simulations/gel-electrophoresis" element={<GelElectrophoresis />} />
         <Route path="/simulations/microbe-rpg" element={<MicrobeRPG />} />
         <Route path="/simulations/stellarium" element={<StellariumPage />} />
+        <Route path="/simulations/tectonic-explorer" element={<TectonicExplorer />} />
         {/* General article routes */}
         <Route path="/articles/:articleId" element={<ArticleReader />} />          
         <Route path="/articles" element={<ArticlesPage />} />                      
