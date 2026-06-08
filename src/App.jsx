@@ -8,6 +8,7 @@ import PeriodicTable from './components/Tools/PeriodicTable';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AIAssistant from './components/AI/Ai';
 import { Analytics } from "@vercel/analytics/react";
+import 'katex/dist/katex.min.css';
 // Import GraphDashboard
 import StatisticalTool from './components/graph/statisticaltool';
 // main.jsx or App.jsx
@@ -24,7 +25,8 @@ import ChemistryModelsPage from './Articles/UseofChemModels/ChemistryModelsPage'
 import ParticleModelDashboard from './Articles/ParticleModelOfMatter/ParticleModelDashboard';
 import LaboratorySafetyPage from './Articles/LaboratorySafety/LaboratorySafetyPage';
 import InvestigationPage from "./Articles/Science/SciPage";
-
+import SolutionsMain from './Articles/Solutions/SolutionsMain';
+import AcidsMain from './Articles/Acids/AcidsMain'
 // Import Simulations
 import EcoBalanceGame from './Simulations/EcoBalance/EcoBalance';
 import DNAExtractionApp from './Simulations/DNAextraction/DNAextraction';
@@ -81,7 +83,8 @@ function AppContent() {
         <Route path="/articles/LaboratorySafety" element={<LaboratorySafetyPage />} />
         <Route path="/articles/particle-model-matter" element={<ParticleModelDashboard />} />
         <Route path="/articles/ScientificSkills" element={<InvestigationPage />} />
-        
+        <Route path="/articles/chem-solutions-solubility" element={<SolutionsMain />} />
+        <Route path="/articles/chem-acids-bases" element={<AcidsMain />} />
         {/* Scientific Visualization Dashboard */}
         <Route path="/graph" element={<StatisticalTool />} />
         

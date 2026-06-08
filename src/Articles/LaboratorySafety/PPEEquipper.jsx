@@ -16,12 +16,12 @@ const PPEEquipper = () => {
   const isFullyEquipped = Object.values(equipment).every(Boolean);
 
   return (
-    <div className="flex flex-col md:flex-row gap-8 items-center bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-200 dark:border-gray-700">
+    <div className="flex flex-col md:flex-row gap-8 items-center bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 my-6">
       
       {/* Avatar Display */}
-      <div className="relative w-48 h-64 bg-white dark:bg-gray-900 rounded-xl shadow-inner border-2 border-gray-200 dark:border-gray-700 flex justify-center items-end pb-4 overflow-hidden">
+      <div className="relative w-48 h-64 bg-white dark:bg-gray-900 rounded-xl shadow-inner border-2 border-gray-200 dark:border-gray-700 flex justify-center items-end pb-4 overflow-hidden shrink-0">
         {/* Base Person */}
-        <svg viewBox="0 0 100 150" className="w-32 h-48 text-gray-400 dark:text-gray-600">
+        <svg viewBox="0 0 100 150" className="w-32 h-48 text-gray-300 dark:text-gray-600">
           <circle cx="50" cy="30" r="15" fill="currentColor" />
           <path d="M30 60 Q50 50 70 60 L80 110 L20 110 Z" fill="currentColor" />
           <rect x="35" y="110" width="10" height="30" fill="currentColor" />
@@ -37,7 +37,7 @@ const PPEEquipper = () => {
         )}
         
         {equipment.goggles && (
-          <motion.svg initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} viewBox="0 0 100 150" className="absolute w-32 h-48 text-blue-400/50">
+          <motion.svg initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} viewBox="0 0 100 150" className="absolute w-32 h-48 text-blue-400/60">
             <rect x="38" y="25" width="10" height="6" rx="2" fill="currentColor" stroke="#3b82f6" strokeWidth="1"/>
             <rect x="52" y="25" width="10" height="6" rx="2" fill="currentColor" stroke="#3b82f6" strokeWidth="1"/>
             <line x1="48" y1="28" x2="52" y2="28" stroke="#3b82f6" strokeWidth="1"/>
@@ -61,16 +61,17 @@ const PPEEquipper = () => {
 
       {/* Controls */}
       <div className="flex-1 space-y-4">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Equip your Scientist</h3>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Interactive PPE Checklist</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">Select the necessary equipment for handling hazardous chemical reagents before entering the lab.</p>
         <div className="grid grid-cols-2 gap-3">
           {Object.keys(equipment).map((item) => (
             <button
               key={item}
               onClick={() => toggleEquipment(item)}
-              className={`p-3 rounded-xl text-sm font-medium transition-all ${
+              className={`p-3 rounded-xl text-sm font-bold tracking-wide transition-all ${
                 equipment[item] 
-                  ? 'bg-yellow-500 text-black shadow-md shadow-yellow-500/20' 
-                  : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-yellow-500'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 border-transparent' 
+                  : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-blue-500 hover:text-blue-500'
               }`}
             >
               {item.replace(/([A-Z])/g, ' $1').trim().toUpperCase()}
@@ -79,8 +80,8 @@ const PPEEquipper = () => {
         </div>
         
         {isFullyEquipped && (
-          <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="p-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-xl text-sm font-bold text-center">
-            ✓ Fully Equipped and Ready for the Lab!
+          <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="p-3 mt-4 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-xl text-sm font-bold text-center">
+            ✓ Fully Equipped and Cleared for Laboratory Entry!
           </motion.div>
         )}
       </div>

@@ -1,29 +1,31 @@
+// SciPage.jsx – fully cleaned, no SVG data URIs, all real images
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import SciSkillsScrollSpy from './ScientificScrollSpy';
 import SciSkillsFooter from './Scientificfooter';
-import { 
-  ObservationActivity, 
-  QuestionSorter, 
-  VariableSimulator, 
-  MeasurementSimulator, 
-  GraphBuilder 
-} from './ScientificInteractions';
 
 const sections = [
-  { id: 'intro', title: '1. What is Scientific Investigation?' },
-  { id: 'observation', title: '2. Observation Skills' },
-  { id: 'questions', title: '3. Asking Questions' },
-  { id: 'hypothesis', title: '4. Forming a Hypothesis' },
-  { id: 'variables', title: '5. Experiment Variables' },
-  { id: 'method', title: '6. The Scientific Method' },
-  { id: 'measurement', title: '7. Accurate Measurement' },
-  { id: 'data', title: '8. Data & Graphing' },
-  { id: 'communication', title: '9. Communication' },
-  { id: 'challenge', title: '10. The Challenge' }
+  { id: 'intro', title: '1. Introduction to Investigation' },
+  { id: 'nature', title: '2. Nature of Science' },
+  { id: 'attitudes', title: '3. Scientific Attitudes' },
+  { id: 'empiricism', title: '4. Empiricism & Evidence' },
+  { id: 'observation', title: '5. Observation Skills' },
+  { id: 'questions', title: '6. Asking Questions' },
+  { id: 'research', title: '7. Scientific Research' },
+  { id: 'hypothesis', title: '8. Formulating Hypotheses' },
+  { id: 'variables', title: '9. Experimental Variables' },
+  { id: 'method', title: '10. Scientific Method' },
+  { id: 'measurement', title: '11. Measurement & Accuracy' },
+  { id: 'data', title: '12. Data Interpretation' },
+  { id: 'ethics', title: '13. Scientific Ethics' },
+  { id: 'communication', title: '14. Communication' },
+  { id: 'daily-life', title: '15. Science in Daily Life' },
+  { id: 'assessment', title: '16. Module Assessment' },
+  { id: 'reflection', title: '17. Reflection' },
+  { id: 'references', title: '18. References' }
 ];
 
-// Floating Background Particles
+// Floating Background Particles (kept – they are safe, no SVG)
 const FloatingParticles = () => {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30">
@@ -48,6 +50,39 @@ const FloatingParticles = () => {
           }}
         />
       ))}
+    </div>
+  );
+};
+
+// No more ScienceBackgroundPattern – removed to fix 400 error
+
+// Enhanced Image Component with real Wikipedia images
+const SciImage = ({ src, alt, caption, align = "center" }) => {
+  const alignmentClass = {
+    left: "md:float-left md:mr-6 md:mb-4",
+    right: "md:float-right md:ml-6 md:mb-4",
+    center: "mx-auto"
+  }[align];
+
+  // Real fallback image from Wikimedia Commons
+  const fallbackImage = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Commons-logo.svg/800px-Commons-logo.svg.png";
+
+  return (
+    <div className={`my-6 max-w-md ${alignmentClass}`}>
+      <div className="rounded-xl overflow-hidden shadow-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
+        <img 
+          src={src} 
+          alt={alt}
+          className="w-full h-auto max-h-64 object-cover"
+          loading="lazy"
+          onError={(e) => { e.target.src = fallbackImage; }}
+        />
+        {caption && (
+          <div className="p-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700">
+            {caption}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -77,13 +112,11 @@ const InvestigationPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
-      
+    <div className="min-h-screen bg-slate-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300 relative">
       {/* Hero Section */}
-      <div className="relative pt-24 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-900 via-gray-900 to-black overflow-hidden border-b-4 border-cyan-500">
+      <div className="relative pt-24 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-900 via-gray-900 to-black overflow-hidden border-b-4 border-cyan-500 z-10">
         <FloatingParticles />
         <div className="max-w-7xl mx-auto text-center relative z-10">
-          
           <motion.div 
             initial={{ opacity: 0, scale: 0.5, y: -20 }} 
             animate={{ opacity: 1, scale: 1, y: 0 }} 
@@ -113,42 +146,10 @@ const InvestigationPage = () => {
           >
             Master the art of observing, testing, and analyzing the world around you like a true scientist.
           </motion.p>
-          
-          {/* Image Placeholder: Hero Visual */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9, y: 40 }}
-            animate={{ 
-              opacity: 1, 
-              scale: 1, 
-              y: [0, -15, 0] // Creates a continuous floating effect
-            }}
-            transition={{ 
-              opacity: { duration: 0.8, delay: 0.6 },
-              scale: { duration: 0.8, delay: 0.6, ease: "easeOut" },
-              y: { 
-                duration: 4, 
-                repeat: Infinity, 
-                ease: "easeInOut",
-                delay: 1.4 // Starts floating after the entrance animation
-              }
-            }}
-            className="w-full max-w-4xl mx-auto h-64 sm:h-80 bg-gray-800/60 rounded-3xl border border-gray-700/50 flex flex-col items-center justify-center text-gray-500 backdrop-blur-md shadow-2xl relative overflow-hidden"
-          >
-             <div className="absolute inset-0 bg-blue-500/5"></div>
-             <motion.svg 
-               initial={{ rotate: -10 }}
-               animate={{ rotate: 10 }}
-               transition={{ duration: 3, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
-               className="w-16 h-16 mb-4 opacity-50 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-             >
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
-             </motion.svg>
-             <span className="font-mono text-sm tracking-widest text-cyan-600 dark:text-cyan-400">[ Scientist Investigating Animation Placeholder ]</span>
-          </motion.div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col lg:flex-row gap-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col lg:flex-row gap-10 relative z-10">
         
         {/* Sidebar Navigation */}
         <div className="hidden lg:block lg:w-1/4 shrink-0 relative">
@@ -158,7 +159,7 @@ const InvestigationPage = () => {
         </div>
 
         {/* Main Content Area */}
-        <main id="printable-investigation-content" className="w-full lg:w-3/4 space-y-24 bg-white dark:bg-gray-900 p-6 sm:p-12 rounded-[2rem] shadow-2xl border border-gray-100 dark:border-gray-800">
+        <main id="printable-investigation-content" className="w-full lg:w-3/4 space-y-20 bg-white dark:bg-gray-900 p-6 sm:p-12 rounded-[2rem] shadow-2xl border border-gray-100 dark:border-gray-800 backdrop-blur-sm bg-opacity-90 dark:bg-opacity-90">
           
           {/* 1. Intro */}
           <section id="intro" className="scroll-mt-28">
@@ -166,79 +167,189 @@ const InvestigationPage = () => {
               <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">🔍</span>
               1. What is Scientific Investigation?
             </h2>
+            <SciImage 
+              src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Starr_070730-7919_Salvia_coccinea.jpg/800px-Starr_070730-7919_Salvia_coccinea.jpg"
+              alt="Scientific observation in nature"
+              caption="Observation is the first step of any scientific investigation."
+              align="right"
+            />
             <p className="text-gray-600 dark:text-gray-300 mb-8 leading-relaxed text-lg">
-              Scientific investigation is a structured process used to answer questions and solve problems using evidence and experimentation. Scientists rely on observation, testing, and analysis to understand how things work.
+              Scientific investigation is a structured process used to answer questions and solve problems using evidence and experimentation. Scientists rely on observation, testing, and analysis to understand how things work and to separate fact from assumption.
             </p>
-            {/* Image Placeholder: Flow Diagram */}
-            <div className="bg-slate-50 dark:bg-gray-800 rounded-2xl h-48 border-2 border-dashed border-blue-200 dark:border-gray-700 flex flex-col items-center justify-center text-blue-400 dark:text-gray-500">
-              <span>[ Investigation Flow Diagram Placeholder ]</span>
+          </section>
+
+          {/* 2. Nature of Science */}
+          <section id="nature" className="scroll-mt-28">
+            <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
+              <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">🧬</span>
+              2. Nature of Science
+            </h2>
+            <SciImage 
+              src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Portrait_of_Galileo_Galilei_%28scientist%29.jpg/800px-Portrait_of_Galileo_Galilei_%28scientist%29.jpg"
+              alt="Galileo Galilei portrait"
+              caption="Galileo Galilei, a pioneer of the scientific method."
+              align="left"
+            />
+            <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+              What makes a scientist? Science is defined by its practitioners' commitment to rigorous methodology. Effective scientists share specific characteristics:
+            </p>
+            <ul className="grid sm:grid-cols-2 gap-4 mb-8 clear-both">
+              {['Ask meaningful questions', 'Base conclusions on evidence', 'Think critically', 'Accept corrections', 'Collaborate with others', 'Communicate findings clearly', 'Follow ethical standards'].map((trait, i) => (
+                <li key={i} className="flex items-center gap-3 text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
+                  <span className="text-cyan-500">✓</span> {trait}
+                </li>
+              ))}
+            </ul>
+            <p className="text-gray-600 dark:text-gray-300">
+              <strong>Famous Examples:</strong> Galileo Galilei (Astronomy), Marie Curie (Radioactivity), Charles Darwin (Evolution), and Rosalind Franklin (DNA Structure).
+            </p>
+          </section>
+
+          {/* 3. Scientific Attitudes */}
+          <section id="attitudes" className="scroll-mt-28">
+            <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
+              <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">🧠</span>
+              3. Scientific Attitudes and Values
+            </h2>
+            <div className="flex flex-wrap gap-3">
+              {['Curiosity', 'Open-mindedness', 'Intellectual Honesty', 'Skepticism', 'Objectivity', 'Creativity', 'Perseverance', 'Responsibility', 'Respect for Evidence'].map((attitude, i) => (
+                <span key={i} className="px-4 py-2 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded-full text-sm font-semibold border border-blue-200 dark:border-blue-800">
+                  {attitude}
+                </span>
+              ))}
             </div>
           </section>
 
-          {/* 2. Observation */}
+          {/* 4. Empiricism */}
+          <section id="empiricism" className="scroll-mt-28">
+            <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
+              <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">⚖️</span>
+              4. Empiricism and Evidence
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+              <strong>Empiricism</strong> is the foundational principle that scientific knowledge comes exclusively from sensory observation, experimentation, and measurable evidence—not from personal beliefs, intuition, or assumptions.
+            </p>
+            <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+              <table className="min-w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                  <tr><th className="px-6 py-4 font-bold">Claim</th><th className="px-6 py-4 font-bold">Scientific?</th></tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300">
+                  <tr><td className="px-6 py-4">"Plants grow because I believe they do."</td><td className="px-6 py-4 text-red-500 text-xl">❌</td></tr>
+                  <tr><td className="px-6 py-4">"Plants grow faster because data from measurements show increased height."</td><td className="px-6 py-4 text-green-500 text-xl">✅</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* 5. Observation Skills */}
           <section id="observation" className="scroll-mt-28">
             <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
               <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">👀</span>
-              2. Observation Skills
+              5. Observation Skills
             </h2>
             <div className="grid md:grid-cols-2 gap-6 mb-8">
               <div className="p-6 bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-900/30">
                 <h4 className="font-bold text-purple-700 dark:text-purple-400 mb-2">Qualitative Observations</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Describes the qualities of an object using your senses (color, texture, smell, shape).</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Describes the qualities of an object using your senses (e.g., the leaf is bright green, the rock is rough).</p>
               </div>
               <div className="p-6 bg-teal-50 dark:bg-teal-900/10 rounded-2xl border border-teal-100 dark:border-teal-900/30">
                 <h4 className="font-bold text-teal-700 dark:text-teal-400 mb-2">Quantitative Observations</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Involves numbers, counting, or accurate measurements (weight, length, temperature).</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Involves exact numbers, counting, or accurate measurements (e.g., the beaker has 50mL, the plant grew 3cm).</p>
               </div>
             </div>
-            <ObservationActivity />
+            <SciImage 
+              src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Plant_growth_measurement.jpg/800px-Plant_growth_measurement.jpg"
+              alt="Measuring plant growth"
+              caption="Quantitative observation: measuring plant height with a ruler."
+              align="center"
+            />
           </section>
 
-          {/* 3. Questions */}
+          {/* 6. Asking Questions */}
           <section id="questions" className="scroll-mt-28">
             <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
               <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">❓</span>
-              3. Asking Scientific Questions
+              6. Asking Scientific Questions
             </h2>
-            <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
-              Not all questions are scientific! Good scientific questions must be <strong>testable</strong>. This means you can design an experiment to find the answer.
+            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+              Not all questions are scientific! Good scientific questions must be <strong>testable</strong>. This means you can design a measurable experiment to find the answer. "Which color is the best?" is subjective and non-testable. "At what temperature does salt water freeze?" is objective and testable.
             </p>
-            <QuestionSorter />
           </section>
 
-          {/* 4. Hypothesis */}
+          {/* 7. Research */}
+          <section id="research" className="scroll-mt-28">
+            <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
+              <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">📚</span>
+              7. Scientific Research
+            </h2>
+            <SciImage 
+              src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Research_laboratory.jpg/800px-Research_laboratory.jpg"
+              alt="Scientific research lab"
+              caption="Modern research laboratory where experiments are conducted."
+              align="right"
+            />
+            <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+              <strong>What is Research?</strong> It is a systematic investigation conducted to generate new knowledge or solve problems.
+            </p>
+            <div className="space-y-4">
+              <h4 className="font-bold text-gray-800 dark:text-gray-200">Types of Research:</h4>
+              <ul className="list-disc pl-6 text-gray-600 dark:text-gray-300 space-y-2">
+                <li><strong>Basic Research:</strong> Expanding human knowledge without an immediate application.</li>
+                <li><strong>Applied Research:</strong> Solving specific, practical problems.</li>
+                <li><strong>Experimental Research:</strong> Testing variables in a controlled environment.</li>
+                <li><strong>Descriptive & Field Research:</strong> Observing subjects in their natural environments.</li>
+              </ul>
+              <h4 className="font-bold text-gray-800 dark:text-gray-200 mt-6">Importance of Research:</h4>
+              <p className="text-gray-600 dark:text-gray-300">
+                Research solves real-world problems, improves technology, advances medicine, protects the environment, and supports evidence-based decision making.
+              </p>
+            </div>
+          </section>
+
+          {/* 8. Hypothesis */}
           <section id="hypothesis" className="scroll-mt-28">
             <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
               <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">💡</span>
-              4. Forming a Hypothesis
+              8. Formulating Hypotheses
             </h2>
             <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
-              A hypothesis is a predicted answer to your question based on research. The best format to write one is the <strong>If... then... because...</strong> format.
+              A hypothesis is a testable prediction based on research. The most rigorous format to write one is the <strong>If... then... because...</strong> structure.
             </p>
-            <div className="bg-gray-900 p-8 rounded-3xl shadow-xl text-white font-medium text-lg leading-loose border-l-8 border-cyan-500">
+            <div className="bg-gray-900 p-8 rounded-3xl shadow-lg text-white font-medium text-lg leading-loose border-l-8 border-cyan-500 mb-8">
               <span className="text-cyan-400 font-bold">If</span> plants receive more sunlight,<br/>
               <span className="text-blue-400 font-bold">then</span> they will grow taller,<br/>
               <span className="text-purple-400 font-bold">because</span> sunlight provides the energy needed for photosynthesis.
             </div>
+            <SciImage 
+              src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Sunlight_plants.jpg/800px-Sunlight_plants.jpg"
+              alt="Sunlight and plant growth"
+              caption="Testing the hypothesis: more sunlight leads to taller plants."
+              align="center"
+            />
           </section>
 
-          {/* 5. Variables */}
+          {/* 9. Variables */}
           <section id="variables" className="scroll-mt-28">
             <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
               <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">🎛️</span>
-              5. Variables in Experiments
+              9. Variables and Experimental Design
             </h2>
             <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
-              To keep an experiment fair, you must control the parts that change. These are called variables.
+              To keep an experiment fair and ensure valid results, scientists isolate specific variables:
             </p>
-            <VariableSimulator />
+            <ul className="space-y-4 text-gray-600 dark:text-gray-300">
+              <li><strong className="text-cyan-600 dark:text-cyan-400">Independent Variable:</strong> The one condition you intentionally change (e.g., amount of sunlight).</li>
+              <li><strong className="text-purple-600 dark:text-purple-400">Dependent Variable:</strong> The condition you measure as a result (e.g., plant height).</li>
+              <li><strong className="text-orange-600 dark:text-orange-400">Controlled Variables:</strong> The conditions kept exactly the same to ensure fairness (e.g., water, soil type).</li>
+            </ul>
           </section>
 
-          {/* 6. Scientific Method */}
+          {/* 10. Method */}
           <section id="method" className="scroll-mt-28">
             <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
               <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">📋</span>
-              6. Steps of the Scientific Method
+              10. The Scientific Method
             </h2>
             <div className="relative py-8">
               <div className="absolute left-8 top-0 bottom-0 w-1 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
@@ -246,9 +357,9 @@ const InvestigationPage = () => {
                 { step: '1', title: 'Problem', desc: 'Ask a testable question.' },
                 { step: '2', title: 'Research', desc: 'Gather background information.' },
                 { step: '3', title: 'Hypothesis', desc: 'Predict the outcome.' },
-                { step: '4', title: 'Experiment', desc: 'Test the hypothesis using steps.' },
-                { step: '5', title: 'Data Analysis', desc: 'Organize and interpret results.' },
-                { step: '6', title: 'Conclusion', desc: 'State if hypothesis was supported.' }
+                { step: '4', title: 'Experiment', desc: 'Test the hypothesis using a fair procedure.' },
+                { step: '5', title: 'Data Analysis', desc: 'Organize and interpret the results objectively.' },
+                { step: '6', title: 'Conclusion', desc: 'State if the hypothesis was supported or rejected.' }
               ].map((item, idx) => (
                 <div key={idx} className="relative flex items-center mb-8 last:mb-0">
                   <div className="w-16 h-16 shrink-0 bg-white dark:bg-gray-900 border-4 border-cyan-500 rounded-full flex items-center justify-center font-black text-xl text-cyan-600 dark:text-cyan-400 z-10 shadow-md">
@@ -263,59 +374,149 @@ const InvestigationPage = () => {
             </div>
           </section>
 
-          {/* 7. Measurement */}
+          {/* 11. Measurement */}
           <section id="measurement" className="scroll-mt-28">
             <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
               <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">📏</span>
-              7. Accurate Measurement
+              11. Measurement and Accuracy
             </h2>
-            <MeasurementSimulator />
+            <SciImage 
+              src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Graduated_cylinder_meniscus.svg/800px-Graduated_cylinder_meniscus.svg.png"
+              alt="Graduated cylinder meniscus"
+              caption="Reading the meniscus at eye level ensures accurate volume measurement."
+              align="left"
+            />
+            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+              Precise measurement is the backbone of quantitative data. A standard practice when reading liquids in a graduated cylinder is to measure from the <strong>bottom of the meniscus</strong> (the slight curve at the surface of the liquid) at eye level to prevent measurement errors.
+            </p>
+            <div className="clear-both"></div>
           </section>
 
-          {/* 8. Data & Graphing */}
+          {/* 12. Data Interpretation */}
           <section id="data" className="scroll-mt-28">
             <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
               <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">📊</span>
-              8. Data Collection & Graphing
+              12. Data Interpretation
             </h2>
             <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
-              Recording observations in tables and converting them into graphs makes it much easier to spot patterns and trends.
+              Recording observations and converting them into graphs makes it easier to spot patterns, trends, and outliers. When reading scientific graphs, always analyze:
             </p>
-            <GraphBuilder />
+            <ul className="list-disc pl-6 text-gray-600 dark:text-gray-300 space-y-2 mb-8">
+              <li><strong>Title:</strong> What is the overarching relationship being measured?</li>
+              <li><strong>X-axis:</strong> Typically displays the Independent Variable.</li>
+              <li><strong>Y-axis:</strong> Typically displays the Dependent Variable.</li>
+              <li><strong>Trends & Correlation:</strong> Is the relationship positive, negative, or non-existent?</li>
+              <li><strong>Outliers:</strong> Are there data points that deviate drastically from the norm?</li>
+            </ul>
+            <SciImage 
+              src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Scatter_plot.svg/800px-Scatter_plot.svg.png"
+              alt="Example scatter plot"
+              caption="Graphs help identify correlations and outliers in data."
+              align="center"
+            />
           </section>
 
-          {/* 9. Communication */}
+          {/* 13. Scientific Ethics */}
+          <section id="ethics" className="scroll-mt-28">
+            <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
+              <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">🛡️</span>
+              13. Scientific Ethics
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+              Scientific integrity relies heavily on ethical conduct. Core ethical considerations include:
+            </p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700"><strong>Honesty:</strong> Truthful reporting of data without fabrication.</div>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700"><strong>Citation:</strong> Avoiding plagiarism and crediting past work.</div>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700"><strong>Informed Consent:</strong> Protecting human subjects.</div>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700"><strong>Welfare & Environment:</strong> Ensuring animal safety and environmental responsibility.</div>
+            </div>
+          </section>
+
+          {/* 14. Communication */}
           <section id="communication" className="scroll-mt-28">
             <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
               <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">📢</span>
-              9. Scientific Communication
+              14. Scientific Communication
             </h2>
             <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-gray-800 dark:to-cyan-900/20 p-8 rounded-3xl border border-blue-100 dark:border-cyan-900">
               <p className="text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
-                Science only advances when we share our discoveries! Scientists communicate their findings through Lab Reports, peer-reviewed journals, and presentations. Sharing allows other scientists to test the experiment themselves to ensure the results are reliable.
+                Science only advances when discoveries are shared. Scientists communicate findings through lab reports, presentations, and peer-reviewed journals. This transparency allows other scientists to reproduce the experiment and verify the reliability of the results.
               </p>
             </div>
           </section>
 
-          {/* 10. Challenge */}
-          <section id="challenge" className="scroll-mt-28 pt-8">
-             <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-1.5 rounded-[2.5rem] shadow-xl">
-               <div className="bg-white dark:bg-gray-900 p-10 rounded-[2.25rem] flex flex-col items-center text-center">
-                  <h3 className="text-3xl font-black mb-4 text-gray-900 dark:text-white">Investigation Challenge</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-lg text-lg">
-                    Are you ready to run a virtual experiment from start to finish?
-                  </p>
-                  
-                  {/* Image Placeholder: Virtual Challenge */}
-                  <div className="w-full h-72 bg-slate-50 dark:bg-gray-950 rounded-2xl border-2 border-dashed border-cyan-300 dark:border-gray-700 flex flex-col items-center justify-center text-cyan-600 dark:text-gray-500 group cursor-pointer hover:bg-cyan-50 dark:hover:bg-gray-800 transition-colors">
-                    <svg className="w-12 h-12 mb-3 opacity-60 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <span className="font-bold tracking-wide">[ Start Virtual Experiment Simulator ]</span>
-                    <span className="text-sm mt-2 opacity-70">Will be replaced with interactive React Game</span>
-                  </div>
-               </div>
-             </div>
+          {/* 15. Daily Life */}
+          <section id="daily-life" className="scroll-mt-28">
+            <h2 className="text-3xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6 flex items-center gap-4">
+              <span className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-cyan-900/30 flex items-center justify-center text-xl">🌍</span>
+              15. Science in Everyday Life
+            </h2>
+            <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+              <table className="min-w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                  <tr><th className="px-6 py-4 font-bold">Field</th><th className="px-6 py-4 font-bold">Example Application</th></tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300">
+                  <tr><td className="px-6 py-4 font-medium">Medicine</td><td className="px-6 py-4">Vaccine development and disease mapping</td></tr>
+                  <tr><td className="px-6 py-4 font-medium">Agriculture</td><td className="px-6 py-4">Cultivating drought-resistant crop varieties</td></tr>
+                  <tr><td className="px-6 py-4 font-medium">Engineering</td><td className="px-6 py-4">Advancing renewable energy systems (Solar/Wind)</td></tr>
+                  <tr><td className="px-6 py-4 font-medium">Environmental</td><td className="px-6 py-4">Monitoring air quality and pollution levels</td></tr>
+                  <tr><td className="px-6 py-4 font-medium">Food Science</td><td className="px-6 py-4">Safety testing and improving nutritional longevity</td></tr>
+                </tbody>
+              </table>
+            </div>
           </section>
 
+          {/* 16. Assessment */}
+          <section id="assessment" className="scroll-mt-28 bg-blue-50 dark:bg-gray-800/40 p-8 rounded-[2rem] border border-blue-100 dark:border-gray-700">
+            <h2 className="text-2xl font-extrabold text-blue-900 dark:text-cyan-400 mb-6">16. Module Assessment</h2>
+            <div className="space-y-6">
+              <div>
+                <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-2">Part A: Knowledge Check</h4>
+                <ol className="list-decimal pl-5 text-gray-600 dark:text-gray-300 space-y-2">
+                  <li>What is empiricism?</li>
+                  <li>Differentiate qualitative and quantitative observations.</li>
+                  <li>What constitutes a strong hypothesis?</li>
+                  <li>Why is it necessary to isolate variables?</li>
+                  <li>Why is ethics paramount in scientific research?</li>
+                </ol>
+              </div>
+            </div>
+          </section>
+
+          {/* 17. Reflection */}
+          <section id="reflection" className="scroll-mt-28 bg-purple-50 dark:bg-purple-900/10 p-8 rounded-[2rem] border border-purple-100 dark:border-purple-900/30">
+            <h2 className="text-2xl font-extrabold text-purple-900 dark:text-purple-400 mb-6">17. Reflection & Performance Task</h2>
+            <div className="space-y-6">
+              <div>
+                <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-2">Part B: Reflection</h4>
+                <ul className="list-disc pl-5 text-gray-600 dark:text-gray-300 space-y-2">
+                  <li>How can scientific thinking help you in everyday life?</li>
+                  <li>Which scientific attitude do you believe is most important and why?</li>
+                </ul>
+              </div>
+              <div className="pt-4 border-t border-purple-200 dark:border-purple-800/30">
+                <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-2">Part C: Performance Task</h4>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">Design a simple investigation framework involving:</p>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm text-center">
+                  <div className="bg-white dark:bg-gray-900 p-2 rounded-lg border border-purple-100 dark:border-gray-700">Question</div>
+                  <div className="bg-white dark:bg-gray-900 p-2 rounded-lg border border-purple-100 dark:border-gray-700">Hypothesis</div>
+                  <div className="bg-white dark:bg-gray-900 p-2 rounded-lg border border-purple-100 dark:border-gray-700">Variables</div>
+                  <div className="bg-white dark:bg-gray-900 p-2 rounded-lg border border-purple-100 dark:border-gray-700">Procedure</div>
+                  <div className="bg-white dark:bg-gray-900 p-2 rounded-lg border border-purple-100 dark:border-gray-700">Results</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* 18. References */}
+          <section id="references" className="scroll-mt-28">
+            <h2 className="text-2xl font-extrabold text-gray-800 dark:text-gray-200 mb-4">18. References</h2>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
+              Please refer to the footer for educational standards and curriculum resources aligned with this module.
+            </p>
+          </section>
         </main>
       </div>
       

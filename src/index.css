@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/* Force hide KaTeX MathML nodes – prevents raw text leakage */
+.katex-mathml,
+.katex .katex-mathml {
+  display: none !important;
+  visibility: hidden !important;
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(1px, 1px, 1px, 1px) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+}
+
 @theme {
   /* This maps your custom variable to a Tailwind utility name */
   --color-dark-bg: #030712;
