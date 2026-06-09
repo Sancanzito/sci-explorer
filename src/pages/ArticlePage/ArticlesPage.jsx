@@ -90,7 +90,7 @@ export const ArticlesPage = () => {
             Scientific <span className={`bg-gradient-to-r ${isDarkMode ? 'from-cyan-400 to-blue-500' : 'from-cyan-600 to-blue-700'} bg-clip-text text-transparent`}>Modules</span>
           </h1>
           <p className={`text-lg md:text-xl max-w-2xl drop-shadow-md ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-            Explore comprehensive curriculum guides, theories, and laboratory protocols.
+           Explore articles and fun facts about science.
           </p>
         </header>
 
@@ -158,7 +158,7 @@ export const ArticlesPage = () => {
               {filteredArticles.length}
             </motion.span>
           </AnimatePresence>
-          {' '}Protocols
+          {' '}Articles
         </div>
 
         {/* Lightweight Grid */}
@@ -200,7 +200,7 @@ export const ArticlesPage = () => {
                     </p>
                     
                     <div className={`mt-auto flex items-center justify-between font-semibold text-sm transition-colors ${isDarkMode ? 'text-cyan-400 group-hover:text-cyan-300' : 'text-cyan-600 group-hover:text-cyan-700'}`}>
-                      <span>Analyze Module</span>
+                      <span>Read More</span>
                       <ChevronRight size={18} className="transform group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
@@ -244,7 +244,7 @@ export const ArticlesPage = () => {
                       Close
                     </button>
                     <Link to={`/articles/${previewArticle.id}`} className={`px-8 py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center gap-2 group ${isDarkMode ? 'bg-cyan-500 text-slate-900 hover:bg-cyan-400' : 'bg-cyan-600 text-white hover:bg-cyan-700'}`}>
-                      Access Protocol <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                      Read Article <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
                     </Link>
                   </div>
                 </div>
