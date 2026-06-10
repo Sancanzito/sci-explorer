@@ -1,11 +1,10 @@
 import React from 'react';
-import { BookLayout } from '../components/BookLayout';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../../../ThemeProvider';
 
 export function SampleContent() {
   const { isDarkMode } = useTheme();
-  
+   
   // Content from user's request
   const content = `
 # **Science Quest: Exploring the 4 W's of Science**
@@ -223,8 +222,8 @@ export function SampleContent() {
   ;
 
   return (
-    <BookLayout prevPage="/science-quest/how-to-use" nextPage="/science-quest/table-of-contents">
-      <div className={`min-h-screen p-8 md:p-12 bg-gradient-to-br from-indigo-900 to-purple-900 text-white relative ${isDarkMode ? 'dark:bg-gradient-to-br from-gray-900 to-gray-800' : ''}`}>
+    <div className="min-h-screen">
+      <div className={`min-h-screen p-8 md:p-12 bg-gradient-to-br from-indigo-900/80 to-purple-900/80 text-white relative ${isDarkMode ? 'dark:from-indigo-900/60 dark:to-purple-900/60' : ''}`}>
         <div className="max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -249,6 +248,6 @@ export function SampleContent() {
           </div>
         </div>
       </div>
-    </BookLayout>
+    </div>
   );
 }

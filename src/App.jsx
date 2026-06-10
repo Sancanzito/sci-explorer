@@ -19,7 +19,8 @@ import SimulationsPage from './pages/SimulationsPage/SimulationsPage';
 import QuizzesPage from './pages/QuizzesPage/QuizzesPage';
 import { ArticlesPage, ArticleReader } from './pages/ArticlePage/ArticlesPage';
 import ArticleNotFound from './pages/ArticlePage/ArticleDebugging';
-// Import Science Quest
+
+// Import Science Quest book
 import ScienceQuestApp from './pages/ArticlePage/Books/ScienceQuestApp';
 
 // Import All Custom Article Dashboards
@@ -78,49 +79,48 @@ function AppContent() {
     <>
       <Navbar isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
       <Routes>
-        <Route path="/" element={<HomePage />} />
+  <Route path="/" element={<HomePage />} />
 
-        {/* Custom dashboard routes */}
-        <Route path="/articles/chem-models" element={<ChemistryModelsPage />} />
-        <Route path="/articles/LaboratorySafety" element={<LaboratorySafetyPage />} />
-        <Route path="/articles/particle-model-matter" element={<ParticleModelDashboard />} />
-        <Route path="/articles/ScientificSkills" element={<InvestigationPage />} />
-        <Route path="/articles/chem-solutions-solubility" element={<SolutionsMain />} />
-        <Route path="/articles/chem-acids-bases" element={<AcidsMain />} />
-        {/* Scientific Visualization Dashboard */}
-        <Route path="/graph" element={<StatisticalTool />} />
-        
-        {/* Molecular Visualization Tool */}
-        <Route path="/molview" element={<MolView />} />
-        
-        {/* Simulations and quizzes */}
-        <Route path="/games/eco-balance" element={<EcoBalanceGame />} />
-        <Route path="/microscope-game" element={<MicroscopeGame />} />
-        <Route path="/simulations/dna-extraction" element={<DNAExtractionApp />} />
-        <Route path="/simulations/solar-system" element={<SolarSystemObservatory />} />
-        <Route path="/simulations/cell-explorer" element={<CellExplorer />} />
-        <Route path="/simulations/gel-electrophoresis" element={<GelElectrophoresis />} />
-        <Route path="/simulations/microbe-rpg" element={<MicrobeRPG />} />
-        <Route path="/simulations/stellarium" element={<StellariumPage />} />
-        <Route path="/simulations/tectonic-explorer" element={<TectonicExplorer />} />
-        <Route path="/simulations/natural-selection" element={<NaturalSelectionSim />} />
-        <Route path="/simulations/energy-skate-park" element={<EnergySkateParkSim />} />
-        <Route path="/simulations/gravity-orbits" element={<GravityOrbitsSim />} />
-        {/* General article routes */}
-        <Route path="/articles/:articleId" element={<ArticleReader />} />          
-        <Route path="/articles" element={<ArticlesPage />} />                      
+  {/* Custom dashboard routes */}
+  <Route path="/articles/chem-models" element={<ChemistryModelsPage />} />
+  <Route path="/articles/LaboratorySafety" element={<LaboratorySafetyPage />} />
+  <Route path="/articles/particle-model-matter" element={<ParticleModelDashboard />} />
+  <Route path="/articles/ScientificSkills" element={<InvestigationPage />} />
+  <Route path="/articles/chem-solutions-solubility" element={<SolutionsMain />} />
+  <Route path="/articles/chem-acids-bases" element={<AcidsMain />} />
+  <Route path="/graph" element={<StatisticalTool />} />
+  <Route path="/molview" element={<MolView />} />
+  
+  {/* Simulations and quizzes */}
+  <Route path="/games/eco-balance" element={<EcoBalanceGame />} />
+  <Route path="/microscope-game" element={<MicroscopeGame />} />
+  <Route path="/simulations/dna-extraction" element={<DNAExtractionApp />} />
+  <Route path="/simulations/solar-system" element={<SolarSystemObservatory />} />
+  <Route path="/simulations/cell-explorer" element={<CellExplorer />} />
+  <Route path="/simulations/gel-electrophoresis" element={<GelElectrophoresis />} />
+  <Route path="/simulations/microbe-rpg" element={<MicrobeRPG />} />
+  <Route path="/simulations/stellarium" element={<StellariumPage />} />
+  <Route path="/simulations/tectonic-explorer" element={<TectonicExplorer />} />
+  <Route path="/simulations/natural-selection" element={<NaturalSelectionSim />} />
+  <Route path="/simulations/energy-skate-park" element={<EnergySkateParkSim />} />
+  <Route path="/simulations/gravity-orbits" element={<GravityOrbitsSim />} />
 
-        {/* Other routes */}
-        <Route path="/simulations" element={<SimulationsPage />} />
-        <Route path="/quizzes" element={<QuizzesPage />} />
-        <Route path="/tools/periodic-table" element={<PeriodicTable />} />
-        <Route path="/tools/calculator" element={<ScientificCalculator />} />
-        {/* Science Quest - Interactive Digital Book */}
-        <Route path="/science-quest/*" element={<ScienceQuestApp />} />
-        
-        {/* 404 catch-all route */}
-        <Route path="*" element={<ArticleNotFound />} />
-      </Routes>
+  {/* General article routes */}
+  <Route path="/articles/:articleId" element={<ArticleReader />} />          
+  <Route path="/articles" element={<ArticlesPage />} />                      
+
+  {/* Other routes */}
+  <Route path="/simulations" element={<SimulationsPage />} />
+  <Route path="/quizzes" element={<QuizzesPage />} />
+  <Route path="/tools/periodic-table" element={<PeriodicTable />} />
+  <Route path="/tools/calculator" element={<ScientificCalculator />} />
+
+  {/* Science Quest Modular Route */}
+  <Route path="/science-quest/*" element={<ScienceQuestApp />} />
+  
+  {/* 404 catch-all route */}
+  <Route path="*" element={<ArticleNotFound />} />
+</Routes>
       
       {/* AI Assistant - ONLY shows on homepage */}
       {isHomePage && (

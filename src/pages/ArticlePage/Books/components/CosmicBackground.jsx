@@ -1,62 +1,59 @@
-import React, { useEffect, useRef } from 'react';
-import * as THREE from 'three';
-import { Canvas } from '@react-three/fiber';
+import React, { useRef } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { Stars } from '@react-three/drei';
-import { motion } from 'framer-motion';
+// Note: Adjust this import path depending on where ThemeProvider is relative to this file
+import { useTheme } from '../../../../ThemeProvider'; 
 
-function Starfield() {
+function AnimatedStarfield({ isDarkMode }) {
   const starsRef = useRef(null);
-  
-  useEffect(() => {
+
+  // Replaced the harsh positional jitter with a gentle, continuous rotation
+  useFrame(() => {
     if (starsRef.current) {
-      const positions = starsRef.current.geometry.attributes.position.array;
-      for (let i = 0; i < positions.length; i += 3) {
-        positions[i] += (Math.random() - 0.5) * 0.01;
-        positions[i + 1] += (Math.random() - 0.5) * 0.01;
-        positions[i + 2] += (Math.random() - 0.5) * 0.01;
-      }
-      starsRef.current.geometry.attributes.position.needsUpdate = true;
+      starsRef.current.rotation.y += 0.0002;
+      starsRef.current.rotation.x += 0.0001;
     }
   });
-  
+
+  // White/light stars for dark mode, soft deep blue stars for light mode
+  const starColor = isDarkMode ? "#ffffff" : "#1e3a8a"; 
+
   return (
-    <Stars 
+    <Stars
       ref={starsRef}
-      radius={100} 
-      depth={50} 
-      count={5000} 
-      factor={100} 
-      saturation={0} 
-      opacity={0.8}
-      color="#ffffff"
-      size={1}
+      radius={100}
+      depth={50}
+      count={3000}       // Reduced from 5000 for a less cluttered, cleaner look
+      factor={4}         // Adjusted for softer star sizing
+      saturation={0.5}   // Adds a subtle tint to the stars
+      fade={true}        // Smooths out the edges of the stars so they aren't sharp dots
+      speed={1}          // Enables a natural twinkling effect
+      color={starColor}
     />
   );
 }
 
 export function CosmicBackground() {
+  const { isDarkMode } = useTheme();
+
+  // Softer dark space blue for dark mode, gentle sky blue for light mode
+  const bgColor = isDarkMode ? '#0b0f19' : '#e0f2fe';
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 2 }}
-      className="fixed inset-0 z-0 pointer-events-none"
-      style={{ background: 'linear-gradient(180deg, #0a0a1a 0%, #1a0a2e 50%, #0a1a2e 100%)' }}
+    <div
+      className="fixed inset-0 z-0 pointer-events-none transition-colors duration-1000 ease-in-out"
+      style={{ backgroundColor: bgColor }}
     >
-      <Canvas 
+      <Canvas
         className="w-full h-full"
         camera={{ position: [0, 0, 50], fov: 50 }}
         style={{ touchAction: 'none' }}
+        // Note: Removed frameloop="demand" so the slow rotation animation can run smoothly
       >
-        <color attach="background" args={['#0a0a1a']} />
-        <Starfield />
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 10]} intensity={1} />
+        <AnimatedStarfield isDarkMode={isDarkMode} />
+        <ambientLight intensity={isDarkMode ? 0.3 : 0.8} />
+        <directionalLight position={[10, 10, 10]} intensity={isDarkMode ? 0.5 : 1} />
       </Canvas>
-      
-      {/* Gradient overlay for depth */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-r from-purple-900/20 via-transparent to-blue-900/20" />
-    </motion.div>
+    </div>
   );
 }

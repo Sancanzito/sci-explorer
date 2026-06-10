@@ -1,5 +1,4 @@
 import React from 'react';
-import { BookLayout } from '../../components/BookLayout';
 import { motion } from 'framer-motion';
 import { useTheme } from '../../../../../ThemeProvider';
 
@@ -7,8 +6,8 @@ export function WhenSection() {
   const { isDarkMode } = useTheme();
    
   return (
-    <BookLayout prevPage="/science-quest/why" nextPage="/science-quest/where">
-      <div className={`min-h-screen p-8 bg-gradient-to-br from-blue-900 to-cyan-900 text-white ${isDarkMode ? 'dark:bg-gradient-to-br from-gray-900 to-gray-800' : ''}`}>
+    <div className="min-h-screen">
+      <div className={`min-h-screen p-8 bg-gradient-to-br from-blue-900/80 to-cyan-900/80 text-white ${isDarkMode ? 'dark:from-blue-900/60 dark:to-cyan-900/60' : ''}`}>
         <div className="max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -30,6 +29,6 @@ export function WhenSection() {
           </motion.div>
         </div>
       </div>
-    </BookLayout>
+    </div>
   );
 }
