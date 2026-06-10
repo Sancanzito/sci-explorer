@@ -83,16 +83,64 @@ export const ArticlesPage = () => {
 
       <div className="max-w-7xl mx-auto px-6 py-16 relative z-10">
         <header className="mb-12 text-center md:text-left">
-          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold mb-6 uppercase tracking-wide backdrop-blur-md ${isDarkMode ? 'bg-white/5 border-cyan-500/30 text-cyan-300' : 'bg-white/60 border-cyan-400/40 text-cyan-700'}`}>
-            <Activity size={16} /> Laboratory & Library
+          <div className="flex items-center gap-4">
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold mb-6 uppercase tracking-wide backdrop-blur-md ${isDarkMode ? 'bg-white/5 border-cyan-500/30 text-cyan-300' : 'bg-white/60 border-cyan-400/40 text-cyan-700'}`}>
+              <Activity size={16} /> Laboratory & Library
+            </div>
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold mb-6 uppercase tracking-wide backdrop-blur-md ${isDarkMode ? 'bg-white/5 border-cyan-500/30 text-cyan-300' : 'bg-white/60 border-cyan-400/40 text-cyan-700'}`}>
+              <Link to="/science-quest" className="hover:underline">
+                <BookOpen size={16} /> Science Quest
+              </Link>
+            </div>
           </div>
           <h1 className="text-4xl md:text-6xl font-black mb-4 drop-shadow-xl">
             Scientific <span className={`bg-gradient-to-r ${isDarkMode ? 'from-cyan-400 to-blue-500' : 'from-cyan-600 to-blue-700'} bg-clip-text text-transparent`}>Modules</span>
           </h1>
           <p className={`text-lg md:text-xl max-w-2xl drop-shadow-md ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-           Explore articles and fun facts about science.
+           Explore articles, interactive books, and fun facts about science.
           </p>
         </header>
+
+        {/* Featured Sections */}
+        <div className="mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:-translate-y-2 transition-transform"
+            >
+              <div className="flex items-center mb-4">
+                <Activity size={24} className="mr-3 text-cyan-400" />
+                <h2 className="text-xl font-bold">Article Library</h2>
+              </div>
+              <p className="text-sm">
+                Search and explore individual science articles on specific topics
+              </p>
+              <Link to="/articles" className="mt-4 inline-block text-cyan-400 font-medium hover:underline">
+                Browse Articles →
+              </Link>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:-translate-y-2 transition-transform"
+            >
+              <div className="flex items-center mb-4">
+                <BookOpen size={24} className="mr-3 text-cyan-400" />
+                <h2 className="text-xl font-bold">Science Quest Books</h2>
+              </div>
+              <p className="text-sm">
+                Immersive, book-like learning journeys through the Four W's of Science
+              </p>
+              <Link to="/science-quest" className="mt-4 inline-block text-cyan-400 font-medium hover:underline">
+                Start Reading →
+              </Link>
+            </motion.div>
+          </div>
+        </div>
 
         {/* Search Architecture */}
         <div className="relative max-w-2xl mb-12 mx-auto md:mx-0 group" ref={dropdownRef}>

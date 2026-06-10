@@ -8,6 +8,8 @@ import SafetyQuizComponent from './SafetyQuizComponent';
 import LabSafetyScrollSpy from './LabSafetyScrollSpy';
 import LabSafetyFooter from './LaboratorySafetyFooter';
 
+import ghs from '../../assets/Labsafety/ghs_hazard.png';
+import safety from '../../assets/Labsafety/safety.jpg'
 // Reusable Section Component
 const Section = ({ id, title, children, icon }) => {
   const ref = useRef(null);
@@ -170,7 +172,7 @@ const LabSafetyPage = () => {
               </div>
               <figure className="w-full md:w-1/3 flex-shrink-0">
                 <img 
-                  src="https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?auto=format&fit=crop&w=600&q=80" 
+                  src={safety} 
                   alt="Scientists working safely in a modern laboratory" 
                   className="rounded-xl shadow-md border border-gray-200 dark:border-gray-700 w-full h-auto object-cover"
                 />
@@ -260,9 +262,9 @@ const LabSafetyPage = () => {
             
             <figure className="my-8 bg-white p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col items-center">
               <img 
-                src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/GHS_hazard_pictograms.svg/800px-GHS_hazard_pictograms.svg.png" 
-                alt="GHS Hazard Pictograms" 
-                className="w-full max-w-xl object-contain"
+              src={ghs} 
+              alt="GHS Hazard Pictograms" 
+              className="w-full max-w-xl object-contain image-pixelated"
               />
               <figcaption className="text-xs text-gray-500 mt-4 text-center italic">The 9 standard Globally Harmonized System (GHS) hazard pictograms.</figcaption>
             </figure>

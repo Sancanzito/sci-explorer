@@ -19,6 +19,8 @@ import SimulationsPage from './pages/SimulationsPage/SimulationsPage';
 import QuizzesPage from './pages/QuizzesPage/QuizzesPage';
 import { ArticlesPage, ArticleReader } from './pages/ArticlePage/ArticlesPage';
 import ArticleNotFound from './pages/ArticlePage/ArticleDebugging';
+// Import Science Quest
+import ScienceQuestApp from './pages/ArticlePage/Books/ScienceQuestApp';
 
 // Import All Custom Article Dashboards
 import ChemistryModelsPage from './Articles/UseofChemModels/ChemistryModelsPage';
@@ -113,6 +115,8 @@ function AppContent() {
         <Route path="/quizzes" element={<QuizzesPage />} />
         <Route path="/tools/periodic-table" element={<PeriodicTable />} />
         <Route path="/tools/calculator" element={<ScientificCalculator />} />
+        {/* Science Quest - Interactive Digital Book */}
+        <Route path="/science-quest/*" element={<ScienceQuestApp />} />
         
         {/* 404 catch-all route */}
         <Route path="*" element={<ArticleNotFound />} />
