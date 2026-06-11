@@ -168,13 +168,25 @@ def clean_data(data_dict: Dict[str, List[Any]], paired: bool = False, numeric_on
             cleaned.append(s.to_numpy())
         return cleaned
 
+# --- REPLACE THIS SECTION IN backend.py (Around Line 133) ---
+
 def apply_transform(arrays: List[np.ndarray], method: str) -> List[np.ndarray]:
     if method == 'log':
         return [np.log10(np.where(arr > 0, arr, np.nan)) for arr in arrays]
     elif method == 'sqrt':
         return [np.sqrt(np.where(arr >= 0, arr, np.nan)) for arr in arrays]
     elif method == 'boxcox':
-        return [stats.boxcox(arr[arr > 0])[0] if len(arr[arr > 0]) > 2 else arr for arr in arrays]
+        result = []
+        for arr in arrays:
+            # Keep array length identical, inject NaN for invalid Box-Cox values
+            valid_idx = arr > 0
+            if valid_idx.sum() > 2:
+                transformed = np.full_like(arr, np.nan, dtype=float)
+                transformed[valid_idx] = stats.boxcox(arr[valid_idx])[0]
+                result.append(transformed)
+            else:
+                result.append(arr)
+        return result
     return arrays
 
 def bootstrap_mean_diff(arr1: np.ndarray, arr2: np.ndarray, iterations: int = 1000, alpha: float = 0.05):
@@ -530,13 +542,13 @@ async def get_multiple_regression(outcome: str, payload: AnalysisPayload, missin
         formula_terms = predictors.copy()
 
         # Add polynomials using patsy's I() syntax
-        if payload.polynomials:
+        if payload.polynomials is not None:
             for col, degree in payload.polynomials.items():
                 if col in predictors and degree > 1:
                     formula_terms.append(f"I({col}**{degree})")
 
         # Add interactions
-        if payload.interactions:
+        if payload.interactions is not None:
             for term_list in payload.interactions:
                 if all(term in predictors for term in term_list):
                     formula_terms.append(":".join(term_list))
@@ -545,7 +557,34 @@ async def get_multiple_regression(outcome: str, payload: AnalysisPayload, missin
         model = smf.ols(formula=formula, data=df).fit()
         
         coef_dict = {str(p): {"coef": float(model.params[p]), "p_val": float(model.pvalues[p])} for p in model.params.index}
+        
+        # Bootstrap confidence intervals for coefficients if requested
+        bootstrap_cis = None
+        if payload.bootstrap:
+            bootstrap_cis = {}
+            # Simple bootstrap for coefficients - resample with replacement and refit
+            n_boot = 1000
+            coef_samples = {name: [] for name in model.params.index}
             
+            for _ in range(n_boot):
+                # Resample with replacement
+                boot_idx = np.random.choice(len(df), len(df), replace=True)
+                boot_df = df.iloc[boot_idx]
+                try:
+                    boot_model = smf.ols(formula=formula, data=boot_df).fit()
+                    for name in model.params.index:
+                        coef_samples[name].append(boot_model.params[name])
+                except:
+                    # Skip failed bootstrap samples
+                    continue
+            
+            # Calculate confidence intervals
+            for name in model.params.index:
+                if coef_samples[name]:
+                    lower = np.percentile(coef_samples[name], 2.5)
+                    upper = np.percentile(coef_samples[name], 97.5)
+                    bootstrap_cis[name] = {"lower": float(lower), "upper": float(upper)}
+
         return {
             "status": "success",
             "data": {
@@ -557,6 +596,7 @@ async def get_multiple_regression(outcome: str, payload: AnalysisPayload, missin
                 "f_statistic": float(model.fvalue),
                 "f_pvalue": float(model.f_pvalue),
                 "coefficients": coef_dict,
+                "bootstrap_cis": bootstrap_cis,
                 "interpretation": f"The multiple regression model explains {model.rsquared*100:.1f}% of the variance in '{outcome}' (F = {model.fvalue:.2f}, p = {model.f_pvalue:.4f}).",
                 "diagnostics": {"residuals": model.resid.tolist(), "fitted": model.fittedvalues.tolist()}
             }
@@ -602,6 +642,10 @@ async def get_logistic_regression(outcome: str, payload: DataPayload, missing: s
                           f"The model's Area Under the ROC Curve (AUC) is {roc_auc:.3f}, indicating "
                           f"{'excellent' if roc_auc > 0.9 else 'good' if roc_auc > 0.8 else 'fair' if roc_auc > 0.7 else 'poor'} discrimination capability.")
 
+        # Clean up temporary column
+        if '__y_encoded' in df.columns:
+            df = df.drop(columns=['__y_encoded'])
+
         return {
             "status": "success",
             "data": {
@@ -623,18 +667,22 @@ async def get_logistic_regression(outcome: str, payload: DataPayload, missing: s
 @app.post("/api/stats/ttest")
 async def get_ttest(payload: AnalysisPayload, paired: bool = False, missing: str = 'listwise'):
     try:
+        # Get raw data for assumption tests (Shapiro-Wilk and Levene)
+        raw_arrays = clean_data(payload.columns, paired=paired, numeric_only=True, missing_method=missing)
+        # Get transformed data for the actual test
         arrays = clean_data(payload.columns, paired=paired, numeric_only=True, missing_method=missing)
         if payload.transform and payload.transform != 'none':
             arrays = apply_transform(arrays, payload.transform)
             
         names = list(payload.columns.keys())
         arr1, arr2 = arrays[0], arrays[1]
+        raw_arr1, raw_arr2 = raw_arrays[0], raw_arrays[1]
         nx, ny = len(arr1), len(arr2)
         
-        shapiro_1 = stats.shapiro(arr1)[1] if nx >= 3 else 1.0
-        shapiro_2 = stats.shapiro(arr2)[1] if ny >= 3 else 1.0
+        shapiro_1 = stats.shapiro(raw_arr1)[1] if nx >= 3 else 1.0
+        shapiro_2 = stats.shapiro(raw_arr2)[1] if ny >= 3 else 1.0
         min_shapiro = min(shapiro_1, shapiro_2)
-        levene_p = stats.levene(arr1, arr2)[1] if nx >= 3 and ny >= 3 else 1.0
+        levene_p = stats.levene(raw_arr1, raw_arr2)[1] if nx >= 3 and ny >= 3 else 1.0
 
         dof = nx + ny - 2 if not paired else nx - 1
         pool_var = ((nx-1)*np.var(arr1, ddof=1) + (ny-1)*np.var(arr2, ddof=1)) / dof
@@ -705,6 +753,23 @@ async def get_anova(payload: AnalysisPayload, missing: str = 'listwise'):
         ms_within = (ss_total - ss_between) / df_within
         omega_sq = (ss_between - df_between * ms_within) / (ss_total + ms_within)
         
+        # Bootstrap confidence intervals for group means if requested
+        bootstrap_cis = None
+        if payload.bootstrap:
+            bootstrap_cis = {}
+            n_boot = 1000
+            # For each group, bootstrap the mean
+            for i, arr in enumerate(arrays):
+                if len(arr) > 0:
+                    boot_means = []
+                    for _ in range(n_boot):
+                        boot_sample = np.random.choice(arr, len(arr), replace=True)
+                        boot_means.append(np.mean(boot_sample))
+                    if boot_means:
+                        lower = np.percentile(boot_means, 2.5)
+                        upper = np.percentile(boot_means, 97.5)
+                        bootstrap_cis[names[i]] = {"lower": float(lower), "upper": float(upper)}
+
         sig = "a statistically significant" if p_value < 0.05 else "no statistically significant"
         interp = f"A one-way ANOVA revealed {sig} difference between the groups (F({df_between}, {df_within}) = {f_stat:.3f}, p = {p_value:.4f}, η² = {eta_squared:.3f}, ω² = {omega_sq:.3f})."
 
@@ -718,6 +783,7 @@ async def get_anova(payload: AnalysisPayload, missing: str = 'listwise'):
                 "omega_squared": float(omega_sq),
                 "shapiro_p": float(min_shapiro),
                 "levene_p": float(levene_p),
+                "bootstrap_cis": bootstrap_cis,
                 "interpretation": interp,
                 "group_statistics": [
                     {"name": names[i], "mean": float(group_means[i]), "std": float(np.std(arrays[i], ddof=1)), "n": group_sizes[i]}
@@ -729,6 +795,8 @@ async def get_anova(payload: AnalysisPayload, missing: str = 'listwise'):
         friendly_msg = get_friendly_error(e)
         raise HTTPException(status_code=400, detail=friendly_msg)
 
+# --- REPLACE THIS SECTION IN backend.py (Around Line 528) ---
+
 @app.post("/api/stats/manova")
 async def get_manova(group: str, payload: DataPayload, missing: str = 'listwise'):
     try:
@@ -739,7 +807,8 @@ async def get_manova(group: str, payload: DataPayload, missing: str = 'listwise'
             raise ValueError("MANOVA requires at least 2 dependent variables.")
             
         safe_df = pd.DataFrame()
-        safe_df['__group__'] = df[group].astype(str)
+        # Preserve original group ordering by not converting to string if not necessary
+        safe_df['__group__'] = df[group]
         for i, dv in enumerate(dvs):
             safe_df[f'__dv{i}__'] = pd.to_numeric(df[dv], errors='coerce')
             
@@ -749,20 +818,29 @@ async def get_manova(group: str, payload: DataPayload, missing: str = 'listwise'
             safe_df = safe_df.fillna(safe_df.mean(numeric_only=True)).dropna()
             
         dv_cols = [f'__dv{i}__' for i in range(len(dvs))]
-        formula = f"{' + '.join(dv_cols)} ~ __group__"
+        formula = f"{' + '.join(dv_cols)} ~ C(__group__)"
         
         manova = MANOVA.from_formula(formula, data=safe_df)
         mv_test_res = manova.mv_test()
         
-        group_stats = mv_test_res.results['__group__']['stat']
+        group_stats = mv_test_res.results['C(__group__)']['stat']
         wilks = group_stats.loc["Wilks' lambda"]
+        
+        # Calculate partial eta squared as effect size for MANOVA
+        try:
+            # FIX: Used double quotes outside to prevent the inner single quote from breaking syntax
+            group_ss = group_stats.loc["Wilks' lambda", 'SS']
+            error_ss = mv_test_res.residual_SS
+            partial_eta_squared = group_ss / (group_ss + error_ss) if (group_ss + error_ss) > 0 else 0
+        except:
+            partial_eta_squared = None
         
         sig = "a statistically significant" if wilks['Pr > F'] < 0.05 else "no statistically significant"
         interp = (f"A one-way MANOVA determined there was {sig} difference between the groups defined by '{group}' "
                   f"on the combined dependent variables (Wilks' Lambda = {wilks['Value']:.4f}, "
                   f"F({wilks['Num DF']}, {wilks['Den DF']}) = {wilks['F Value']:.3f}, p = {wilks['Pr > F']:.4f}).")
 
-        return {
+        result_data = {
             "status": "success",
             "data": {
                 "test": "Multivariate ANOVA (MANOVA)",
@@ -776,10 +854,14 @@ async def get_manova(group: str, payload: DataPayload, missing: str = 'listwise'
                 "interpretation": interp
             }
         }
+        
+        if partial_eta_squared is not None:
+            result_data["data"]["partial_eta_squared"] = float(partial_eta_squared)
+            
+        return result_data
     except Exception as e:
         friendly_msg = get_friendly_error(e)
         raise HTTPException(status_code=400, detail=friendly_msg)
-
 @app.post("/api/stats/ancova")
 async def get_ancova(outcome: str, group: str, payload: DataPayload, missing: str = 'listwise'):
     try:
@@ -790,7 +872,8 @@ async def get_ancova(outcome: str, group: str, payload: DataPayload, missing: st
 
         safe_df = pd.DataFrame()
         safe_df['__outcome__'] = pd.to_numeric(df[outcome], errors='coerce')
-        safe_df['__group__'] = df[group].astype(str) 
+        # Keep group as original type for proper ordering, but ensure it's treated as categorical in the model
+        safe_df['__group__'] = df[group] 
         for i, cov in enumerate(covariates):
             safe_df[f'__cov{i}__'] = pd.to_numeric(df[cov], errors='coerce')
 

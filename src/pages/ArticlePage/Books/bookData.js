@@ -146,7 +146,7 @@ export const navigationItems = [
   { label: 'About This Book', route: 'synopsis' },
   { label: 'How to Use', route: 'how-to-use' },
   { label: 'Table of Contents', route: 'table-of-contents' },
-  ...sections.map(s => ({ label: s.title, route: s.id })),
+  // Removed the sections.map spread here
   { label: 'Completion', route: 'completion' }
 ];
 

@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { motion, AnimatePresence } from 'framer-motion';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { toPng } from 'html-to-image';
 
 // Charting
 import { 
@@ -589,7 +590,7 @@ const useUIStore = create<UIStore>((set) => ({
 // STATS ENGINE & DATA HELPERS
 // ============================================
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 class StatsEngine {
   private abortController: AbortController | null = null;
@@ -642,17 +643,32 @@ const batchLoadData = (univer: any, workbookId: string, worksheetId: string, dat
   try {
     const injector = univer.__getInjector();
     const commandService = injector.get(ICommandService);
-    const rows = data.length; const cols = data[0].length;
+    const rows = data.length; 
+    const cols = data[0].length;
     const cellValue: Record<number, Record<number, { v: any }>> = {};
+    
     for (let r = 0; r < rows; r++) {
       cellValue[r] = {};
       for (let c = 0; c < cols; c++) {
-        if (data[r][c] !== undefined && data[r][c] !== null && data[r][c] !== '') cellValue[r][c] = { v: String(data[r][c]) }; 
+        if (data[r][c] !== undefined && data[r][c] !== null && data[r][c] !== '') {
+          // FIX: Pass the raw value instead of coercing everything via String(data[r][c])
+          // This allows Univer to correctly detect numerical formatting
+          cellValue[r][c] = { v: data[r][c] }; 
+        }
       }
     }
-    commandService.executeCommand('sheet.command.set-range-values', { unitId: workbookId, subUnitId: worksheetId, range: { startRow: 0, endRow: rows - 1, startColumn: 0, endColumn: cols - 1 }, value: cellValue });
+    
+    commandService.executeCommand('sheet.command.set-range-values', { 
+      unitId: workbookId, 
+      subUnitId: worksheetId, 
+      range: { startRow: 0, endRow: rows - 1, startColumn: 0, endColumn: cols - 1 }, 
+      value: cellValue 
+    });
+    
     return true;
-  } catch (err) { return false; }
+  } catch (err) { 
+    return false; 
+  }
 };
 
 const getColumnData = (univer: any, workbookId: string, worksheetId: string, skipHeaderRow: boolean = true): Record<string, any[]> => {
@@ -729,6 +745,16 @@ const ColumnSelectionModal = ({ onExecute }: { onExecute: (selectedColumns: stri
   const [xCol, setXCol] = useState<string>('');
   const [yCol, setYCol] = useState<string>('');
   const [groupCol, setGroupCol] = useState<string>('');
+
+  // PHASE 4: Keyboard Navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDialogConfig(null);
+      if (e.key === 'Enter' && !isRunDisabled()) handleRun();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
 
   if (!dialogConfig || !columnsData) return null;
   
@@ -1286,33 +1312,56 @@ export default function StatisticalTool() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 mb-6 items-center">
-                    <span className="text-sm font-bold text-gray-500 mr-2">Render Charts:</span>
-                    {getAvailableGraphs().map(graph => (
-                      <div key={graph.id} className="relative group inline-block">
-                        <button 
-                          onClick={() => graph.isEnabled && toggleGraph(graph.id)}
-                          disabled={!graph.isEnabled}
-                          className={`px-4 py-2 rounded-full text-sm font-semibold transition-all shadow-sm border ${
-                            !graph.isEnabled 
-                              ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-70' 
-                              : activeGraphs.includes(graph.id) 
-                              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' 
-                              : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                          }`}
-                        >
-                          {activeGraphs.includes(graph.id) && graph.isEnabled ? '✓ ' : (!graph.isEnabled ? '🔒 ' : '+ ')}
-                          {graph.label}
-                        </button>
-                        {!graph.isEnabled && (
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-3 bg-gray-800 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                            <span className="font-bold text-red-400 block mb-1">Analysis Disabled</span>
-                            {graph.disabledReason}
-                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                  <div className="flex flex-wrap gap-2 mb-6 items-center justify-between">
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className="text-sm font-bold text-gray-500 mr-2">Render Charts:</span>
+                      {getAvailableGraphs().map(graph => (
+                        <div key={graph.id} className="relative group inline-block">
+                          <button 
+                            onClick={() => graph.isEnabled && toggleGraph(graph.id)}
+                            disabled={!graph.isEnabled}
+                            className={`px-4 py-2 rounded-full text-sm font-semibold transition-all shadow-sm border ${
+                              !graph.isEnabled 
+                                ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-70' 
+                                : activeGraphs.includes(graph.id) 
+                                ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' 
+                                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                            }`}
+                          >
+                            {activeGraphs.includes(graph.id) && graph.isEnabled ? '✓ ' : (!graph.isEnabled ? '🔒 ' : '+ ')}
+                            {graph.label}
+                          </button>
+                          {!graph.isEnabled && (
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-3 bg-gray-800 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                              <span className="font-bold text-red-400 block mb-1">Analysis Disabled</span>
+                              {graph.disabledReason}
+                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {activeGraphs.length > 0 && (
+                      <button 
+                        onClick={() => {
+                          const chartNode = document.getElementById('stats-chart-container');
+                          if (chartNode) {
+                            toPng(chartNode, { backgroundColor: '#ffffff' })
+                              .then((dataUrl) => {
+                                const link = document.createElement('a');
+                                link.download = `${testType?.replace(/\s+/g, '_')}_results.png`;
+                                link.href = dataUrl;
+                                link.click();
+                                setNotification({ message: 'Chart exported successfully!', type: 'success' });
+                              })
+                              .catch(() => setNotification({ message: 'Failed to export chart.', type: 'error' }));
+                          }
+                        }}
+                        className="px-4 py-2 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-gray-800 shadow-sm flex items-center gap-2"
+                      >
+                        📸 Export Visuals
+                      </button>
+                    )}
                   </div>
 
                   {results.interpretation && (
@@ -1325,112 +1374,113 @@ export default function StatisticalTool() {
                 </div>
 
                 {/* --- RENDERED GRAPHS BELOW --- */}
-
-                {activeGraphs.includes('summary') && !['Outlier Detection'].includes(testType || '') && (
-                  <div className="bg-white border rounded-xl shadow-sm mb-8 animate-in fade-in">
-                    <DescriptiveStats columnsData={columnsData} customTitle={customLabels.title} />
-                  </div>
-                )}
-
-                {activeGraphs.includes('screeplot') && testType === 'Principal Component Analysis (PCA)' && results.eigenvalues && (
-                  <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
-                    <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Scree Plot (Eigenvalues)'}</h3>
-                    <PCAScreePlot eigenvalues={results.eigenvalues} customTitle={customLabels.title} />
-                    <p className="text-xs text-gray-500 mt-3 text-center">Components with eigenvalues &gt; 1 (above the red line) are typically retained based on Kaiser's Criterion.</p>
-                  </div>
-                )}
-
-                {activeGraphs.includes('errorbars') && testType === 'One-Way ANOVA' && results.group_statistics && (
-                  <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
-                    <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Group Means with 95% Confidence Intervals'}</h3>
-                    <BarWithErrorBars groups={Object.fromEntries(results.group_statistics.map((g: any) => [g.name, { mean: g.mean, std: g.std, n: g.n }]))} customY={customLabels.yAxis} />
-                  </div>
-                )}
-
-                {activeGraphs.includes('boxplot') && ['Independent Samples T-Test', 'Paired Samples T-Test', 'Mann-Whitney U', 'Wilcoxon Signed-Rank', 'Kruskal-Wallis H Test'].includes(testType || '') && (
-                  <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
-                    <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Group Comparison (Box Plot)'}</h3>
-                    {testType === 'Kruskal-Wallis H Test' ? (
-                        <GroupBoxPlot groups={columnsData} customY={customLabels.yAxis} />
-                    ) : (
-                        <GroupBoxPlot groups={{
-                          [results.group1?.name || 'Group 1']: columnsData[results.group1?.name] || [],
-                          [results.group2?.name || 'Group 2']: columnsData[results.group2?.name] || []
-                        }} customY={customLabels.yAxis} />
-                    )}
-                  </div>
-                )}
-
-                {activeGraphs.includes('roc') && testType === 'Logistic Regression' && results.roc_data && (
-                  <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
-                    <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Receiver Operating Characteristic (ROC) Curve'}</h3>
-                    <ROCCurvePlot rocData={results.roc_data} auc={results.auc} customTitle={customLabels.title} />
-                  </div>
-                )}
-
-                {activeGraphs.includes('heatmap') && testType === 'Pearson Correlation' && results.pearson_matrix && (
-                   <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
-                     <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Correlation Matrix Heatmap'}</h3>
-                     <CorrelationHeatmap matrix={results.pearson_matrix} pMatrix={results.p_matrix} variables={results.variables} pValCorrection={pValCorrection} />
-                   </div>
-                )}
-
-                {activeGraphs.includes('scatter') && ['Pearson Correlation', 'Ordinary Least Squares (OLS) Regression', 'Simple Linear Regression', 'Multiple Linear Regression'].includes(testType || '') && (
-                  <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
-                    <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Scatter Plot'}</h3>
-                    
-                    {testType === 'Multiple Linear Regression' && results.diagnostics ? (
-                      <ScatterWithRegression 
-                        x={results.diagnostics.fitted} 
-                        y={results.diagnostics.fitted.map((fit: number, i: number) => fit + results.diagnostics.residuals[i])} 
-                        xName="Predicted (Fitted) Values" 
-                        yName={results.outcome}
-                        customX={customLabels.xAxis}
-                        customY={customLabels.yAxis}
-                      />
-                    ) : (
-                      <ScatterWithRegression 
-                        x={columnsData[results.variables?.[0] || results.predictor || Object.keys(columnsData)[0]]}
-                        y={columnsData[results.variables?.[1] || results.outcome || Object.keys(columnsData)[1]]}
-                        xName={results.variables?.[0] || results.predictor || Object.keys(columnsData)[0]}
-                        yName={results.variables?.[1] || results.outcome || Object.keys(columnsData)[1]}
-                        customX={customLabels.xAxis}
-                        customY={customLabels.yAxis}
-                      />
-                    )}
-                  </div>
-                )}
-
-                {activeGraphs.includes('residual') && results.diagnostics && results.diagnostics.residuals && (
-                   <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
-                     <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Diagnostic: Residual Plot'}</h3>
-                     <ResidualPlot 
-                       residuals={results.diagnostics.residuals} 
-                       fitted={results.diagnostics.fitted} 
-                       customX={customLabels.xAxis}
-                       customY={customLabels.yAxis}
-                     />
-                     <p className="text-xs text-gray-500 mt-2">Ideally, points should be randomly dispersed around the horizontal axis, indicating homoscedasticity and linearity.</p>
-                   </div>
-                )}
-
-                {activeGraphs.includes('distributions') && (
-                  <div className="animate-in fade-in">
-                    <h3 className="text-xl font-bold mb-4">Data Distributions & Assumption Checks</h3>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {Object.entries(columnsData).map(([name, data]) => (
-                        <div key={name} className="border rounded-xl p-5 bg-white shadow-sm flex flex-col justify-between">
-                          <h4 className="font-bold text-gray-700 mb-4">{name} Distribution</h4>
-                          <HistogramChart data={data} columnName={name} customX={customLabels.xAxis} />
-                          <div className="mt-8 border-t pt-6">
-                            <h4 className="font-bold text-gray-700 mb-4 text-sm">Normality Q-Q Plot</h4>
-                            <QQPlot columnName={name} data={data} />
-                          </div>
-                        </div>
-                      ))}
+                <div id="stats-chart-container" className="space-y-8 p-4 bg-white rounded-xl">
+                  {activeGraphs.includes('summary') && !['Outlier Detection'].includes(testType || '') && (
+                    <div className="bg-white border rounded-xl shadow-sm mb-8 animate-in fade-in">
+                      <DescriptiveStats columnsData={columnsData} customTitle={customLabels.title} />
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {activeGraphs.includes('screeplot') && testType === 'Principal Component Analysis (PCA)' && results.eigenvalues && (
+                    <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
+                      <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Scree Plot (Eigenvalues)'}</h3>
+                      <PCAScreePlot eigenvalues={results.eigenvalues} customTitle={customLabels.title} />
+                      <p className="text-xs text-gray-500 mt-3 text-center">Components with eigenvalues &gt; 1 (above the red line) are typically retained based on Kaiser's Criterion.</p>
+                    </div>
+                  )}
+
+                  {activeGraphs.includes('errorbars') && testType === 'One-Way ANOVA' && results.group_statistics && (
+                    <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
+                      <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Group Means with 95% Confidence Intervals'}</h3>
+                      <BarWithErrorBars groups={Object.fromEntries(results.group_statistics.map((g: any) => [g.name, { mean: g.mean, std: g.std, n: g.n }]))} customY={customLabels.yAxis} />
+                    </div>
+                  )}
+
+                  {activeGraphs.includes('boxplot') && ['Independent Samples T-Test', 'Paired Samples T-Test', 'Mann-Whitney U', 'Wilcoxon Signed-Rank', 'Kruskal-Wallis H Test'].includes(testType || '') && (
+                    <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
+                      <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Group Comparison (Box Plot)'}</h3>
+                      {testType === 'Kruskal-Wallis H Test' ? (
+                          <GroupBoxPlot groups={columnsData} customY={customLabels.yAxis} />
+                      ) : (
+                          <GroupBoxPlot groups={{
+                            [results.group1?.name || 'Group 1']: columnsData[results.group1?.name] || [],
+                            [results.group2?.name || 'Group 2']: columnsData[results.group2?.name] || []
+                          }} customY={customLabels.yAxis} />
+                      )}
+                    </div>
+                  )}
+
+                  {activeGraphs.includes('roc') && testType === 'Logistic Regression' && results.roc_data && (
+                    <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
+                      <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Receiver Operating Characteristic (ROC) Curve'}</h3>
+                      <ROCCurvePlot rocData={results.roc_data} auc={results.auc} customTitle={customLabels.title} />
+                    </div>
+                  )}
+
+                  {activeGraphs.includes('heatmap') && testType === 'Pearson Correlation' && results.pearson_matrix && (
+                     <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
+                       <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Correlation Matrix Heatmap'}</h3>
+                       <CorrelationHeatmap matrix={results.pearson_matrix} pMatrix={results.p_matrix} variables={results.variables} pValCorrection={pValCorrection} />
+                     </div>
+                  )}
+
+                  {activeGraphs.includes('scatter') && ['Pearson Correlation', 'Ordinary Least Squares (OLS) Regression', 'Simple Linear Regression', 'Multiple Linear Regression'].includes(testType || '') && (
+                    <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
+                      <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Scatter Plot'}</h3>
+                      
+                      {testType === 'Multiple Linear Regression' && results.diagnostics ? (
+                        <ScatterWithRegression 
+                          x={results.diagnostics.fitted} 
+                          y={results.diagnostics.fitted.map((fit: number, i: number) => fit + results.diagnostics.residuals[i])} 
+                          xName="Predicted (Fitted) Values" 
+                          yName={results.outcome}
+                          customX={customLabels.xAxis}
+                          customY={customLabels.yAxis}
+                        />
+                      ) : (
+                        <ScatterWithRegression 
+                          x={columnsData[results.variables?.[0] || results.predictor || Object.keys(columnsData)[0]]}
+                          y={columnsData[results.variables?.[1] || results.outcome || Object.keys(columnsData)[1]]}
+                          xName={results.variables?.[0] || results.predictor || Object.keys(columnsData)[0]}
+                          yName={results.variables?.[1] || results.outcome || Object.keys(columnsData)[1]}
+                          customX={customLabels.xAxis}
+                          customY={customLabels.yAxis}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {activeGraphs.includes('residual') && results.diagnostics && results.diagnostics.residuals && (
+                     <div className="bg-white p-6 border rounded-xl shadow-sm animate-in fade-in zoom-in-95">
+                       <h3 className="text-lg font-bold mb-4">{customLabels.title || 'Diagnostic: Residual Plot'}</h3>
+                       <ResidualPlot 
+                         residuals={results.diagnostics.residuals} 
+                         fitted={results.diagnostics.fitted} 
+                         customX={customLabels.xAxis}
+                         customY={customLabels.yAxis}
+                       />
+                       <p className="text-xs text-gray-500 mt-2">Ideally, points should be randomly dispersed around the horizontal axis, indicating homoscedasticity and linearity.</p>
+                     </div>
+                  )}
+
+                  {activeGraphs.includes('distributions') && (
+                    <div className="animate-in fade-in">
+                      <h3 className="text-xl font-bold mb-4">Data Distributions & Assumption Checks</h3>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {Object.entries(columnsData).map(([name, data]) => (
+                          <div key={name} className="border rounded-xl p-5 bg-white shadow-sm flex flex-col justify-between">
+                            <h4 className="font-bold text-gray-700 mb-4">{name} Distribution</h4>
+                            <HistogramChart data={data} columnName={name} customX={customLabels.xAxis} />
+                            <div className="mt-8 border-t pt-6">
+                              <h4 className="font-bold text-gray-700 mb-4 text-sm">Normality Q-Q Plot</h4>
+                              <QQPlot columnName={name} data={data} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <div className="mt-10">
                   <h3 className="text-sm font-bold text-gray-400 uppercase mb-2">Statistical Engine Raw Output</h3>
