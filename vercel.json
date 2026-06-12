@@ -17,6 +17,10 @@
       "destination": "https://unpkg.com/periodic-table@0.0.8/:path*"
     },
     {
+      "source": "/google202833ecdfd97da6.html",
+      "destination": "/google202833ecdfd97da6.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
