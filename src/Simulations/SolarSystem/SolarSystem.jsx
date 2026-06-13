@@ -1,12 +1,12 @@
 import React, { useState, useRef, useMemo, useEffect, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Stars, Trail, Html, Line } from '@react-three/drei';
+import { OrbitControls, Stars, Trail, Html, Line, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Play, Pause, FastForward, Rewind, Info, 
   Search, Crosshair, ChevronRight, Orbit, Database, 
-  Thermometer, Wind, Target, Activity, Globe, X
+  Thermometer, Wind, Target, Activity, Globe, X, ZoomIn
 } from 'lucide-react';
 
 const DISTANCE_SCALE = 15;
@@ -20,16 +20,13 @@ const SYSTEM_DATA = {
     color: "#ffcc00",
     emissive: "#ff8800",
     radius: 4.5 * SIZE_SCALE,
+    realScale: 105, // Updated to 105 relative scale
     distance: 0,
     speed: 0,
-    image: "https://images.unsplash.com/photo-1542662565-7e4b66fae910?q=80&w=1000&auto=format&fit=crop",
+    modelUrl: 'planets/sun.glb', 
+    image: "planets/sun.jpg",
     description: "The heart of our solar system. A nearly perfect sphere of hot plasma, with internal convective motion that generates a magnetic field via a dynamo process.",
-    stats: {
-      gravity: "274 m/s²",
-      temp: "5,500 °C (Surface)",
-      composition: "73% Hydrogen, 25% Helium",
-      mass: "1.989 × 10^30 kg"
-    },
+    stats: { gravity: "274 m/s²", temp: "5,500 °C (Surface)", composition: "73% Hydrogen, 25% Helium", mass: "1.989 × 10^30 kg" },
     funFact: "One million Earths could fit inside the Sun."
   },
   Mercury: {
@@ -38,16 +35,13 @@ const SYSTEM_DATA = {
     type: "Terrestrial Planet",
     color: "#a8a8a8",
     radius: 0.38 * SIZE_SCALE,
+    realScale: 0.38,
     distance: 0.39 * DISTANCE_SCALE + 6,
     speed: 4.15,
-    image: "https://upload.wikimedia.org/wikipedia/commons/4/4a/Mercury_in_true_color.jpg",
+    modelUrl: 'planets/mercury.glb',
+    image: "planets/mercury.jpg",
     description: "The smallest planet in our solar system and closest to the Sun. It has a solid, cratered surface, much like the Earth's moon.",
-    stats: {
-      gravity: "3.7 m/s²",
-      temp: "-173 to 427 °C",
-      composition: "Oxygen, Sodium, Hydrogen",
-      mass: "3.285 × 10^23 kg"
-    },
+    stats: { gravity: "3.7 m/s²", temp: "-173 to 427 °C", composition: "Oxygen, Sodium, Hydrogen", mass: "3.285 × 10^23 kg" },
     funFact: "A day on Mercury (one rotation) takes 59 Earth days."
   },
   Venus: {
@@ -56,16 +50,13 @@ const SYSTEM_DATA = {
     type: "Terrestrial Planet",
     color: "#e0a65c",
     radius: 0.95 * SIZE_SCALE,
+    realScale: 0.95,
     distance: 0.72 * DISTANCE_SCALE + 7,
     speed: 1.62,
-    image: "https://upload.wikimedia.org/wikipedia/commons/e/e5/Venus-real_color.jpg",
+    modelUrl: 'planets/venus.glb',
+    image: "planets/venus.jpg",
     description: "Earth's planetary twin in size, but with a toxic, super-heated atmosphere trapped by runaway greenhouse effects.",
-    stats: {
-      gravity: "8.87 m/s²",
-      temp: "462 °C",
-      composition: "96% Carbon Dioxide, 3% Nitrogen",
-      mass: "4.867 × 10^24 kg"
-    },
+    stats: { gravity: "8.87 m/s²", temp: "462 °C", composition: "96% Carbon Dioxide, 3% Nitrogen", mass: "4.867 × 10^24 kg" },
     funFact: "Venus spins backward compared to most other planets."
   },
   Earth: {
@@ -75,16 +66,13 @@ const SYSTEM_DATA = {
     color: "#2b82c9",
     emissive: "#114466",
     radius: 1 * SIZE_SCALE,
+    realScale: 1.0,
     distance: 1 * DISTANCE_SCALE + 8,
     speed: 1,
-    image: "https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg",
+    modelUrl: 'planets/earth.glb', 
+    image: "planets/earth.jpg",
     description: "Our home planet. It is the only known planet to harbor life, characterized by its abundant liquid water and dynamic atmosphere.",
-    stats: {
-      gravity: "9.807 m/s²",
-      temp: "-88 to 58 °C",
-      composition: "78% Nitrogen, 21% Oxygen",
-      mass: "5.972 × 10^24 kg"
-    },
+    stats: { gravity: "9.807 m/s²", temp: "-88 to 58 °C", composition: "78% Nitrogen, 21% Oxygen", mass: "5.972 × 10^24 kg" },
     funFact: "Earth's core is as hot as the surface of the sun."
   },
   Mars: {
@@ -93,16 +81,13 @@ const SYSTEM_DATA = {
     type: "Terrestrial Planet",
     color: "#c1440e",
     radius: 0.53 * SIZE_SCALE,
+    realScale: 0.53,
     distance: 1.52 * DISTANCE_SCALE + 9,
     speed: 0.53,
-    image: "https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg",
+    modelUrl: 'planets/mars.glb',
+    image: "planets/mars.jpg",
     description: "The Red Planet. A dusty, cold, desert world with a very thin atmosphere. It is a dynamic planet with seasons, polar ice caps, and weather.",
-    stats: {
-      gravity: "3.721 m/s²",
-      temp: "-153 to 20 °C",
-      composition: "95% Carbon Dioxide, 3% Nitrogen",
-      mass: "6.39 × 10^23 kg"
-    },
+    stats: { gravity: "3.721 m/s²", temp: "-153 to 20 °C", composition: "95% Carbon Dioxide, 3% Nitrogen", mass: "6.39 × 10^23 kg" },
     funFact: "Home to Olympus Mons, the tallest volcano in the solar system."
   },
   Jupiter: {
@@ -111,16 +96,13 @@ const SYSTEM_DATA = {
     type: "Gas Giant",
     color: "#c99a77",
     radius: 3 * SIZE_SCALE,
+    realScale: 11.2,
     distance: 5.2 * DISTANCE_SCALE + 12,
     speed: 0.08,
-    image: "https://upload.wikimedia.org/wikipedia/commons/e/e2/Jupiter.jpg",
+    modelUrl: 'planets/jupiter.glb',
+    image: "planets/jupiter.jpg",
     description: "The largest planet in our solar system. A gas giant known for its Great Red Spot, a storm that has been raging for hundreds of years.",
-    stats: {
-      gravity: "24.79 m/s²",
-      temp: "-110 °C",
-      composition: "90% Hydrogen, 10% Helium",
-      mass: "1.898 × 10^27 kg"
-    },
+    stats: { gravity: "24.79 m/s²", temp: "-110 °C", composition: "90% Hydrogen, 10% Helium", mass: "1.898 × 10^27 kg" },
     funFact: "Jupiter has 95 officially recognized moons."
   },
   Saturn: {
@@ -129,17 +111,14 @@ const SYSTEM_DATA = {
     type: "Gas Giant",
     color: "#eaddb6",
     radius: 2.5 * SIZE_SCALE,
+    realScale: 9.45,
     distance: 9.5 * DISTANCE_SCALE + 15,
     speed: 0.03,
-    hasRings: true,
-    image: "https://upload.wikimedia.org/wikipedia/commons/c/c7/Saturn_during_Equinox.jpg",
+    hasRings: false,
+    modelUrl: 'planets/saturn.glb',
+    image: "planets/saturn.jpg",
     description: "The jewel of the solar system, famous for its extensive and complex ring system made of ice and rock.",
-    stats: {
-      gravity: "10.44 m/s²",
-      temp: "-140 °C",
-      composition: "96% Hydrogen, 3% Helium",
-      mass: "5.683 × 10^26 kg"
-    },
+    stats: { gravity: "10.44 m/s²", temp: "-140 °C", composition: "96% Hydrogen, 3% Helium", mass: "5.683 × 10^26 kg" },
     funFact: "Saturn is the only planet less dense than water. It would float in a giant bathtub!"
   },
   Uranus: {
@@ -148,16 +127,13 @@ const SYSTEM_DATA = {
     type: "Ice Giant",
     color: "#c6d3e3",
     radius: 1.5 * SIZE_SCALE,
+    realScale: 4.0,
     distance: 19.2 * DISTANCE_SCALE + 18,
     speed: 0.011,
-    image: "https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg",
+    modelUrl: 'planets/uranus.glb',
+    image: "planets/uranus.jpg",
     description: "An ice giant that rotates on its side. It has a blue-green color due to methane in its atmosphere.",
-    stats: {
-      gravity: "8.69 m/s²",
-      temp: "-195 °C",
-      composition: "83% Hydrogen, 15% Helium, 2% Methane",
-      mass: "8.681 × 10^25 kg"
-    },
+    stats: { gravity: "8.69 m/s²", temp: "-195 °C", composition: "83% Hydrogen, 15% Helium, 2% Methane", mass: "8.681 × 10^25 kg" },
     funFact: "Uranus rolls on its side, likely due to a massive collision in its past."
   },
   Neptune: {
@@ -166,16 +142,13 @@ const SYSTEM_DATA = {
     type: "Ice Giant",
     color: "#3f54ba",
     radius: 1.4 * SIZE_SCALE,
+    realScale: 3.88,
     distance: 30.1 * DISTANCE_SCALE + 15,
     speed: 0.006,
-    image: "https://upload.wikimedia.org/wikipedia/commons/6/63/Neptune_-_Voyager_2_%2829777372016%29.jpg",
+    modelUrl: 'planets/neptune.glb',
+    image: "planets/neptune.jpg",
     description: "Dark, cold, and whipped by supersonic winds. Ice giant Neptune is the eighth and most distant planet in our solar system.",
-    stats: {
-      gravity: "11.15 m/s²",
-      temp: "-200 °C",
-      composition: "80% Hydrogen, 19% Helium, 1% Methane",
-      mass: "1.024 × 10^26 kg"
-    },
+    stats: { gravity: "11.15 m/s²", temp: "-200 °C", composition: "80% Hydrogen, 19% Helium, 1% Methane", mass: "1.024 × 10^26 kg" },
     funFact: "Winds on Neptune can reach up to 1,200 miles per hour."
   },
   Pluto: {
@@ -184,16 +157,13 @@ const SYSTEM_DATA = {
     type: "Dwarf Planet",
     color: "#e2e2e2",
     radius: 0.3 * SIZE_SCALE,
+    realScale: 0.18,
     distance: 39.5 * DISTANCE_SCALE + 18,
     speed: 0.004,
-    image: "https://upload.wikimedia.org/wikipedia/commons/e/ef/Pluto_in_True_Color_-_High-Res.jpg",
+    modelUrl: 'planets/Pluto.glb',
+    image: "planets/pluto.jpg",
     description: "Once considered the ninth planet, Pluto is now the most famous dwarf planet residing in the Kuiper Belt.",
-    stats: {
-      gravity: "0.62 m/s²",
-      temp: "-225 °C",
-      composition: "Nitrogen, Methane, Carbon Monoxide",
-      mass: "1.309 × 10^22 kg"
-    },
+    stats: { gravity: "0.62 m/s²", temp: "-225 °C", composition: "Nitrogen, Methane, Carbon Monoxide", mass: "1.309 × 10^22 kg" },
     funFact: "Pluto has a giant glacier shaped like a heart that is the size of Texas and Oklahoma combined."
   },
   Halley: {
@@ -203,17 +173,14 @@ const SYSTEM_DATA = {
     color: "#aae8ff",
     emissive: "#ffffff",
     radius: 0.15 * SIZE_SCALE,
+    realScale: 0.05,
     distance: 25 * DISTANCE_SCALE + 10,
     speed: 1.2,
     isComet: true,
-    image: "https://upload.wikimedia.org/wikipedia/commons/2/2a/Lspn_comet_halley.jpg",
+    modelUrl: null,
+    image: "planets/halleys.jpg",
     description: "A short-period comet visible from Earth every 75–76 years. It's the only known short-period comet regularly visible to the naked eye.",
-    stats: {
-      gravity: "0.0001 m/s²",
-      temp: "-250 to 50 °C",
-      composition: "Water, Carbon Monoxide, Methane",
-      mass: "2.2 × 10^14 kg"
-    },
+    stats: { gravity: "0.0001 m/s²", temp: "-250 to 50 °C", composition: "Water, Carbon Monoxide, Methane", mass: "2.2 × 10^14 kg" },
     funFact: "Mark Twain was born during its appearance in 1835 and died during its next appearance in 1910."
   },
   Kepler186f: {
@@ -222,27 +189,19 @@ const SYSTEM_DATA = {
     type: "Rocky Exoplanet",
     color: "#8a5a44",
     radius: 1.1 * SIZE_SCALE,
-    distance: 60 * DISTANCE_SCALE, // Very far out
+    realScale: 1.11,
+    distance: 60 * DISTANCE_SCALE, 
     speed: 0.002,
-    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Kepler186f_ArtistConcept_high_res.jpg/1024px-Kepler186f_ArtistConcept_high_res.jpg",
+    modelUrl: null,
+    image: "planets/kepler.jpg",
     description: "The first Earth-sized planet discovered in the habitable zone of another star, located 582 light-years from Earth.",
-    stats: {
-      gravity: "~10.5 m/s²",
-      temp: "-85 °C",
-      composition: "Unknown (Likely Rocky)",
-      mass: "~8.5 × 10^24 kg"
-    },
+    stats: { gravity: "~10.5 m/s²", temp: "-85 °C", composition: "Unknown (Likely Rocky)", mass: "~8.5 × 10^24 kg" },
     funFact: "If plant life exists on Kepler-186f, its photosynthesis might be driven by red-wavelength photons, making its leaves red!"
   }
 };
 
 const PLANET_KEYS = Object.keys(SYSTEM_DATA).filter(k => k !== 'Sun');
 
-// ==========================================
-// 2. STATE MANAGEMENT 
-// ==========================================
-
-// Global state context to avoid deep prop drilling in the single file
 const AppContext = React.createContext(null);
 
 function useAppStore() {
@@ -252,8 +211,8 @@ function useAppStore() {
   const [showLabels, setShowLabels] = useState(true);
   const [showOrbits, setShowOrbits] = useState(true);
   const [scienceMode, setScienceMode] = useState(false);
+  const [realisticScale, setRealisticScale] = useState(false); 
   
-  // Shared time reference for sync across all bodies
   const timeRef = useRef(0);
   
   return {
@@ -263,42 +222,49 @@ function useAppStore() {
     showLabels, setShowLabels,
     showOrbits, setShowOrbits,
     scienceMode, setScienceMode,
+    realisticScale, setRealisticScale,
     timeRef
   };
 }
 
-// ==========================================
-// 3. THREE.JS COMPONENTS
-// ==========================================
-
 const CameraController = ({ selectedBody }) => {
   const controlsRef = useRef();
   const { camera } = useThree();
+  const { realisticScale } = React.useContext(AppContext);
 
   useEffect(() => {
     if (!controlsRef.current) return;
     
-    if (selectedBody && selectedBody !== 'Sun') {
-      // We handle focus smoothly in useFrame within the Planet component
-    } else if (selectedBody === 'Sun' || !selectedBody) {
-      // Reset view
+    controlsRef.current.minDistance = realisticScale ? 0.5 : 3;
+
+    if (selectedBody === 'Sun' || !selectedBody) {
       const targetPos = new THREE.Vector3(0, 0, 0);
       const startPos = camera.position.clone();
-      const endPos = new THREE.Vector3(0, 100, 150); // Top down angle, backed up slightly
+      const sunScaleHeight = realisticScale ? SYSTEM_DATA.Sun.realScale * 2 : 100;
+      const endPos = new THREE.Vector3(0, sunScaleHeight, sunScaleHeight * 1.5); 
       
       let t = 0;
+      let animationId;
+      
       const animateCamera = () => {
+        if (!controlsRef.current || !controlsRef.current.target) return;
+        
         t += 0.02;
         if (t <= 1) {
           camera.position.lerpVectors(startPos, endPos, t);
           controlsRef.current.target.lerp(targetPos, t);
           controlsRef.current.update();
-          requestAnimationFrame(animateCamera);
+          animationId = requestAnimationFrame(animateCamera);
         }
       };
+      
       animateCamera();
+      
+      return () => {
+        if (animationId) cancelAnimationFrame(animationId);
+      };
     }
-  }, [selectedBody, camera]);
+  }, [selectedBody, camera, realisticScale]);
 
   return (
     <OrbitControls 
@@ -306,38 +272,36 @@ const CameraController = ({ selectedBody }) => {
       makeDefault
       enablePan={true}
       enableZoom={true}
-      maxDistance={2000} // Increased so Kepler and Pluto can be reached easily
-      minDistance={3}
+      maxDistance={8000} 
     />
   );
 };
 
-// Reusable Belt component for Asteroids and Kuiper belt objects
-const ParticleBelt = ({ innerRadius, outerRadius, count, color, sizeMultiplier = 1 }) => {
+const ParticleBelt = ({ baseInnerRadius, baseOuterRadius, count, color, sizeMultiplier = 1 }) => {
   const meshRef = useRef();
-  const { isPlaying, timeMultiplier } = React.useContext(AppContext);
-
+  const { isPlaying, timeMultiplier, realisticScale } = React.useContext(AppContext);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   
+  // Dynamically recalculate the belt radius so it pushes outward when the sun scales up
+  const innerRadius = realisticScale ? SYSTEM_DATA.Sun.realScale + baseInnerRadius * 3 : baseInnerRadius;
+  const outerRadius = realisticScale ? SYSTEM_DATA.Sun.realScale + baseOuterRadius * 3 : baseOuterRadius;
+
   const particles = useMemo(() => {
     return new Array(count).fill().map(() => {
       const radius = innerRadius + Math.random() * (outerRadius - innerRadius);
       const theta = Math.random() * 2 * Math.PI;
-      const y = (Math.random() - 0.5) * (outerRadius - innerRadius) * 0.1; // proportional thickness
+      const y = (Math.random() - 0.5) * (outerRadius - innerRadius) * 0.1;
       const speed = (0.5 + Math.random() * 0.5) * 0.2;
-      
       return { radius, theta, y, speed, scale: (Math.random() * 0.15 + 0.05) * sizeMultiplier };
     });
   }, [innerRadius, outerRadius, count, sizeMultiplier]);
 
   useFrame((state, delta) => {
     if (!meshRef.current) return;
-    
     const dt = isPlaying ? delta * timeMultiplier * 0.1 : 0;
     
     particles.forEach((particle, i) => {
       particle.theta += dt * particle.speed * (1 / particle.radius);
-      
       const x = Math.cos(particle.theta) * particle.radius;
       const z = Math.sin(particle.theta) * particle.radius;
       
@@ -360,29 +324,55 @@ const ParticleBelt = ({ innerRadius, outerRadius, count, color, sizeMultiplier =
 const OrbitPath = ({ distance, color, isComet }) => {
   const points = useMemo(() => {
     const pts = [];
-    // Comets get an elliptical visual representation
     for (let i = 0; i <= 64; i++) {
       const angle = (i / 64) * 2 * Math.PI;
       const x = Math.cos(angle) * distance;
-      // Elongate z slightly for comets to make orbit look elliptical
       const z = Math.sin(angle) * distance * (isComet ? 1.5 : 1);
-      
-      // Shift comets off center
       const xOffset = isComet ? distance * 0.4 : 0;
       pts.push(new THREE.Vector3(x - xOffset, 0, z));
     }
     return pts;
   }, [distance, isComet]);
 
+  return <Line points={points} color={color} opacity={0.15} transparent lineWidth={1} />;
+};
+
+const AsyncGLBModel = ({ url, scale, onClick, onPointerOver, onPointerOut }) => {
+  const gltf = useGLTF(url);
+  
+  const scene = useMemo(() => {
+    const clonedScene = gltf.scene.clone(true);
+    const box = new THREE.Box3().setFromObject(clonedScene);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const normalizeScale = maxDim > 0 ? (2 / maxDim) : 1;  // radius = 1 after this
+    
+    // Total scale = normalize to radius 1, then apply desired radius
+    const totalScale = normalizeScale * scale;
+    clonedScene.scale.set(totalScale, totalScale, totalScale);
+    
+    // Translate so that the model's original center goes to world origin
+    clonedScene.position.set(-center.x * totalScale, -center.y * totalScale, -center.z * totalScale);
+    
+    return clonedScene;
+  }, [gltf.scene, scale]);  // Re-run if scale or model changes
+
   return (
-    <Line points={points} color={color} opacity={0.15} transparent lineWidth={1} />
+    <primitive
+      object={scene}
+      onClick={onClick}
+      onPointerOver={onPointerOver}
+      onPointerOut={onPointerOut}
+    />
   );
 };
 
 const Planet = ({ planetId }) => {
   const { 
-    timeRef, isPlaying, timeMultiplier, 
-    selectedBody, setSelectedBody, showLabels, showOrbits 
+    isPlaying, timeMultiplier, 
+    selectedBody, setSelectedBody, showLabels, showOrbits, realisticScale
   } = React.useContext(AppContext);
   
   const planetRef = useRef();
@@ -391,33 +381,35 @@ const Planet = ({ planetId }) => {
   const isSelected = selectedBody === planetId;
   const { camera } = useThree();
 
+  const currentScale = realisticScale ? data.realScale : data.radius;
+  
+  // Dynamic Distance Logic: Pushes planets outside the sun when realistic scale is active
+  const currentDistance = realisticScale 
+    ? SYSTEM_DATA.Sun.realScale + (data.distance * 3) 
+    : data.distance;
+
   useFrame((state, delta) => {
     if (isPlaying) {
-      // Different movement for comets vs regular orbits
       if (data.isComet) {
-        // Simple mock elliptical movement
         const time = state.clock.getElapsedTime() * timeMultiplier * data.speed * 0.05;
-        const x = Math.cos(time) * data.distance - (data.distance * 0.4);
-        const z = Math.sin(time) * data.distance * 1.5;
+        const x = Math.cos(time) * currentDistance - (currentDistance * 0.4);
+        const z = Math.sin(time) * currentDistance * 1.5;
         groupRef.current.position.set(x, 0, z);
       } else {
-        // Standard circular orbit
         groupRef.current.rotation.y += delta * timeMultiplier * data.speed * 0.1;
       }
     }
     
-    // Self rotation (visual only)
     if (planetRef.current) {
       planetRef.current.rotation.y += delta * 0.5;
     }
 
-    // Camera Following Logic
     if (isSelected && planetRef.current) {
       const planetPos = new THREE.Vector3();
       planetRef.current.getWorldPosition(planetPos);
       
-      const offset = planetPos.clone().normalize().multiplyScalar(data.radius * 6 + 5); // Added base offset so small objects don't zoom in too close
-      offset.y += data.radius * 2 + 2;
+      const offset = planetPos.clone().normalize().multiplyScalar(currentScale * 6 + (realisticScale ? 1 : 5)); 
+      offset.y += currentScale * 2 + (realisticScale ? 0.5 : 2);
       
       const targetCamPos = planetPos.clone().add(offset);
       
@@ -426,61 +418,58 @@ const Planet = ({ planetId }) => {
     }
   });
 
+  const handlePointerOver = () => document.body.style.cursor = 'pointer';
+  const handlePointerOut = () => document.body.style.cursor = 'auto';
+  const handleClick = (e) => { e.stopPropagation(); setSelectedBody(planetId); };
+
+  const FallbackSphere = (
+    <mesh onClick={handleClick} onPointerOver={handlePointerOver} onPointerOut={handlePointerOut}>
+      <sphereGeometry args={[currentScale, 64, 64]} />
+      <meshStandardMaterial color={data.color} emissive={data.emissive || '#000000'} roughness={0.6} metalness={0.1}/>
+    </mesh>
+  );
+
   const PlanetMesh = (
-    <mesh 
-      ref={planetRef} 
-      onClick={(e) => {
-        e.stopPropagation();
-        setSelectedBody(planetId);
-      }}
-      onPointerOver={() => document.body.style.cursor = 'pointer'}
-      onPointerOut={() => document.body.style.cursor = 'auto'}
-    >
-      <sphereGeometry args={[data.radius, 64, 64]} />
-      <meshStandardMaterial 
-        color={data.color} 
-        emissive={data.emissive || '#000000'}
-        emissiveIntensity={data.isComet ? 0.8 : 0.2}
-        roughness={0.6}
-        metalness={0.1}
-      />
+    <group ref={planetRef}>
+      {data.modelUrl ? (
+        <Suspense fallback={FallbackSphere}>
+          <AsyncGLBModel 
+            url={data.modelUrl} 
+            scale={currentScale} 
+            onClick={handleClick}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
+          />
+        </Suspense>
+      ) : (
+        FallbackSphere
+      )}
       
       {data.hasRings && (
         <mesh rotation={[Math.PI / 2 + 0.3, 0, 0]}>
-          <ringGeometry args={[data.radius * 1.4, data.radius * 2.2, 64]} />
+          <ringGeometry args={[currentScale * 1.4, currentScale * 2.2, 64]} />
           <meshStandardMaterial color="#c2b28f" side={THREE.DoubleSide} transparent opacity={0.8} />
         </mesh>
       )}
-    </mesh>
+    </group>
   );
 
   return (
     <group ref={groupRef}>
-      {!data.isComet && showOrbits && <OrbitPath distance={data.distance} color={data.color} />}
-      {data.isComet && showOrbits && <OrbitPath distance={data.distance} color={data.color} isComet={true} />}
+      {!data.isComet && showOrbits && <OrbitPath distance={currentDistance} color={data.color} />}
+      {data.isComet && showOrbits && <OrbitPath distance={currentDistance} color={data.color} isComet={true} />}
       
-      <group position={data.isComet ? [0,0,0] : [data.distance, 0, 0]}>
-        
-        {/* Render planet/comet core. If comet, wrap with glowing Trail */}
+      <group position={data.isComet ? [0,0,0] : [currentDistance, 0, 0]}>
         {data.isComet ? (
-          <Trail width={data.radius * 6} length={40} color={new THREE.Color(data.color)} attenuation={(t) => t * t}>
+          <Trail width={currentScale * 6} length={40} color={new THREE.Color(data.color)} attenuation={(t) => t * t}>
             {PlanetMesh}
           </Trail>
         ) : (
           PlanetMesh
         )}
 
-        {/* Highlight Aura when selected */}
-        {isSelected && (
-          <mesh>
-            <sphereGeometry args={[data.radius * 1.4 + 0.5, 32, 32]} />
-            <meshBasicMaterial color={data.color} transparent opacity={0.15} wireframe />
-          </mesh>
-        )}
-
-        {/* HTML Label */}
         {showLabels && (
-          <Html distanceFactor={40} position={[0, data.radius + 1.5, 0]} center zIndexRange={[100, 0]}>
+          <Html distanceFactor={40} position={[0, currentScale + (realisticScale ? 0.5 : 1.5), 0]} center zIndexRange={[100, 0]}>
             <div className={`
               px-2 py-1 rounded border backdrop-blur-sm text-xs font-bold tracking-widest uppercase transition-all whitespace-nowrap
               ${isSelected 
@@ -499,48 +488,58 @@ const Planet = ({ planetId }) => {
 };
 
 const Sun = () => {
-  const { setSelectedBody, selectedBody, showLabels } = React.useContext(AppContext);
+  const { setSelectedBody, selectedBody, showLabels, realisticScale } = React.useContext(AppContext);
   const data = SYSTEM_DATA.Sun;
   const sunRef = useRef();
   const isSelected = selectedBody === 'Sun';
 
+  const currentScale = realisticScale ? data.realScale : data.radius;
+
   useFrame(({ clock }) => {
-    sunRef.current.rotation.y = clock.getElapsedTime() * 0.05;
+    if(sunRef.current) {
+      sunRef.current.rotation.y = clock.getElapsedTime() * 0.05;
+    }
   });
 
-  return (
-    <mesh 
-      ref={sunRef}
-      onClick={(e) => {
-        e.stopPropagation();
-        setSelectedBody('Sun');
-      }}
-    >
-      <sphereGeometry args={[data.radius, 64, 64]} />
+  const handleClick = (e) => { e.stopPropagation(); setSelectedBody('Sun'); };
+
+  const FallbackSphere = (
+    <mesh onClick={handleClick}>
+      <sphereGeometry args={[currentScale, 64, 64]} />
       <meshBasicMaterial color={data.color} />
-      {/* Sun Glow */}
+    </mesh>
+  );
+
+  return (
+    <group ref={sunRef}>
+      {data.modelUrl ? (
+        <Suspense fallback={FallbackSphere}>
+          <AsyncGLBModel url={data.modelUrl} scale={currentScale} onClick={handleClick} />
+        </Suspense>
+      ) : (
+        FallbackSphere
+      )}
+
       <pointLight intensity={1000} distance={1000} color={data.color} decay={2} />
       
       {showLabels && (
-        <Html distanceFactor={40} position={[0, data.radius + 2, 0]} center>
+        <Html distanceFactor={40} position={[0, currentScale + (realisticScale ? 5 : 2), 0]} center>
           <div className={`
-            px-3 py-1 rounded-full border backdrop-blur-md text-sm font-bold tracking-widest uppercase
+            px-3 py-1 rounded-full border backdrop-blur-md text-sm font-bold tracking-widest uppercase cursor-pointer
             ${isSelected ? 'bg-yellow-500/30 border-yellow-400 text-yellow-100' : 'bg-black/50 border-yellow-500/30 text-yellow-500/80'}
-          `}>
+          `}
+          onClick={handleClick}
+          >
             {data.name}
           </div>
         </Html>
       )}
-    </mesh>
+    </group>
   );
 };
 
-// ==========================================
-// 4. USER INTERFACE COMPONENTS
-// ==========================================
-
 const TopHUD = () => {
-  const { showLabels, setShowLabels, showOrbits, setShowOrbits, scienceMode, setScienceMode } = React.useContext(AppContext);
+  const { showLabels, setShowLabels, showOrbits, setShowOrbits, scienceMode, setScienceMode, realisticScale, setRealisticScale } = React.useContext(AppContext);
   
   return (
     <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-20 pointer-events-none">
@@ -554,6 +553,13 @@ const TopHUD = () => {
       </div>
 
       <div className="flex gap-3 pointer-events-auto">
+        <button 
+          onClick={() => setRealisticScale(!realisticScale)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all backdrop-blur-md border ${realisticScale ? 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-black/20 border-white/10 text-gray-300'}`}
+        >
+          <ZoomIn size={16} /> {realisticScale ? 'Real Sizes' : 'Scaled Sizes'}
+        </button>
+
         <button 
           onClick={() => setShowLabels(!showLabels)}
           className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all backdrop-blur-md border ${showLabels ? 'bg-white/10 border-white/30 text-white' : 'bg-black/20 border-white/5 text-gray-500'}`}
@@ -580,7 +586,6 @@ const TopHUD = () => {
 const LeftNavigation = () => {
   const { selectedBody, setSelectedBody } = React.useContext(AppContext);
 
-  // Group planets by category
   const groupedCategories = useMemo(() => {
     const groups = { Planet: [], 'Dwarf Planet': [], Comet: [], Exoplanet: [] };
     PLANET_KEYS.forEach(key => {
@@ -597,7 +602,6 @@ const LeftNavigation = () => {
           <Target size={14} /> Celestial Bodies
         </div>
         
-        {/* The Sun always gets top priority */}
         <button
           onClick={() => setSelectedBody('Sun')}
           className={`w-full flex items-center justify-between px-3 py-3 rounded-xl transition-all ${selectedBody === 'Sun' ? 'bg-yellow-500/20 border border-yellow-500/50' : 'hover:bg-white/5 border border-transparent'}`}
@@ -657,8 +661,6 @@ const RightInfoPanel = () => {
           className="absolute right-6 top-24 bottom-24 w-80 z-20 pointer-events-none"
         >
           <div className="bg-[#050714]/80 backdrop-blur-2xl border border-white/10 rounded-2xl h-full flex flex-col overflow-hidden pointer-events-auto shadow-2xl">
-            
-            {/* Header with Dynamic Image */}
             <div className="relative h-48 border-b border-white/10 overflow-hidden shrink-0">
               {SYSTEM_DATA[selectedBody].image && (
                 <img 
@@ -686,14 +688,11 @@ const RightInfoPanel = () => {
               </div>
             </div>
 
-            {/* Content Scroll Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              
               <p className="text-gray-300 text-sm leading-relaxed">
                 {SYSTEM_DATA[selectedBody].description}
               </p>
 
-              {/* Data Cards (Shows extra details if Science Mode is ON) */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
                   <div className="flex items-center gap-3 text-gray-400">
@@ -732,7 +731,6 @@ const RightInfoPanel = () => {
                 )}
               </div>
 
-              {/* Fun Fact */}
               <div className="mt-6 p-4 rounded-xl bg-gradient-to-br from-purple-900/40 to-blue-900/40 border border-purple-500/20">
                 <div className="flex items-center gap-2 mb-2">
                   <Info size={16} className="text-purple-400" />
@@ -758,7 +756,6 @@ const BottomControlBar = () => {
     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none w-full max-w-2xl px-6">
       <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 pointer-events-auto shadow-2xl flex items-center justify-between">
         
-        {/* Playback Controls */}
         <div className="flex items-center gap-4">
           <button 
             onClick={() => setIsPlaying(!isPlaying)}
@@ -782,7 +779,6 @@ const BottomControlBar = () => {
           </div>
         </div>
 
-        {/* Current Target Focus Reset */}
         {selectedBody && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3">
              <span className="text-xs text-gray-400 uppercase tracking-widest">Target:</span>
@@ -803,10 +799,6 @@ const BottomControlBar = () => {
   );
 };
 
-// ==========================================
-// 5. MAIN APPLICATION COMPONENT
-// ==========================================
-
 export default function SolarSystemObservatory() {
   const store = useAppStore();
 
@@ -814,7 +806,6 @@ export default function SolarSystemObservatory() {
     <AppContext.Provider value={store}>
       <div className="relative w-full h-screen bg-[#020308] overflow-hidden font-sans select-none">
         
-        {/* CSS for custom scrollbar hidden in regular tailwind */}
         <style dangerouslySetInnerHTML={{__html: `
           .custom-scrollbar::-webkit-scrollbar { width: 4px; }
           .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -822,52 +813,50 @@ export default function SolarSystemObservatory() {
           .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
         `}} />
 
-        {/* 3D Canvas Layer */}
         <div className="absolute inset-0 z-0">
-          <Canvas camera={{ position: [0, 80, 120], fov: 45, far: 5000 }}>
-            <color attach="background" args={['#050714']} />
-            
-            {/* Lighting */}
-            <ambientLight intensity={0.1} />
-            
-            {/* Deep Space Background */}
-            <Stars radius={1000} depth={100} count={9000} factor={4} saturation={0} fade speed={1} />
-            
-            <Suspense fallback={null}>
-              <Sun />
-              {PLANET_KEYS.map((key) => (
-                <Planet key={key} planetId={key} />
-              ))}
+          <Canvas camera={{ position: [0, 80, 120], fov: 45, far: 8000 }}>
+            {/* Inject the Context Provider inside the Canvas boundary */}
+            <AppContext.Provider value={store}>
+              <color attach="background" args={['#050714']} />
               
-              {/* Main Asteroid Belt */}
-              <ParticleBelt 
-                innerRadius={1.52 * DISTANCE_SCALE + 12} 
-                outerRadius={5.2 * DISTANCE_SCALE + 6} 
-                count={2500} 
-                color="#666666" 
-              />
+              <ambientLight intensity={0.5} />
+              <directionalLight position={[10, 10, 10]} intensity={1} />
               
-              {/* Distant Kuiper Belt (Past Neptune) */}
-              <ParticleBelt 
-                innerRadius={30.1 * DISTANCE_SCALE + 10} 
-                outerRadius={45 * DISTANCE_SCALE + 20} 
-                count={4000} 
-                color="#8899aa"
-                sizeMultiplier={1.5}
-              />
-            </Suspense>
+              <Stars radius={1000} depth={100} count={9000} factor={4} saturation={0} fade speed={1} />
+              
+              <Suspense fallback={null}>
+                <Sun />
+                {PLANET_KEYS.map((key) => (
+                  <Planet key={key} planetId={key} />
+                ))}
+                
+                <ParticleBelt 
+                  baseInnerRadius={1.52 * DISTANCE_SCALE + 12} 
+                  baseOuterRadius={5.2 * DISTANCE_SCALE + 6} 
+                  count={2500} 
+                  color="#666666" 
+                />
+                
+                <ParticleBelt 
+                  baseInnerRadius={30.1 * DISTANCE_SCALE + 10} 
+                  baseOuterRadius={45 * DISTANCE_SCALE + 20} 
+                  count={4000} 
+                  color="#8899aa"
+                  sizeMultiplier={1.5}
+                />
+              </Suspense>
 
-            <CameraController selectedBody={store.selectedBody} />
+              <CameraController selectedBody={store.selectedBody} />
+            </AppContext.Provider>
           </Canvas>
         </div>
 
-        {/* UI Overlay Layer */}
+        {/* HTML UI remains in the outer provider */}
         <TopHUD />
         <LeftNavigation />
         <RightInfoPanel />
         <BottomControlBar />
         
-        {/* Vignette Overlay for cinematic look */}
         <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_150px_rgba(0,0,0,0.9)] z-10 mix-blend-multiply"></div>
       </div>
     </AppContext.Provider>
