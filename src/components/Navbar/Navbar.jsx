@@ -1,23 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from '../../ThemeProvider'; // Imported your ThemeProvider
+import { useTheme } from '../../ThemeProvider';
+import { 
+  Calculator, FlaskConical, LineChart, ChevronDown, 
+  Menu, X, Sun, Moon 
+} from 'lucide-react';
 
 // ==========================================
 // 1. LOGO COMPONENT
 // ==========================================
 const Logo = () => {
   return (
-    <Link to="/" className="flex items-center gap-2 group">
-      <motion.span 
-        animate={{ rotate: [0, -5, 5, 0] }}
-        transition={{ repeat: Infinity, duration: 3 }}
-        className="text-2xl drop-shadow-md"
-      >
-        🔬
-      </motion.span>
-      <span className="text-xl font-bold tracking-tight text-slate-800 dark:text-white font-mono">
-        Sci<span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-cyan-500 dark:from-cyan-400 dark:to-indigo-400 group-hover:from-cyan-500 group-hover:to-indigo-500 transition-all duration-300">Hub</span>
+    <Link to="/" className="flex items-center gap-3 group">
+      <div className="w-8 h-8 bg-blue-600 flex items-center justify-center text-white font-bold font-mono text-xs transition-transform group-hover:scale-105">
+        SE
+      </div>
+      <span className="font-mono text-sm tracking-widest uppercase font-bold text-black dark:text-white">
+        Sci-<span className="text-blue-600">Explorer</span>
       </span>
     </Link>
   );
@@ -28,90 +28,23 @@ const Logo = () => {
 // ==========================================
 const ThemeToggle = ({ isDarkMode, toggleTheme }) => {
   return (
-    <motion.button
+    <button
       onClick={toggleTheme}
-      className="relative w-14 h-7 rounded-full p-1 transition-colors duration-200 border border-white/50 dark:border-cyan-500/30 backdrop-blur-sm shadow-inner"
-      style={{
-        backgroundColor: isDarkMode ? 'rgba(10, 15, 28, 0.6)' : 'rgba(255, 255, 255, 0.5)',
-      }}
-      whileTap={{ scale: 0.95 }}
+      className="w-10 h-10 flex items-center justify-center border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-black dark:text-white transition-colors"
       aria-label="Toggle Dark Mode"
     >
-      {/* Background particles for light mode */}
-      {!isDarkMode && (
+      <AnimatePresence mode="wait">
         <motion.div
-          className="absolute inset-0 rounded-full overflow-hidden"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          key={isDarkMode ? 'dark' : 'light'}
+          initial={{ opacity: 0, rotate: -90 }}
+          animate={{ opacity: 1, rotate: 0 }}
+          exit={{ opacity: 0, rotate: 90 }}
+          transition={{ duration: 0.2 }}
         >
-          {[...Array(3)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-1 h-1 bg-yellow-300 rounded-full"
-              style={{
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
-              }}
-              animate={{ scale: [1, 1.5, 1], opacity: [0, 1, 0] }}
-              transition={{ duration: 2, repeat: Infinity, delay: i * 0.5 }}
-            />
-          ))}
+          {isDarkMode ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
         </motion.div>
-      )}
-
-      {/* Stars for dark mode */}
-      {isDarkMode && (
-        <motion.div
-          className="absolute inset-0 rounded-full overflow-hidden"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          {[...Array(4)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-0.5 h-0.5 bg-white rounded-full"
-              style={{
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
-              }}
-              animate={{ scale: [1, 2, 1], opacity: [0.3, 1, 0.3] }}
-              transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3 }}
-            />
-          ))}
-        </motion.div>
-      )}
-
-      {/* Sliding Handle */}
-      <motion.div
-        className="absolute top-1 w-5 h-5 rounded-full shadow-md flex items-center justify-center"
-        style={{
-          backgroundColor: isDarkMode ? '#fbbf24' : '#6366f1',
-          left: isDarkMode ? 'calc(100% - 1.75rem)' : '0.25rem',
-        }}
-        animate={{
-          left: isDarkMode ? 'calc(100% - 1.75rem)' : '0.25rem',
-          rotate: isDarkMode ? 0 : 360,
-          scale: [1, 1.1, 1],
-        }}
-        transition={{
-          type: "spring",
-          stiffness: 500,
-          damping: 30,
-          scale: { duration: 0.3, times: [0, 0.5, 1] }
-        }}
-      >
-        <motion.span
-          className="text-xs"
-          initial={false}
-          animate={{ scale: [0, 1.2, 1] }}
-          transition={{ duration: 0.3 }}
-        >
-          {isDarkMode ? '🌙' : '☀️'}
-        </motion.span>
-      </motion.div>
-    </motion.button>
+      </AnimatePresence>
+    </button>
   );
 };
 
@@ -119,9 +52,9 @@ const ThemeToggle = ({ isDarkMode, toggleTheme }) => {
 // 3. TOOLS DROPDOWN COMPONENT
 // ==========================================
 const toolsData = [
-  { name: 'Scientific Calculator', path: '/tools/calculator', icon: '🧮', description: 'Advanced scientific calculations', color: 'from-blue-500 to-cyan-500' },
-  { name: 'Periodic Table', path: '/tools/periodic-table', icon: '⚗️', description: 'Interactive element explorer', color: 'from-purple-500 to-pink-500'},
-  { name: 'Scientific Visualization', path: '/graph', icon: '📊', description: 'Advanced scientific plotting & analysis', color: 'from-green-500 to-teal-500' }
+  { name: 'Scientific Calculator', path: '/tools/calculator', icon: Calculator, description: 'Advanced computational matrix' },
+  { name: 'Periodic Table', path: '/tools/periodic-table', icon: FlaskConical, description: 'Interactive element database' },
+  { name: 'Data Visualization', path: '/graph', icon: LineChart, description: 'Plotting & structural analysis' }
 ];
 
 const ToolsDropdown = ({ isActive, onMouseEnter, onMouseLeave }) => {
@@ -131,43 +64,42 @@ const ToolsDropdown = ({ isActive, onMouseEnter, onMouseLeave }) => {
       onMouseEnter={onMouseEnter} 
       onMouseLeave={onMouseLeave}
     >
-      <button className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-cyan-100/90 hover:text-indigo-600 dark:hover:text-cyan-300 transition-colors py-1.5 px-3">
-        🛠️ Tools
-        <motion.span animate={{ rotate: isActive ? 180 : 0 }}>
-          ▾
-        </motion.span>
+      <button className={`flex items-center gap-2 font-mono text-xs tracking-widest uppercase font-bold py-2 px-3 transition-colors ${isActive ? 'text-blue-600' : 'text-black dark:text-white hover:text-blue-600 dark:hover:text-blue-500'}`}>
+        Instruments
+        <motion.div animate={{ rotate: isActive ? 180 : 0 }} transition={{ duration: 0.2 }}>
+          <ChevronDown size={14} />
+        </motion.div>
       </button>
 
       <AnimatePresence>
         {isActive && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="absolute top-full right-0 mt-2 w-96 bg-white/80 dark:bg-[#050510]/95 backdrop-blur-2xl border border-white/50 dark:border-cyan-500/20 rounded-2xl shadow-xl dark:shadow-cyan-900/20 overflow-hidden z-50"
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 5 }}
+            transition={{ duration: 0.15 }}
+            className="absolute top-full right-0 mt-4 w-80 bg-white dark:bg-[#09090B] border border-black/10 dark:border-white/10 z-50"
           >
-            <div className="p-2">
-              {toolsData.map((tool) => (
+            <div className="flex flex-col">
+              {toolsData.map((tool, index) => (
                 <Link
                   key={tool.name}
                   to={tool.path}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/50 dark:hover:bg-cyan-900/30 transition-all group"
+                  className={`flex items-start gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 transition-colors group ${
+                    index !== toolsData.length - 1 ? 'border-b border-black/10 dark:border-white/10' : ''
+                  }`}
                 >
-                  <div className={`text-2xl bg-gradient-to-br ${tool.color} bg-clip-text text-transparent drop-shadow-sm`}>
-                    {tool.icon}
+                  <div className="mt-0.5 text-black/40 dark:text-white/40 group-hover:text-blue-600 transition-colors">
+                    <tool.icon size={18} strokeWidth={1.5} />
                   </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-slate-800 dark:text-cyan-50 group-hover:text-indigo-600 dark:group-hover:text-cyan-300 transition-colors">
+                  <div>
+                    <div className="font-mono text-xs font-bold uppercase tracking-widest text-black dark:text-white group-hover:text-blue-600 transition-colors mb-1">
                       {tool.name}
                     </div>
-                    <div className="text-xs font-medium text-slate-500 dark:text-cyan-200/60">{tool.description}</div>
+                    <div className="text-xs text-black/50 dark:text-white/50 leading-relaxed">
+                      {tool.description}
+                    </div>
                   </div>
-                  <motion.span 
-                    className="text-indigo-400 dark:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                    whileHover={{ x: 5 }}
-                  >
-                    →
-                  </motion.span>
                 </Link>
               ))}
             </div>
@@ -183,22 +115,21 @@ const ToolsDropdown = ({ isActive, onMouseEnter, onMouseLeave }) => {
 // ==========================================
 const DesktopNav = ({ isDarkMode, toggleTheme }) => {
   const [activeDropdown, setActiveDropdown] = useState(null);
-  
-  let location = null;
-  try { location = useLocation(); } catch(e) {}
+  const location = useLocation();
 
   const getLinkClass = (path) => {
-    const baseClass = "text-sm transition-all duration-300 py-1.5 px-4 rounded-xl border backdrop-blur-md";
-    const isActive = location?.pathname ? location.pathname.startsWith(path) : false;
+    const baseClass = "font-mono text-xs tracking-widest uppercase font-bold transition-colors py-2 px-3 relative group flex items-center h-full";
+    const isActive = location.pathname.startsWith(path);
+    
     return isActive
-      ? `${baseClass} border-white/50 dark:border-cyan-500/20 text-indigo-700 dark:text-cyan-300 bg-white/60 dark:bg-cyan-900/30 font-bold shadow-sm`
-      : `${baseClass} border-transparent text-slate-700 dark:text-cyan-100/80 hover:text-indigo-600 dark:hover:text-cyan-300 hover:bg-white/40 dark:hover:bg-cyan-900/20 font-semibold`;
+      ? `${baseClass} text-blue-600`
+      : `${baseClass} text-black dark:text-white hover:text-blue-600 dark:hover:text-blue-500`;
   };
 
   return (
-    <div className="hidden lg:flex items-center space-x-2">
+    <div className="hidden lg:flex items-center space-x-6 h-full">
       <Link to="/articles" className={getLinkClass('/articles')}>
-        Articles
+        Archives
       </Link>
       
       <Link to="/simulations" className={getLinkClass('/simulations')}>
@@ -206,13 +137,13 @@ const DesktopNav = ({ isDarkMode, toggleTheme }) => {
       </Link>
 
       <Link to="/quizzes" className={getLinkClass('/quizzes')}>
-        Quizzes
+        Assessments
       </Link>
       
       <div 
         onMouseEnter={() => setActiveDropdown('tools')}
         onMouseLeave={() => setActiveDropdown(null)}
-        className="relative px-2"
+        className="relative h-full flex items-center"
       >
         <ToolsDropdown 
           isActive={activeDropdown === 'tools'}
@@ -221,7 +152,7 @@ const DesktopNav = ({ isDarkMode, toggleTheme }) => {
         />
       </div>
       
-      <div className="pl-3 ml-1 border-l border-slate-200 dark:border-cyan-500/20">
+      <div className="pl-6 border-l border-black/10 dark:border-white/10 h-10 flex items-center">
         <ThemeToggle isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
       </div>
     </div>
@@ -233,93 +164,85 @@ const DesktopNav = ({ isDarkMode, toggleTheme }) => {
 // ==========================================
 const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
   const [mobileDropdown, setMobileDropdown] = useState(null);
-  
-  let location = null;
-  try { location = useLocation(); } catch(e) {}
+  const location = useLocation();
 
   const toggleMobileDropdown = (type) => {
     setMobileDropdown(mobileDropdown === type ? null : type);
   };
 
   const getMobileLinkClass = (path) => {
-    const baseClass = "block p-3 text-base font-semibold rounded-xl transition-all border backdrop-blur-sm";
-    const isActive = location?.pathname ? location.pathname.startsWith(path) : false;
+    const baseClass = "block p-4 font-mono text-xs tracking-widest uppercase font-bold transition-colors border-b border-black/10 dark:border-white/10";
+    const isActive = location.pathname.startsWith(path);
     return isActive
-      ? `${baseClass} border-white/50 dark:border-cyan-500/20 text-indigo-600 dark:text-cyan-300 bg-white/60 dark:bg-cyan-900/30 shadow-sm`
-      : `${baseClass} border-transparent text-slate-700 dark:text-cyan-100/80 hover:bg-white/40 dark:hover:bg-cyan-900/20`;
-  };
-
-  const mobileMenuVariants = {
-    hidden: { opacity: 0, height: 0 },
-    visible: { opacity: 1, height: 'auto' },
-    exit: { opacity: 0, height: 0 }
+      ? `${baseClass} text-blue-600 bg-black/5 dark:bg-white/5`
+      : `${baseClass} text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/5`;
   };
 
   return (
-    <div className="lg:hidden">
+    <div className="lg:hidden flex items-center gap-4">
+      <ThemeToggle isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
+      
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="text-slate-800 dark:text-cyan-100 hover:text-indigo-600 dark:hover:text-cyan-400 p-2 focus:outline-none"
+        className="w-10 h-10 flex items-center justify-center border border-black/10 dark:border-white/10 text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
         aria-label="Toggle Menu"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          {isOpen ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          )}
-        </svg>
+        {isOpen ? <X size={20} strokeWidth={1.5} /> : <Menu size={20} strokeWidth={1.5} />}
       </button>
 
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={mobileMenuVariants}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="absolute top-16 left-0 right-0 bg-white/90 dark:bg-[#050510]/95 backdrop-blur-2xl border-b border-white/40 dark:border-cyan-500/20 shadow-xl z-40 max-h-[calc(100vh-4rem)] overflow-y-auto"
+            className="absolute top-[73px] left-0 right-0 bg-white dark:bg-[#09090B] border-b border-black/10 dark:border-white/10 shadow-2xl z-40 max-h-[calc(100vh-73px)] overflow-y-auto"
           >
-            <div className="px-4 pt-3 pb-6 space-y-2">
+            <div className="flex flex-col">
               <Link to="/articles" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/articles')}>
-                📚 Articles Catalog
+                Archives
               </Link>
               <Link to="/simulations" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/simulations')}>
-                🎮 Virtual Simulations
+                Simulations
               </Link>
               <Link to="/quizzes" onClick={() => setIsOpen(false)} className={getMobileLinkClass('/quizzes')}>
-                📝 Interactive Quizzes
+                Assessments
               </Link>
 
-              <div className="border-t border-slate-200 dark:border-cyan-500/20 pt-2">
+              <div>
                 <button
                   onClick={() => toggleMobileDropdown('tools')}
-                  className="w-full flex justify-between items-center p-3 text-base font-semibold text-slate-700 dark:text-cyan-100/90 hover:bg-white/40 dark:hover:bg-cyan-900/20 rounded-xl transition-colors"
+                  className="w-full flex justify-between items-center p-4 font-mono text-xs tracking-widest uppercase font-bold text-black dark:text-white border-b border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                 >
-                  <span className="flex items-center gap-2">🛠️ Laboratory Tools</span>
-                  <span className={`text-xs transition-transform duration-200 ${mobileDropdown === 'tools' ? 'rotate-180' : ''}`}>▼</span>
+                  <span>Instruments</span>
+                  <ChevronDown size={16} className={`transition-transform duration-200 ${mobileDropdown === 'tools' ? 'rotate-180 text-blue-600' : ''}`} />
                 </button>
+                
                 <AnimatePresence>
                   {mobileDropdown === 'tools' && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden bg-white/40 dark:bg-white/5 rounded-xl mx-2 border border-white/30 dark:border-cyan-500/10"
+                      className="overflow-hidden bg-black/5 dark:bg-white/5 border-b border-black/10 dark:border-white/10"
                     >
-                      <div className="pl-4 pr-2 py-2 space-y-1">
-                        <Link to="/tools/calculator" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm font-medium text-slate-600 dark:text-cyan-200/70 hover:text-indigo-600 dark:hover:text-cyan-400 hover:bg-white/50 dark:hover:bg-cyan-900/30 rounded-lg transition-colors">🧮 Scientific Calculator</Link>
-                        <Link to="/tools/periodic-table" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm font-medium text-slate-600 dark:text-cyan-200/70 hover:text-indigo-600 dark:hover:text-cyan-400 hover:bg-white/50 dark:hover:bg-cyan-900/30 rounded-lg transition-colors">⚗️ Periodic Table</Link>
-                        <Link to="/graph" onClick={() => setIsOpen(false)} className="block p-2.5 text-sm font-medium text-slate-600 dark:text-cyan-200/70 hover:text-indigo-600 dark:hover:text-cyan-400 hover:bg-white/50 dark:hover:bg-cyan-900/30 rounded-lg transition-colors">📊 Scientific Visualization</Link>
+                      <div className="flex flex-col pl-4">
+                        {toolsData.map((tool, idx) => (
+                          <Link 
+                            key={tool.name}
+                            to={tool.path} 
+                            onClick={() => setIsOpen(false)} 
+                            className={`flex items-center gap-3 p-4 font-mono text-xs tracking-widest uppercase text-black/70 dark:text-white/70 hover:text-blue-600 transition-colors ${idx !== toolsData.length - 1 ? 'border-b border-black/10 dark:border-white/10' : ''}`}
+                          >
+                            <tool.icon size={14} />
+                            {tool.name}
+                          </Link>
+                        ))}
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
-
-              <div className="pt-4 border-t border-slate-200 dark:border-cyan-500/20 flex justify-center">
-                <ThemeToggle isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
               </div>
             </div>
           </motion.div>
@@ -334,38 +257,23 @@ const MobileNav = ({ isOpen, setIsOpen, isDarkMode, toggleTheme }) => {
 // ==========================================
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const location = useLocation();
   
-  // Safely consume Theme Context, providing fallbacks just in case
+  // Safely consume Theme Context
   const themeContext = useTheme();
   const isDarkMode = themeContext?.isDarkMode ?? true; 
   const toggleTheme = themeContext?.toggleTheme ?? (() => {});
-  
-  let location = null;
-  try { location = useLocation(); } catch(e) {}
 
+  // Close mobile menu on route change
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location]);
 
-  // Handle scroll effect for dynamic glassmorphism
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
   return (
     <>
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${
-        scrolled 
-          ? 'bg-white/80 dark:bg-[#050510]/80 backdrop-blur-xl border-slate-200/50 dark:border-cyan-500/20 shadow-sm dark:shadow-cyan-900/10' 
-          : 'bg-white/40 dark:bg-[#050510]/30 backdrop-blur-md border-transparent'
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-[#09090B] border-b border-black/10 dark:border-white/10 transition-colors duration-300 h-[73px]">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 h-full">
+          <div className="flex items-center justify-between h-full">
             <Logo />
             
             <DesktopNav isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
@@ -379,8 +287,8 @@ const Navbar = () => {
           </div>
         </div>
       </nav>
-      {/* Spacer to prevent content from going under the fixed navbar initially */}
-      <div className="h-16" />
+      {/* Spacer to prevent content from hiding under the fixed navbar */}
+      <div className="h-[73px]" />
     </>
   );
 };

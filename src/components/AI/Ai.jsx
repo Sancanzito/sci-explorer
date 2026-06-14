@@ -1,45 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Send, Sparkles, ChevronDown, Atom, AlertCircle, RefreshCw } from 'lucide-react';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Terminal, Send, X, AlertTriangle, GripVertical, SquareTerminal, Minimize2 } from 'lucide-react';
 
-// ==================== API CONFIGURATION ====================
-// Use relative URL in development (Vite proxy will forward to backend)
-// In production, set VITE_API_BASE_URL environment variable.
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-const GEMINI_ENDPOINT = `${API_BASE}/api/gemini`;
-
-// Simple health check
-async function isBackendHealthy() {
-  try {
-    const res = await fetch(`${API_BASE}/api/health`);
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function fetchAIResponse(messages, context = "") {
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, context }),
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`HTTP ${response.status}: ${errorText.slice(0, 100)}`);
-  }
-  
-  const data = await response.json();
-  return data.reply;
-}
+// ==================== LOCAL AI CONFIGURATION ====================
+// Initialize Gemini directly in the frontend for local, standalone execution.
+// Ensure VITE_GEMINI_API_KEY is present in your .env or .env.local file.
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6JD3GOBHO4BA24V0GjbJYWlOJsHDtICJHVdvP46l3Wdkw';
+const genAI = new GoogleGenerativeAI(API_KEY);
 
 // ==================== Markdown helper ====================
 const formatText = (text) => {
   const parts = text.split(/(\*\*.*?\*\*)/g);
   return parts.map((part, idx) => {
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={idx} className="font-semibold text-cyan-700 dark:text-cyan-300">{part.slice(2, -2)}</strong>;
+      return <strong key={idx} className="font-bold text-black dark:text-white">{part.slice(2, -2)}</strong>;
     }
     return <span key={idx}>{part.split('\n').map((line, i) => (
       <React.Fragment key={i}>
@@ -52,13 +27,13 @@ const formatText = (text) => {
 
 // ==================== Typing indicator ====================
 const TypingIndicator = () => (
-  <div className="flex space-x-1 p-3 bg-slate-100 dark:bg-zinc-800 rounded-2xl rounded-tl-none w-16 shadow-sm border">
+  <div className="flex space-x-2 p-4 border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 w-24">
     {[0, 1, 2].map(dot => (
       <motion.div
         key={dot}
-        className="w-2 h-2 bg-cyan-500 rounded-full"
-        animate={{ y: [0, -5, 0] }}
-        transition={{ repeat: Infinity, duration: 0.8, delay: dot * 0.15 }}
+        className="w-1.5 h-1.5 bg-blue-600 rounded-none"
+        animate={{ opacity: [0.2, 1, 0.2] }}
+        transition={{ repeat: Infinity, duration: 1, delay: dot * 0.2 }}
       />
     ))}
   </div>
@@ -70,40 +45,38 @@ const ChatMessage = React.memo(({ msg }) => {
   const isError = msg.isError;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
-    >
-      {!isUser && (
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-2 shadow-md flex-shrink-0 ${isError ? 'bg-red-500' : 'bg-gradient-to-br from-cyan-400 to-blue-600'}`}>
-          {isError ? <AlertCircle size={16} className="text-white" /> : <Bot size={16} className="text-white" />}
-        </div>
-      )}
-      <div className={`max-w-[80%] p-3 text-sm md:text-base ${
+    <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} mb-6`}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className={`font-mono text-[10px] uppercase tracking-widest font-bold ${isError ? 'text-red-500' : 'text-black/50 dark:text-white/50'}`}>
+          {isUser ? 'USER INPUT' : isError ? 'SYSTEM ERROR' : 'AI RESPONSE'}
+        </span>
+      </div>
+      <div className={`max-w-[85%] p-4 text-sm leading-relaxed border ${
         isUser
-          ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-2xl rounded-tr-none shadow-md'
+          ? 'bg-blue-600 text-white border-blue-600'
           : isError 
-            ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 rounded-2xl rounded-tl-none shadow-sm border border-red-200'
-            : 'bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-2xl rounded-tl-none shadow-sm border'
+            ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30'
+            : 'bg-white dark:bg-[#09090B] text-black dark:text-white border-black/10 dark:border-white/10'
       }`}>
         {formatText(msg.text)}
       </div>
-    </motion.div>
+    </div>
   );
 });
 
 // ==================== Main component ====================
-const AIAssistant = ({ context = "", disabled = false }) => {
+const AIAssistant = ({ context = "" }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'ai', text: "Hello! I'm your Lab Assistant. 🧬\n\nNeed help understanding the current experiment or any science concepts?" }
+    { role: 'ai', text: "SYSTEM INITIALIZED.\nHow may I assist with your scientific inquiry today?" }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [connectionError, setConnectionError] = useState(false);
+  
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const containerRef = useRef(null); // Ref for drag constraints
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -116,22 +89,38 @@ const AIAssistant = ({ context = "", disabled = false }) => {
   useEffect(() => {
     if (isOpen) {
       inputRef.current?.focus();
-      // Check backend health once when opening
-      isBackendHealthy().then(healthy => setConnectionError(!healthy));
     }
   }, [isOpen]);
 
+  // Global Keyboard Shortcut to unhide/toggle the widget (Ctrl + /)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        setIsHidden((prev) => {
+          if (prev) setIsOpen(true); // Auto-open if we are unhiding
+          return !prev;
+        });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleSend = useCallback(async (textToSend = input) => {
     const trimmed = textToSend.trim();
-    if (!trimmed || isTyping || disabled) return;
+    if (!trimmed || isTyping) return;
 
-    // If we know backend is down, don't even try
-    if (connectionError) {
-      setMessages(prev => [...prev, {
-        role: 'ai',
-        text: "⚠️ Cannot connect to the AI server. Please make sure the backend is running on port 8000.\n\nRun: `cd backend && uvicorn backend:app --reload --port 8000`",
-        isError: true
-      }]);
+    if (!API_KEY) {
+      setMessages(prev => [...prev, 
+        { role: 'user', text: trimmed },
+        {
+          role: 'ai',
+          text: "CRITICAL FAILURE: VITE_GEMINI_API_KEY is missing from your environment variables. Local AI execution disabled.",
+          isError: true
+        }
+      ]);
+      setInput('');
       return;
     }
 
@@ -141,83 +130,148 @@ const AIAssistant = ({ context = "", disabled = false }) => {
     setIsTyping(true);
 
     try {
-      const aiResponse = await fetchAIResponse([...messages, userMessage], context);
-      setMessages(prev => [...prev, { role: 'ai', text: aiResponse }]);
-      setConnectionError(false);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      
+      // Format history for Gemini SDK
+      const history = messages
+        .filter(m => !m.isError && m.text.trim() !== "") // exclude errors
+        .map(m => ({
+          role: m.role === 'ai' ? 'model' : 'user',
+          parts: [{ text: m.text }]
+        }));
+
+      // Inject strict context invisibly
+      const systemInstruction = "You are a stark, precise laboratory AI. Answer questions directly, factually, and concisely. No emojis. " + context;
+      
+      const chat = model.startChat({
+      history: history.slice(1), // Skip the hardcoded greeting to avoid conflicts
+      systemInstruction: {
+      parts: [{ text: systemInstruction }]
+  },  
+});
+      const result = await chat.sendMessage(trimmed);
+      const responseText = result.response.text();
+      
+      setMessages(prev => [...prev, { role: 'ai', text: responseText }]);
     } catch (err) {
       console.error("Chat Error:", err);
-      setConnectionError(true);
       setMessages(prev => [...prev, {
         role: 'ai',
-        text: `❌ Backend error: ${err.message}\n\nPlease verify:\n1. Backend is running on port 8000\n2. Your .env.local contains GEMINI_API_KEY\n3. The frontend proxy is configured (see vite.config.js)`,
+        text: `EXECUTION ERROR: ${err.message}`,
         isError: true
       }]);
     } finally {
       setIsTyping(false);
     }
-  }, [input, messages, isTyping, disabled, context, connectionError]);
+  }, [input, messages, isTyping, context]);
 
-  const quickPrompts = ["Explain DNA simply", "Lab safety tips", "What's a nucleus?"];
+  const quickPrompts = ["Explain thermodynamics", "Standard laboratory protocols", "Define stoichiometry"];
 
-  if (disabled) return null;
+  // Completely unmount if hidden
+  if (isHidden) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div ref={containerRef} className="fixed inset-0 pointer-events-none z-50">
+      
+      {/* --- DRAGGABLE CONTROLLER PILL --- */}
+      {!isOpen && (
+        <motion.div
+          drag
+          dragMomentum={false}
+          dragConstraints={containerRef}
+          className="absolute bottom-8 right-8 pointer-events-auto flex items-stretch bg-white dark:bg-[#09090B] border border-black/10 dark:border-white/10 shadow-2xl"
+        >
+          {/* Drag Handle */}
+          <div className="flex items-center justify-center px-2 cursor-grab active:cursor-grabbing border-r border-black/10 dark:border-white/10 text-black/30 dark:text-white/30 hover:text-blue-600 transition-colors bg-black/5 dark:bg-white/5">
+            <GripVertical size={16} />
+          </div>
+          
+          {/* Main Button */}
+          <button
+            onClick={() => setIsOpen(true)}
+            className="flex items-center gap-3 px-6 py-3 font-mono text-xs font-bold uppercase tracking-widest text-black dark:text-white hover:text-blue-600 transition-colors group"
+          >
+            <SquareTerminal size={16} className="text-blue-600" />
+            <span>AI Console</span>
+          </button>
+          
+          {/* Hide Button */}
+          <button
+            onClick={() => setIsHidden(true)}
+            className="flex items-center justify-center px-4 border-l border-black/10 dark:border-white/10 text-black/40 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+            title="Hide Component (Ctrl + / to restore)"
+          >
+            <X size={16} strokeWidth={2} />
+          </button>
+        </motion.div>
+      )}
+
+      {/* --- MAIN CHAT WINDOW --- */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="mb-4 w-[90vw] md:w-[380px] h-[60vh] md:h-[650px] max-h-[80vh] bg-slate-50 dark:bg-zinc-900 rounded-3xl shadow-2xl border flex flex-col overflow-hidden"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.2 }}
+            className="absolute bottom-6 right-6 pointer-events-auto w-[90vw] md:w-[450px] h-[75vh] md:h-[700px] max-h-[85vh] bg-white dark:bg-[#09090B] border border-black/10 dark:border-white/10 shadow-2xl flex flex-col"
           >
             {/* Header */}
-            <div className="p-4 bg-gradient-to-r from-cyan-600 to-blue-700 flex justify-between items-center text-white shrink-0">
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                    <Atom className="w-6 h-6 animate-[spin_10s_linear_infinite]" />
-                  </div>
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-cyan-700 rounded-full"></div>
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm md:text-base">Lab Assistant</h3>
-                  <p className="text-cyan-100 text-xs">
-                    {connectionError ? "⚠️ Offline" : "Science Mentor AI"}
-                  </p>
+            <div className="p-4 border-b border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3 text-black dark:text-white">
+                <Terminal size={18} className="text-blue-600" />
+                <div className="flex flex-col">
+                  <h3 className="font-mono text-xs font-bold tracking-widest uppercase">Sci-Explorer AI</h3>
+                  <span className="font-mono text-[10px] text-black/50 dark:text-white/50 tracking-widest uppercase flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-blue-600 rounded-none inline-block"></span> Local Compute
+                  </span>
                 </div>
               </div>
-              <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/20 rounded-full">
-                <ChevronDown size={20} />
-              </button>
+              <div className="flex items-center border border-black/10 dark:border-white/10">
+                <button 
+                  onClick={() => setIsOpen(false)} 
+                  className="p-2 text-black/50 hover:text-black dark:text-white/50 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors border-r border-black/10 dark:border-white/10"
+                  title="Minimize"
+                >
+                  <Minimize2 size={16} />
+                </button>
+                <button 
+                  onClick={() => { setIsOpen(false); setIsHidden(true); }} 
+                  className="p-2 text-black/50 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                  title="Terminate Console (Ctrl + / to restore)"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
-            {/* Connection error banner */}
-            {connectionError && (
-              <div className="mx-4 mt-3 p-2 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg text-xs flex items-center justify-between">
-                <span className="flex items-center gap-1"><AlertCircle size={14} /> Backend unreachable</span>
-                <button onClick={() => window.location.reload()} className="underline flex items-center gap-1">
-                  <RefreshCw size={12} /> Retry
-                </button>
+            {/* Error Banner for Missing Key */}
+            {!API_KEY && (
+              <div className="px-4 py-3 bg-red-500/10 border-b border-red-500/30 flex items-start gap-3">
+                <AlertTriangle size={16} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <div className="font-mono text-xs text-red-600 dark:text-red-400">
+                  <span className="font-bold uppercase tracking-widest block mb-1">Configuration Required</span>
+                  Add <code className="bg-red-500/20 px-1 py-0.5">VITE_GEMINI_API_KEY</code> to your environment file to enable local processing.
+                </div>
               </div>
             )}
 
             {/* Chat history */}
-            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-zinc-900">
+            <div className="flex-1 p-6 overflow-y-auto bg-white dark:bg-[#09090B]">
               {messages.map((msg, idx) => <ChatMessage key={idx} msg={msg} />)}
               {isTyping && <TypingIndicator />}
               <div ref={messagesEndRef} />
             </div>
 
             {/* Quick prompts */}
-            {messages.length === 1 && !isTyping && !connectionError && (
-              <div className="px-4 pb-2 flex flex-wrap gap-2 shrink-0">
+            {messages.length === 1 && !isTyping && API_KEY && (
+              <div className="px-6 pb-4 flex flex-wrap gap-2 shrink-0 border-t border-black/5 dark:border-white/5 pt-4">
+                <span className="w-full font-mono text-[10px] text-black/40 dark:text-white/40 uppercase tracking-widest mb-1">Suggested Queries</span>
                 {quickPrompts.map((prompt, i) => (
                   <button
                     key={i}
                     onClick={() => handleSend(prompt)}
-                    className="text-xs px-3 py-1.5 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300 rounded-full hover:bg-cyan-200 transition"
+                    className="font-mono text-xs px-3 py-2 border border-black/10 dark:border-white/10 hover:border-blue-600 dark:hover:border-blue-600 hover:text-blue-600 text-black/70 dark:text-white/70 transition-colors"
                   >
                     {prompt}
                   </button>
@@ -226,54 +280,31 @@ const AIAssistant = ({ context = "", disabled = false }) => {
             )}
 
             {/* Input area */}
-            <div className="p-4 bg-white dark:bg-zinc-800 border-t shrink-0">
-              <div className="flex items-center space-x-2 bg-slate-100 dark:bg-zinc-900 p-1.5 rounded-full border focus-within:ring-2 focus-within:ring-cyan-500">
+            <div className="p-4 border-t border-black/10 dark:border-white/10 shrink-0 bg-black/5 dark:bg-white/5">
+              <div className="flex items-center gap-3">
+                <div className="font-mono text-blue-600 text-sm font-bold pl-2">{">"}</div>
                 <input
                   ref={inputRef}
                   type="text"
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSend()}
-                  placeholder={connectionError ? "Backend offline – start the server" : "Ask a science question..."}
-                  className="flex-1 bg-transparent px-4 py-2 outline-none text-sm md:text-base"
-                  disabled={isTyping || connectionError}
+                  placeholder="Enter query..."
+                  className="flex-1 bg-transparent px-2 py-2 outline-none text-sm font-mono text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/30"
+                  disabled={isTyping || !API_KEY}
                 />
                 <button
                   onClick={() => handleSend()}
-                  disabled={!input.trim() || isTyping || connectionError}
-                  className="p-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-full hover:opacity-90 disabled:opacity-50 transition-transform transform hover:scale-105 active:scale-95"
+                  disabled={!input.trim() || isTyping || !API_KEY}
+                  className="p-3 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition-colors"
                 >
-                  <Send size={18} />
+                  <Send size={16} />
                 </button>
-              </div>
-              <div className="mt-2 text-center text-[10px] text-slate-400 flex items-center justify-center gap-1">
-                <Sparkles size={10} /> AI can make mistakes. Think critically!
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Floating button */}
-      {!isOpen && (
-        <motion.button
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsOpen(true)}
-          className="relative group p-4 bg-gradient-to-br from-cyan-500 to-blue-600 text-white rounded-full shadow-lg hover:shadow-cyan-500/50 transition-all"
-        >
-          <span className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-30"></span>
-          <Bot size={28} className="relative z-10" />
-          {messages.length === 1 && !connectionError && (
-            <span className="absolute -top-1 -right-1 flex h-4 w-4">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white"></span>
-            </span>
-          )}
-        </motion.button>
-      )}
     </div>
   );
 };
