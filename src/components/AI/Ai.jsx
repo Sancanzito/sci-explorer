@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { Terminal, Send, X, AlertTriangle, GripVertical, SquareTerminal, Minimize2 } from 'lucide-react';
 
 // ==================== LOCAL AI CONFIGURATION ====================
 // Initialize Gemini directly in the frontend for local, standalone execution.
 // Ensure VITE_GEMINI_API_KEY is present in your .env or .env.local file.
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-const genAI = new GoogleGenerativeAI(API_KEY);
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 // ==================== Markdown helper ====================
 const formatText = (text) => {
@@ -76,7 +76,7 @@ const AIAssistant = ({ context = "" }) => {
   
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const containerRef = useRef(null); // Ref for drag constraints
+  const containerRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -92,13 +92,12 @@ const AIAssistant = ({ context = "" }) => {
     }
   }, [isOpen]);
 
-  // Global Keyboard Shortcut to unhide/toggle the widget (Ctrl + /)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === '/') {
         e.preventDefault();
         setIsHidden((prev) => {
-          if (prev) setIsOpen(true); // Auto-open if we are unhiding
+          if (prev) setIsOpen(true);
           return !prev;
         });
       }
@@ -130,27 +129,28 @@ const AIAssistant = ({ context = "" }) => {
     setIsTyping(true);
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      
-      // Format history for Gemini SDK
-      const history = messages
-        .filter(m => !m.isError && m.text.trim() !== "") // exclude errors
+      const formattedHistory = messages
+        .filter(m => !m.isError && m.text.trim() !== "") 
+        .slice(1) 
         .map(m => ({
           role: m.role === 'ai' ? 'model' : 'user',
           parts: [{ text: m.text }]
         }));
 
-      // Inject strict context invisibly
+      const contents = [...formattedHistory, { role: 'user', parts: [{ text: trimmed }] }];
+
       const systemInstruction = "You are a stark, precise laboratory AI. Answer questions directly, factually, and concisely. No emojis. " + context;
       
-      const chat = model.startChat({
-      history: history.slice(1), // Skip the hardcoded greeting to avoid conflicts
-      systemInstruction: {
-      parts: [{ text: systemInstruction }]
-  },  
-});
-      const result = await chat.sendMessage(trimmed);
-      const responseText = result.response.text();
+      // Updated to use the latest free stable model gemini-2.5-flash
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: contents,
+        config: {
+          systemInstruction: systemInstruction
+        }
+      });
+      
+      const responseText = response.text;
       
       setMessages(prev => [...prev, { role: 'ai', text: responseText }]);
     } catch (err) {
@@ -167,13 +167,11 @@ const AIAssistant = ({ context = "" }) => {
 
   const quickPrompts = ["Explain thermodynamics", "Standard laboratory protocols", "Define stoichiometry"];
 
-  // Completely unmount if hidden
   if (isHidden) return null;
 
   return (
     <div ref={containerRef} className="fixed inset-0 pointer-events-none z-50">
       
-      {/* --- DRAGGABLE CONTROLLER PILL --- */}
       {!isOpen && (
         <motion.div
           drag
@@ -181,12 +179,10 @@ const AIAssistant = ({ context = "" }) => {
           dragConstraints={containerRef}
           className="absolute bottom-8 right-8 pointer-events-auto flex items-stretch bg-white dark:bg-[#09090B] border border-black/10 dark:border-white/10 shadow-2xl"
         >
-          {/* Drag Handle */}
           <div className="flex items-center justify-center px-2 cursor-grab active:cursor-grabbing border-r border-black/10 dark:border-white/10 text-black/30 dark:text-white/30 hover:text-blue-600 transition-colors bg-black/5 dark:bg-white/5">
             <GripVertical size={16} />
           </div>
           
-          {/* Main Button */}
           <button
             onClick={() => setIsOpen(true)}
             className="flex items-center gap-3 px-6 py-3 font-mono text-xs font-bold uppercase tracking-widest text-black dark:text-white hover:text-blue-600 transition-colors group"
@@ -195,7 +191,6 @@ const AIAssistant = ({ context = "" }) => {
             <span>AI Console</span>
           </button>
           
-          {/* Hide Button */}
           <button
             onClick={() => setIsHidden(true)}
             className="flex items-center justify-center px-4 border-l border-black/10 dark:border-white/10 text-black/40 hover:text-red-500 hover:bg-red-500/10 transition-colors"
@@ -206,7 +201,6 @@ const AIAssistant = ({ context = "" }) => {
         </motion.div>
       )}
 
-      {/* --- MAIN CHAT WINDOW --- */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -216,7 +210,6 @@ const AIAssistant = ({ context = "" }) => {
             transition={{ duration: 0.2 }}
             className="absolute bottom-6 right-6 pointer-events-auto w-[90vw] md:w-[450px] h-[75vh] md:h-[700px] max-h-[85vh] bg-white dark:bg-[#09090B] border border-black/10 dark:border-white/10 shadow-2xl flex flex-col"
           >
-            {/* Header */}
             <div className="p-4 border-b border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3 text-black dark:text-white">
                 <Terminal size={18} className="text-blue-600" />
@@ -245,7 +238,6 @@ const AIAssistant = ({ context = "" }) => {
               </div>
             </div>
 
-            {/* Error Banner for Missing Key */}
             {!API_KEY && (
               <div className="px-4 py-3 bg-red-500/10 border-b border-red-500/30 flex items-start gap-3">
                 <AlertTriangle size={16} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
@@ -256,14 +248,12 @@ const AIAssistant = ({ context = "" }) => {
               </div>
             )}
 
-            {/* Chat history */}
             <div className="flex-1 p-6 overflow-y-auto bg-white dark:bg-[#09090B]">
               {messages.map((msg, idx) => <ChatMessage key={idx} msg={msg} />)}
               {isTyping && <TypingIndicator />}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Quick prompts */}
             {messages.length === 1 && !isTyping && API_KEY && (
               <div className="px-6 pb-4 flex flex-wrap gap-2 shrink-0 border-t border-black/5 dark:border-white/5 pt-4">
                 <span className="w-full font-mono text-[10px] text-black/40 dark:text-white/40 uppercase tracking-widest mb-1">Suggested Queries</span>
@@ -279,7 +269,6 @@ const AIAssistant = ({ context = "" }) => {
               </div>
             )}
 
-            {/* Input area */}
             <div className="p-4 border-t border-black/10 dark:border-white/10 shrink-0 bg-black/5 dark:bg-white/5">
               <div className="flex items-center gap-3">
                 <div className="font-mono text-blue-600 text-sm font-bold pl-2">{">"}</div>

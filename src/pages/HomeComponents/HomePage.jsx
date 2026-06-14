@@ -161,31 +161,6 @@ export default function HomePage() {
       {/* Main Content Area */}
       <div className="relative z-10 max-w-[1400px] mx-auto">
         
-        {/* HEADER */}
-        <header className="p-8 flex justify-between items-center border-b border-black/10 dark:border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 flex items-center justify-center text-white font-bold font-mono text-xs">
-              S
-            </div>
-            <span className="font-mono text-sm tracking-widest uppercase font-bold text-black dark:text-white">Sci-Hub</span>
-          </div>
-          
-          {/* Gamification Badge */}
-          <div className="flex items-center gap-4 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 px-4 py-2">
-            <Star size={16} className="text-red-500" />
-            <div className="flex flex-col">
-              <span className="font-mono text-[10px] text-black dark:text-white uppercase tracking-widest">Level 4 • Azel</span>
-              <div className="w-24 h-1 bg-black/10 dark:bg-white/10 mt-1">
-                <motion.div 
-                  className="h-full bg-blue-600"
-                  initial={{ width: 0 }}
-                  animate={{ width: '65%' }}
-                  transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
-                />
-              </div>
-            </div>
-          </div>
-        </header>
 
         {/* 1. HERO SECTION */}
         <section className="min-h-[80vh] flex flex-col justify-center px-8 py-24">
