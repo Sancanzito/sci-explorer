@@ -1,109 +1,112 @@
 // pages/ArticlePage/ScientificBackground.jsx
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Points, PointMaterial, Torus, Cylinder, Sphere } from '@react-three/drei';
+import { Points, PointMaterial, Instances, Instance } from '@react-three/drei';
+import * as THREE from 'three';
 
-const AtomicParticles = ({ isDarkMode }) => {
+const DataParticles = ({ isDarkMode }) => {
   const ref = useRef();
-  const count = 250;
+  const count = 1500;
   
   const positions = useMemo(() => {
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 15;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 15;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 10 - 5;
+      pos[i * 3] = (Math.random() - 0.5) * 25; // x
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 25; // y
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 15; // z
     }
     return pos;
   }, [count]);
 
   useFrame((state) => {
     if (!ref.current) return;
-    ref.current.rotation.y = state.clock.elapsedTime * 0.05;
-    ref.current.rotation.x = state.clock.elapsedTime * 0.02;
+    ref.current.rotation.y = state.clock.elapsedTime * 0.02;
+    ref.current.rotation.x = state.clock.elapsedTime * 0.01;
   });
 
   return (
     <Points ref={ref} positions={positions} stride={3} frustumCulled={false}>
       <PointMaterial 
         transparent 
-        color={isDarkMode ? "#06b6d4" : "#2563eb"} 
-        size={0.08} 
+        color={isDarkMode ? "#06b6d4" : "#0ea5e9"} 
+        size={0.03} 
         sizeAttenuation={true} 
         depthWrite={false} 
-        opacity={0.6}
+        opacity={0.4}
       />
     </Points>
   );
 };
 
-const MolecularOrbits = ({ isDarkMode }) => {
+// Represents floating "Documents" or "Data Slates"
+const DataSlates = ({ isDarkMode }) => {
   const groupRef = useRef();
-  
+  const slateCount = 40;
+
+  const slates = useMemo(() => {
+    return new Array(slateCount).fill().map(() => ({
+      position: [
+        (Math.random() - 0.5) * 20,
+        (Math.random() - 0.5) * 20,
+        (Math.random() - 0.5) * 10 - 5
+      ],
+      rotation: [
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        0
+      ],
+      scale: 0.5 + Math.random() * 1.5,
+      speed: 0.05 + Math.random() * 0.1
+    }));
+  }, [slateCount]);
+
   useFrame((state) => {
     if (!groupRef.current) return;
-    groupRef.current.rotation.x = state.clock.elapsedTime * 0.1;
-    groupRef.current.rotation.y = state.clock.elapsedTime * 0.15;
+    const time = state.clock.elapsedTime;
+    groupRef.current.children.forEach((child, i) => {
+      child.position.y += Math.sin(time * slates[i].speed) * 0.005;
+      child.rotation.x += 0.001 * slates[i].speed;
+      child.rotation.y += 0.002 * slates[i].speed;
+    });
   });
 
-  const color = isDarkMode ? "#a855f7" : "#4f46e5";
+  const materialColor = isDarkMode ? "#a855f7" : "#3b82f6";
 
   return (
-    <group ref={groupRef} position={[4, 2, -8]}>
-      <Torus args={[2, 0.02, 16, 64]} rotation={[Math.PI / 2, 0, 0]}>
-        <meshBasicMaterial color={color} transparent opacity={0.3} />
-      </Torus>
-      <Torus args={[2, 0.02, 16, 64]} rotation={[0, Math.PI / 2, 0]}>
-        <meshBasicMaterial color={color} transparent opacity={0.3} />
-      </Torus>
-      <Sphere args={[0.3, 16, 16]}>
-        <meshBasicMaterial color={color} transparent opacity={0.8} />
-      </Sphere>
-    </group>
-  );
-};
-
-const LowPolyFlask = ({ isDarkMode }) => {
-  const groupRef = useRef();
-  
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    groupRef.current.position.y = Math.sin(state.clock.elapsedTime) * 0.5 - 2;
-    groupRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
-  });
-
-  const glassColor = isDarkMode ? "#ffffff" : "#cbd5e1";
-  const liquidColor = isDarkMode ? "#10b981" : "#059669";
-
-  return (
-    <group ref={groupRef} position={[-5, -2, -6]} rotation={[0.2, 0.5, 0]}>
-      <Cylinder args={[0.4, 1.5, 2.5, 16]} material-transparent material-opacity={0.2} material-color={glassColor} />
-      <Cylinder args={[0.4, 0.4, 1.5, 16]} position={[0, 2, 0]} material-transparent material-opacity={0.2} material-color={glassColor} />
-      <Cylinder args={[0.35, 1.4, 2.2, 16]} position={[0, -0.1, 0]} material-transparent material-opacity={0.6} material-color={liquidColor} />
+    <group ref={groupRef}>
+      <Instances limit={slateCount} range={slateCount}>
+        <planeGeometry args={[1, 1.4]} />
+        <meshBasicMaterial 
+          color={materialColor} 
+          transparent 
+          opacity={isDarkMode ? 0.05 : 0.08} 
+          wireframe 
+          side={THREE.DoubleSide}
+        />
+        {slates.map((slate, i) => (
+          <Instance 
+            key={i} 
+            position={slate.position} 
+            rotation={slate.rotation} 
+            scale={slate.scale} 
+          />
+        ))}
+      </Instances>
     </group>
   );
 };
 
 const ScientificBackground = ({ isDarkMode }) => {
-  // Device capability check
-  const isLowEnd = useMemo(() => {
-    if (typeof navigator === 'undefined') return false;
-    return (navigator.deviceMemory && navigator.deviceMemory < 4) || 
-           (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4);
-  }, []);
-
-  if (isLowEnd) {
-    return (
-      <div className={`fixed inset-0 z-0 pointer-events-none ${isDarkMode ? 'bg-gradient-to-br from-cyan-900/20 to-purple-900/20' : 'bg-gradient-to-br from-cyan-100 to-blue-100'}`} />
-    );
-  }
-
   return (
-    <div className="fixed inset-0 z-0 pointer-events-none opacity-50 mix-blend-screen">
-      <Canvas dpr={Math.min(window.devicePixelRatio || 1, 2)} camera={{ position: [0, 0, 10], fov: 45 }}>
-        <AtomicParticles isDarkMode={isDarkMode} />
-        <MolecularOrbits isDarkMode={isDarkMode} />
-        <LowPolyFlask isDarkMode={isDarkMode} />
+    <div className="fixed inset-0 z-0 pointer-events-none">
+      {/* dpr restriction prevents high-res displays from tanking framerate */}
+      <Canvas 
+        dpr={[1, 1.5]} 
+        camera={{ position: [0, 0, 10], fov: 60 }}
+        gl={{ alpha: true, antialias: false }}
+      >
+        <DataParticles isDarkMode={isDarkMode} />
+        <DataSlates isDarkMode={isDarkMode} />
       </Canvas>
     </div>
   );

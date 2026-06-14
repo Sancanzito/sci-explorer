@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Google Fonts for scientific typography */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap');
+
 /* Force hide KaTeX MathML nodes – prevents raw text leakage */
 .katex-mathml,
 .katex .katex-mathml {
@@ -17,9 +20,22 @@
   pointer-events: none !important;
 }
 
-@theme {
-  /* This maps your custom variable to a Tailwind utility name */
-  --color-dark-bg: #030712;
+/* Custom properties for theme colors */
+:root {
+  --fluorescent-cyan: #00F5FF;
+  --fluorescent-magenta: #FF00FF;
+  --fluorescent-yellow: #FFFF00;
+  --fluorescent-blue: #0066FF;
+  --fluorescent-green: #00FF00;
+  --fluorescent-red: #FF0066;
+  
+  --dark-bg: #0A0A0A;
+  --dark-surface: #111111;
+  --dark-elevated: #1A1A1A;
+  
+  --light-bg: #F8F9FA;
+  --light-surface: #FFFFFF;
+  --light-elevated: #F0F0F0;
 }
 
 /* Explicitly define the dark variant to look at the root .dark class */
@@ -28,6 +44,26 @@
 @layer base {
   body {
     @apply m-0 p-0 transition-colors duration-200;
+    background-color: var(--light-bg);
+    color: var(--dark-bg);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  
+  /* Headings use Orbitron for a scientific, futuristic feel */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Orbitron', system-ui, sans-serif;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* UI elements use Space Grotesk */
+  .ui-font {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+  }
+  
+  /* Code-like elements */
+  code, kbd, samp {
+    font-family: 'IBM Plex Mono', monospace;
   }
 }
 .custom-scrollbar::-webkit-scrollbar {
