@@ -13,7 +13,10 @@ import { TableOfContents } from './pages/TableOfContents';
 import { SectionPage } from './pages/SectionPage';
 import { Completion } from './pages/Completion';
 import { QuestionPlaceholder } from './pages/QuestionPlaceholder';
+
+//why section
 import { WhySkyIsBlue } from './sections/why/WhyIsTheSkyBlue/WhyIsTheSkyBlue';
+import { WhyLeavesChangeColor } from './sections/why/WhydoLeavesChangeColor/WhydoLeavesChangeColor';
 
 export default function ScienceQuestApp() {
   return (
@@ -34,6 +37,7 @@ export default function ScienceQuestApp() {
           //why section with routes for each question
           <Route path="why" element={<SectionPage sectionId="why" />} />
           <Route path="why/why-is-the-sky-blue" element={<WhySkyIsBlue />} />
+          <Route path="why/why-do-leaves-change-color-in-autumn" element={<WhyLeavesChangeColor />} />
           <Route path="why/*" element={<QuestionPlaceholder />} />
 
           //when section with routes for each question
