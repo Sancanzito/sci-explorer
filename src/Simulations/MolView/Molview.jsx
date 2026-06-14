@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { 
   Search, Atom, Loader2, AlertCircle, 
   PenTool, Eraser, TestTube, Database, Info, Zap, ImageIcon, Beaker,
-  Copy, Check, Activity
+  Copy, Check, Activity, ExternalLink 
 } from 'lucide-react';
 
 // ============================================================
@@ -813,11 +813,24 @@ const InfoPanel = () => {
           </div>
         </div>
         
+        {/* NEW WIKIPEDIA LINK SECTION */}
         {currentCompound.description && (
           <div>
             <label className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Educational Insight</label>
-            <div className="text-gray-400 text-xs italic mt-2 leading-relaxed p-4 bg-gray-800/50 rounded-xl border border-gray-700/50">
-              "{currentCompound.description}"
+            <div className="text-gray-400 text-xs mt-2 leading-relaxed p-4 bg-gray-800/50 rounded-xl border border-gray-700/50 flex flex-col gap-3">
+              <span className="italic">"{currentCompound.description}"</span>
+              
+              {currentCompound.name && currentCompound.name !== 'Custom Structure' && (
+                <a 
+                  href={`https://en.wikipedia.org/wiki/${encodeURIComponent(currentCompound.name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium text-cyan-400 hover:text-cyan-300 transition-colors w-max not-italic"
+                >
+                  <ExternalLink size={12} />
+                  Read more on Wikipedia
+                </a>
+              )}
             </div>
           </div>
         )}

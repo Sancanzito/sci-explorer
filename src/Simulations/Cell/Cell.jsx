@@ -1,5 +1,6 @@
 // CellExplorer.jsx (Enhanced with Free Camera Movement)
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stage, useGLTF } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -203,9 +204,40 @@ function OrganelleCarousel() {
 }
 
 // Model Loader
-function CellModel({ modelUrl }) {
-  const { scene } = useGLTF(modelUrl);
-  return <primitive object={scene} />;
+// Model Loader (Enhanced with Auto-Scaling and Centering)
+function CellModel({ modelUrl, scale = 2.5 }) {
+  const gltf = useGLTF(modelUrl);
+  
+  const normalizedScene = useMemo(() => {
+    // 1. Clone the scene so we don't mutate the cached useGLTF geometry
+    const clonedScene = gltf.scene.clone(true);
+    
+    // 2. Calculate the bounding box of the loaded model
+    const box = new THREE.Box3().setFromObject(clonedScene);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    
+    // 3. Find the largest dimension (width, height, or depth)
+    const maxDim = Math.max(size.x, size.y, size.z);
+    
+    // 4. Create a scale multiplier that forces the model to a normalized size
+    const normalizeScale = maxDim > 0 ? (2 / maxDim) : 1; 
+    const totalScale = normalizeScale * scale;
+    
+    // 5. Apply the uniform scale
+    clonedScene.scale.set(totalScale, totalScale, totalScale);
+    
+    // 6. Push the model's center point exactly to the world origin (0,0,0)
+    clonedScene.position.set(
+      -center.x * totalScale, 
+      -center.y * totalScale, 
+      -center.z * totalScale
+    );
+    
+    return clonedScene;
+  }, [gltf.scene, scale]);
+
+  return <primitive object={normalizedScene} />;
 }
 
 // Enhanced Camera Controller with Pan and Free Movement
