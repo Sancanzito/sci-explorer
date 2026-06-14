@@ -407,11 +407,11 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="bg-[var(--lab-red)]/20 dark:bg-[var(--lab-red-dark)]/20 border border-[var(--lab-red)]/40 dark:border-[var(--lab-red-dark)]/40 rounded-2xl p-8 text-center relative z-10">
-          <AlertCircle className="text-[var(--lab-red)] dark:text-[var(--lab-red-dark)] w-12 h-12 mx-auto mb-4" />
-          <h3 className="text-[var(--lab-text)] dark:text-[var(--lab-text-dark)] font-bold text-lg mb-2">Molecular Canvas Error</h3>
-          <p className="text-[var(--lab-placeholder)]/70 dark:text-[var(--lab-placeholder-dark)]/70 text-sm mb-4">The chemical editor encountered an error. Please try refreshing the page.</p>
-          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-[var(--lab-red)]/60 dark:bg-[var(--lab-red-dark)]/60 hover:bg-[var(--lab-red)]/50 dark:hover:bg-[var(--lab-red-dark)]/50 text-[var(--lab-paper)] dark:text-[var(--lab-paper-dark)] rounded-lg transition-colors">
+        <div className="bg-[#C41E3A]/20 border border-[#C41E3A]/40 rounded-2xl p-8 text-center relative z-10">
+          <AlertCircle className="text-[#C41E3A] w-12 h-12 mx-auto mb-4" />
+          <h3 className="text-[#2D3748] font-bold text-lg mb-2">Molecular Canvas Error</h3>
+          <p className="text-[#5D6D7E]/70 text-sm mb-4">The chemical editor encountered an error. Please try refreshing the page.</p>
+          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-[#C41E3A]/60 hover:bg-[#C41E3A]/50 text-[#FDF6E3] rounded-lg transition-colors">
             Reload Page
           </button>
         </div>
@@ -429,8 +429,8 @@ const CopyButton = ({ text }) => {
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <button onClick={handleCopy} className="ml-2 text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60 hover:text-[var(--lab-blue)]/60 dark:hover:text-[var(--lab-blue-dark)]/60 transition-colors p-1 rounded hover:bg-[var(--lab-blue)]/30 dark:hover:bg-[var(--lab-blue-dark)]/30" title="Copy to clipboard">
-      {copied ? <Check size={14} className="text-[var(--lab-green)]/60 dark:text-[var(--lab-green-dark)]/60" /> : <Copy size={14} className="text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60" />}
+    <button onClick={handleCopy} className="ml-2 text-gray-500 hover:text-cyan-400 transition-colors p-1 rounded hover:bg-gray-700/50" title="Copy to clipboard">
+      {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
     </button>
   );
 };
@@ -535,34 +535,34 @@ const SearchBar = () => {
   return (
     <div className="relative group z-50" ref={dropdownRef}>
       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-        <Search className="text-[var(--lab-blue)] dark:text-[var(--lab-blue-dark)]" size={20} />
+        <Search className="text-[#2E5A88]" size={20} />
       </div>
       <input
         type="text" value={searchQuery}
         onChange={(e) => { setSearchQuery(e.target.value); setShowDropdown(true); }}
         onKeyDown={(e) => e.key === 'Enter' && handleCompoundLoad(searchQuery)}
         placeholder="Search compound, formula, or SMILES (e.g. benz, Na, sulfate)..."
-        className="w-full bg-[var(--lab-paper)]/80 dark:bg-[var(--lab-paper-dark)]/80 border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30 rounded-2xl py-4 pl-12 pr-32 text-[var(--lab-text)] dark:text-[var(--lab-text-dark)] placeholder-[var(--lab-placeholder)]/60 focus:outline-none focus:ring-2 focus-ring-[var(--lab-blue)]/50 dark:focus:ring-[var(--lab-blue-dark)]/50 shadow-xl transition-all backdrop-blur-sm"
+        className="w-full bg-[#FDF6E3]/80 border border-[#2E5A88]/30 rounded-2xl py-4 pl-12 pr-32 text-[#2D3748] placeholder-[#5D6D7E]/60 focus:outline-none focus:ring-2 focus-ring-[#2E5A88]/50 shadow-lg transition-all backdrop-blur-sm"
       />
-      {isSearching && <div className="absolute right-20 top-1/2 -translate-y-1/2 flex items-center"><Loader2 className="animate-spin text-[var(--lab-blue)] dark:text-[var(--lab-blue-dark)]" size={18} /></div>}
-      <button onClick={() => handleCompoundLoad(searchQuery)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-[var(--lab-blue)] hover:bg-[var(--lab-blue)]/90 text-[var(--lab-paper)] dark:text-[var(--lab-paper-dark)] px-5 py-2 rounded-xl font-medium transition-all shadow-lg flex items-center gap-2">
+      {isSearching && <div className="absolute right-20 top-1/2 -translate-y-1/2 flex items-center"><Loader2 className="animate-spin text-[#2E5A88]" size={18} /></div>}
+      <button onClick={() => handleCompoundLoad(searchQuery)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-[#2E5A88] hover:bg-[#2E5A88]/90 text-[#FDF6E3] px-5 py-2 rounded-xl font-medium transition-all shadow-lg flex items-center gap-2">
         {useChemicalStore.getState().loading && <Loader2 size={16} className="animate-spin" />} Search
       </button>
 
       {showDropdown && searchQuery.length >= 2 && (
-        <div className="absolute top-full mt-2 w-full bg-[var(--lab-paper)]/90 dark:bg-[var(--lab-paper-dark)]/90 backdrop-blur-lg border border-[var(--lab-blue)]/40 dark:border-[var(--lab-blue-dark)]/40 rounded-xl shadow-2xl overflow-hidden z-50">
+        <div className="absolute top-full mt-2 w-full bg-[#FDF6E3]/90 backdrop-blur-lg border border-[#2E5A88]/40 rounded-xl shadow-2xl overflow-hidden z-50">
           {suggestions.length > 0 ? (
             <ul className="max-h-64 overflow-y-auto custom-scrollbar">
               {suggestions.map((s, i) => (
-                <li key={i} onClick={() => handleCompoundLoad(s)} className="px-4 py-3 hover:bg-[var(--lab-blue)]/20 dark:hover:bg-[var(--lab-blue-dark)]/20 cursor-pointer text-[var(--lab-text)] dark:text-[var(--lab-text-dark)] border-b border-[var(--lab-blue)]/20 dark:border-[var(--lab-blue-dark)]/20 transition-colors flex items-center justify-between">
+                <li key={i} onClick={() => handleCompoundLoad(s)} className="px-4 py-3 hover:bg-[#2E5A88]/20 cursor-pointer text-[#2D3748] border-b border-[#2E5A88]/20 transition-colors flex items-center justify-between">
                   <span className="font-medium">{s}</span>
-                  <span className="text-xs text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60 uppercase">Verified DB</span>
+                  <span className="text-xs text-[#5D6D7E]/60 uppercase">Verified DB</span>
                 </li>
               ))}
             </ul>
           ) : !isSearching && (
-             <div className="px-4 py-4 text-[var(--lab-red)] dark:text-[var(--lab-red-dark)] flex items-center gap-2 text-sm">
-               <AlertCircle size={16} className="text-[var(--lab-red)] dark:text-[var(--lab-red-dark)]" /> No verified compound found.
+             <div className="px-4 py-4 text-[#C41E3A] flex items-center gap-2 text-sm">
+               <AlertCircle size={16} className="text-[#C41E3A]" /> No verified compound found.
              </div> 
           )}
         </div>
@@ -655,43 +655,42 @@ const UnifiedMolecularCanvas = () => {
   
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col bg-[var(--lab-blue)]/10 dark:bg-[var(--lab-blue-dark)]/10 border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30 rounded-2xl overflow-hidden shadow-2xl">
-        <div className="p-4 border-b border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30 flex flex-col md:flex-row md:justify-between md:items-center bg-[var(--lab-blue)]/20 dark:bg-[var(--lab-blue-dark)]/20 gap-4 relative z-20">
+      <div className="flex flex-col bg-[#2E5A88]/10 border border-[#2E5A88]/30 rounded-2xl overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-[#2E5A88]/30 flex flex-col md:flex-row md:justify-between md:items-center bg-[#2E5A88]/20 gap-4 relative z-20">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-[var(--lab-blue)]/30 dark:bg-[var(--lab-blue-dark)]/30 rounded-lg"><PenTool size={20} className="text-[var(--lab-blue)]/60 dark:text-[var(--lab-blue-dark)]/60" /></div>
+            <div className="p-2 bg-[#2E5A88]/30 rounded-lg"><PenTool size={20} className="text-[#2E5A88]/60" /></div>
             <div>
-              <h2 className="text-[var(--lab-text)] dark:text-[var(--lab-text-dark)] font-bold flex items-center gap-3">
+              <h2 className="text-[#2D3748] font-bold flex items-center gap-3">
                 Interactive Chemical Canvas
                 <AnimatePresence>
                   {autoAnalyzing && (
-                    <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="flex items-center gap-1.5 text-xs bg-[var(--lab-blue)]/40 dark:bg-[var(--lab-blue-dark)]/40 text-[var(--lab-blue)]/60 dark:text-[var(--lab-blue-dark)]/60 px-2.5 py-1 rounded-full font-medium">
+                    <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="flex items-center gap-1.5 text-xs bg-[#2E5A88]/40 text-[#2E5A88]/60 px-2.5 py-1 rounded-full font-medium">
                       <Loader2 size={12} className="animate-spin" /> Auto-analyzing
                     </motion.span>
                   )}
                 </AnimatePresence>
               </h2>
-              <p className="text-[var(--lab-text)] dark:text-[var(--lab-text-dark)] text-xs">Professional molecular editor with stereochemistry support</p>
+              <p className="text-[#5D6D7E] text-xs">Professional molecular editor with stereochemistry support</p>
             </div>
           </div>
           <div className="flex gap-3">
-            <button onClick={handleReset} className="px-4 py-2 bg-[var(--lab-blue)]/30 dark:bg-[var(--lab-blue-dark)]/30 hover:bg-[var(--lab-blue)]/40 dark:hover:bg-[var(--lab-blue-dark)]/40 text-[var(--lab-text)] dark:text-[var(--lab-text-dark)] rounded-xl text-sm font-medium transition-colors flex items-center gap-2"><Eraser size={16} className="text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60" /> Reset</button>
-            <button onClick={handleAnalyze} className="px-5 py-2 bg-[var(--lab-blue)]/60 dark:bg-[var(--lab-blue-dark)]/60 hover:bg-[var(--lab-blue)]/70 dark:hover:bg-[var(--lab-blue-dark)]/70 text-[var(--lab-paper)] dark:text-[var(--lab-paper-dark)] rounded-xl text-sm font-bold shadow-lg shadow-[var(--lab-blue)]/30 dark:shadow-[var(--lab-blue-dark)]/30 transition-all flex items-center gap-2"><TestTube size={16} className="text-[var(--lab-paper)] dark:text-[var(--lab-paper-dark)]" /> Force Identify</button>
+            <button onClick={handleReset} className="px-4 py-2 bg-[#2E5A88]/30 hover:bg-[#2E5A88]/40 text-[#2D3748] rounded-xl text-sm font-medium transition-colors flex items-center gap-2"><Eraser size={16} className="text-[#5D6D7E]/60" /> Reset</button>
+            <button onClick={handleAnalyze} className="px-5 py-2 bg-[#2E5A88]/60 hover:bg-[#2E5A88]/70 text-[#FDF6E3] rounded-xl text-sm font-bold shadow-lg shadow-[2E5A88]/30 transition-all flex items-center gap-2"><TestTube size={16} className="text-[#FDF6E3]" /> Force Identify</button>
           </div>
         </div>
         
-        <div className="bg-[var(--lab-paper)]/90 dark:bg-[var(--lab-paper-dark)]/90 backdrop-blur-lg w-full relative z-10 p-4" style={{ minHeight: '600px', pointerEvents: 'auto' }}>
+        <div className="bg-[#FDF6E3]/90 backdrop-blur-lg w-full relative z-10 p-4" style={{ minHeight: '600px', pointerEvents: 'auto' }}>
           <ErrorBoundary>
             <Jsme width="100%" height="600px" options="query,hydrogens" onChange={handleStructureChange} onInit={handleJsmeInit} />
           </ErrorBoundary>
         </div>
       </div>
       
-      <div className="bg-[var(--lab-paper)]/90 dark:bg-[var(--lab-paper-dark)]/90 border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30 p-4 rounded-2xl flex flex-col gap-3 shadow-lg">
-       // ✅ Corrected
-<h3 className="text-xs font-bold text-[var(--lab-text)] dark:text-[var(--lab-text-dark)] uppercase tracking-wider flex items-center gap-2"><Zap size={14} className="text-[var(--lab-red)] dark:text-[var(--lab-red-dark)]" /> Molecular Templates (Quick Load)</h3>
+      <div className="bg-[#FDF6E3]/90 backdrop-blur-lg border border-[#2E5A88]/30 p-4 rounded-2xl flex flex-col gap-3 shadow-lg">
+        <h3 className="text-xs font-bold text-[#2D3748] uppercase tracking-wider flex items-center gap-2"><Zap size={14} className="text-[#C41E3A]" /> Molecular Templates (Quick Load)</h3>
         <div className="flex flex-wrap gap-2">
           {QUICK_TEMPLATES.map((template) => (
-            <button key={template.name} onClick={() => handleTemplateClick(template.smiles)} className="px-3 py-1.5 bg-[var(--lab-blue)]/30 dark:bg-[var(--lab-blue-dark)]/30 hover:bg-[var(--lab-blue)]/40 dark:hover:bg-[var(--lab-blue-dark)]/40 hover:text-[var(--lab-red)]/60 dark:hover:text-[var(--lab-red-dark)]/60 hover:border-[var(--lab-blue)]/40 dark:hover:border-[var(--lab-blue-dark)]/40 border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30 rounded-lg text-sm text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 transition-all font-medium">
+            <button key={template.name} onClick={() => handleTemplateClick(template.smiles)} className="px-3 py-1.5 bg-[#2E5A88]/30 hover:bg-[#2E5A88]/40 hover:text-[#C41E3A]/60 hover:border-[#2E5A88]/40 border border-[#2E5A88]/30 rounded-lg text-sm text-[#2D3748]/60 transition-all font-medium">
               {template.name}
             </button>
           ))}
@@ -705,111 +704,111 @@ const InfoPanel = () => {
   const { currentCompound, loading, error, bondData } = useChemicalStore();
   
   if (loading) return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full bg-[var(--lab-blue)]/20 dark:bg-[var(--lab-blue-dark)]/20 rounded-2xl border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30 p-6 flex flex-col space-y-6">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full bg-[#2E5A88]/20 rounded-2xl border border-[#2E5A88]/30 p-6 flex flex-col space-y-6">
        <div className="animate-pulse flex flex-col space-y-6 w-full">
-         <div className="h-48 bg-[var(--lab-blue)]/30 dark:bg-[var(--lab-blue-dark)]/30 rounded-xl w-full"></div>
-         <div className="h-8 bg-[var(--lab-blue)]/20 dark:bg-[var(--lab-blue-dark)]/20 rounded w-3/4"></div>
-         <div className="flex gap-4"><div className="h-6 bg-[var(--lab-blue)]/20 dark:bg-[var(--lab-blue-dark)]/20 rounded w-1/2"></div><div className="h-6 bg-[var(--lab-blue)]/20 dark:bg-[var(--lab-blue-dark)]/20 rounded w-1/2"></div></div>
-         <div className="h-24 bg-[var(--lab-blue)]/40 dark:bg-[var(--lab-blue-dark)]/40 rounded-xl w-full"></div>
-         <div className="h-16 bg-[var(--lab-blue)]/40 dark:bg-[var(--lab-blue-dark)]/40 rounded-xl w-full"></div>
+         <div className="h-48 bg-[#2E5A88]/30 rounded-xl w-full"></div>
+         <div className="h-8 bg-[#2E5A88]/20 rounded w-3/4"></div>
+         <div className="flex gap-4"><div className="h-6 bg-[#2E5A88]/20 rounded w-1/2"></div><div className="h-6 bg-[#2E5A88]/20 rounded w-1/2"></div></div>
+         <div className="h-24 bg-[#2E5A88]/40 rounded-xl w-full"></div>
+         <div className="h-16 bg-[#2E5A88]/40 rounded-xl w-full"></div>
        </div>
     </motion.div>
   );
   
   if (error) return (
-    <div className="h-full bg-[var(--lab-red)]/20 dark:bg-[var(--lab-red-dark)]/20 rounded-2xl border border-[var(--lab-red)]/30 dark:border-[var(--lab-red-dark)]/30 p-8 flex flex-col items-center justify-center text-center">
-      <AlertCircle className="text-[var(--lab-red)] dark:text-[var(--lab-red-dark)]" size={32} />
-      <h3 className="text-[var(--lab-text)] dark:text-[var(--lab-text-dark)] font-bold mb-2">Search Error</h3><p className="text-[var(--lab-placeholder)]/70 dark:text-[var(--lab-placeholder-dark)]/70 text-sm">{error}</p>
+    <div className="h-full bg-[#C41E3A]/20 rounded-2xl border border-[#C41E3A]/30 p-8 flex flex-col items-center justify-center text-center">
+      <AlertCircle className="text-[#C41E3A]" size={32} />
+      <h3 className="text-[#2D3748] font-bold mb-2">Search Error</h3><p className="text-[#5D6D7E]/70 text-sm">{error}</p>
     </div>
   );
   
   if (!currentCompound) return (
-    <div className="h-full bg-[var(--lab-blue)]/30 dark:bg-[var(--lab-blue-dark)]/30 rounded-2xl border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30 p-8 flex flex-col items-center justify-center text-center text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60">
-      <Database className="mb-4 opacity-20" size={48} className="text-[var(--lab-blue)] dark:text-[var(--lab-blue-dark)]" />
-      <p className="font-medium text-[var(--lab-text)] dark:text-[var(--lab-text-dark)]">Molecular Intelligence</p>
-      <p className="text-xs mt-2 leading-relaxed text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60">Search for a compound or draw one on the canvas to analyze its properties.</p>
+    <div className="h-full bg-[#2E5A88]/30 rounded-2xl border border-[#2E5A88]/30 p-8 flex flex-col items-center justify-center text-center text-[#2D3748]/60">
+      <Database size={48} className="mb-4 opacity-20 text-[#2E5A88]" />
+      <p className="font-medium text-[#2D3748]">Molecular Intelligence</p>
+      <p className="text-xs mt-2 leading-relaxed text-[#5D6D7E]/60">Search for a compound or draw one on the canvas to analyze its properties.</p>
     </div>
   );
   
   const functionalGroups = AnalysisService.detectFunctionalGroups(currentCompound.smiles);
   
   return (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="bg-[var(--lab-paper)]/90 dark:bg-[var(--lab-paper-dark)]/90 backdrop-blur-lg rounded-2xl border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30 shadow-2xl flex flex-col overflow-hidden h-full max-h-[850px]">
-      <div className="p-5 bg-[var(--lab-blue)]/40 dark:bg-[var(--lab-blue-dark)]/40 border-b border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30">
-        <h3 className="text-[var(--lab-text)] dark:text-[var(--lab-text-dark)] font-bold flex items-center gap-2"><Info size={18} className="text-[var(--lab-blue)]/60 dark:text-[var(--lab-blue-dark)]/60" /> Smart Chemistry Assistant</h3>
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="bg-[#FDF6E3]/90 backdrop-blur-lg rounded-2xl border border-[#2E5A88]/30 shadow-2xl flex flex-col overflow-hidden h-full max-h-[850px]">
+      <div className="p-5 bg-[#2E5A88]/40 border-b border-[#2E5A88]/30">
+        <h3 className="text-[#2D3748] font-bold flex items-center gap-2"><Info size={18} className="text-[#2E5A88]/60" /> Smart Chemistry Assistant</h3>
       </div>
       <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
         
         {currentCompound.cid && currentCompound.cid !== 'External' && currentCompound.cid !== 'Custom' && (
-          <div className="bg-[var(--lab-paper)] rounded-xl p-4 flex flex-col items-center border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30 shadow-inner relative">
-            <div className="absolute top-2 left-2 text-[10px] uppercase tracking-wider font-bold text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 flex items-center gap-1"><ImageIcon size={10} className="text-[var(--lab-blue)]/60 dark:text-[var(--lab-blue-dark)]/60" /> 2D Preview</div>
+          <div className="bg-[#FDF6E3] rounded-xl p-4 flex flex-col items-center border border-[#2E5A88]/30 shadow-inner relative">
+            <div className="absolute top-2 left-2 text-[10px] uppercase tracking-wider font-bold text-[#2D3748]/60 flex items-center gap-1"><ImageIcon size={10} className="text-[#2E5A88]/60" /> 2D Preview</div>
             <img src={`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${currentCompound.cid}/PNG`} alt="Structure" className="max-h-48 object-contain mix-blend-multiply mt-4" />
           </div>
         )}
         
         <div>
-          <label className="text-[10px] uppercase tracking-widest text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 font-bold flex items-center justify-between">Standard Name <CopyButton text={currentCompound.name} /></label>
-          <div className="text-[var(--lab-text)] dark:text-[var(--lab-text-dark)] text-xl font-bold mt-1">{currentCompound.name}</div>
+          <label className="text-[10px] uppercase tracking-widest text-[#2D3748]/60 font-bold flex items-center justify-between">Standard Name <CopyButton text={currentCompound.name} /></label>
+          <div className="text-[#2D3748] text-xl font-bold mt-1">{currentCompound.name}</div>
         </div>
         
         <div className="flex gap-4">
           <div className="flex-1">
-            <label className="text-[10px] uppercase tracking-widest text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 font-bold flex items-center justify-between">Formula <CopyButton text={currentCompound.molecularFormula} /></label>
-            <div className="text-[var(--lab-blue)] font-mono text-lg mt-1 font-bold">{currentCompound.molecularFormula}</div>
+            <label className="text-[10px] uppercase tracking-widest text-[#2D3748]/60 font-bold flex items-center justify-between">Formula <CopyButton text={currentCompound.molecularFormula} /></label>
+            <div className="text-[#2E5A88] font-mono text-lg mt-1 font-bold">{currentCompound.molecularFormula}</div>
           </div>
           <div className="flex-1">
-            <label className="text-[10px] uppercase tracking-widest text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 font-bold">Mass</label>
-            <div className="text-[var(--lab-text)] dark:text-[var(--lab-text-dark)] text-lg mt-1 font-bold">{currentCompound.molecularWeight} <span className="text-xs text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60 font-normal">g/mol</span></div>
+            <label className="text-[10px] uppercase tracking-widest text-[#2D3748]/60 font-bold">Mass</label>
+            <div className="text-[#2D3748] text-lg mt-1 font-bold">{currentCompound.molecularWeight} <span className="text-xs text-[#5D6D7E]/60 font-normal">g/mol</span></div>
           </div>
         </div>
         
         {/* Advanced Properties Grid */}
-        <div className="grid grid-cols-2 gap-3 bg-[var(--lab-blue)]/30 dark:bg-[var(--lab-blue-dark)]/30 p-4 rounded-xl border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30">
-           <div className="flex flex-col"><span className="text-[9px] text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 font-bold uppercase">LogP (Lipophilicity)</span><span className="text-sm font-medium text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60">{currentCompound.xLogP}</span></div>
-           <div className="flex flex-col"><span className="text-[9px] text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 font-bold uppercase">TPSA</span><span className="text-sm font-medium text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60">{currentCompound.tpsa} Å²</span></div>
-           <div className="flex flex-col"><span className="text-[9px] text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 font-bold uppercase">H-Bond Donors</span><span className="text-sm font-medium text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60">{currentCompound.hBondDonors}</span></div>
-           <div className="flex flex-col"><span className="text-[9px] text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 font-bold uppercase">H-Bond Acceptors</span><span className="text-sm font-medium text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60">{currentCompound.hBondAcceptors}</span></div>
-           <div className="flex flex-col col-span-2"><span className="text-[9px] text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 font-bold uppercase">Rotatable Bonds</span><span className="text-sm font-medium text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60">{currentCompound.rotatableBonds}</span></div>
+        <div className="grid grid-cols-2 gap-3 bg-[#2E5A88]/30 p-4 rounded-xl border border-[#2E5A88]/30">
+           <div className="flex flex-col"><span className="text-[9px] text-[#2D3748]/60 font-bold uppercase">LogP (Lipophilicity)</span><span className="text-sm font-medium text-[#5D6D7E]/60">{currentCompound.xLogP}</span></div>
+           <div className="flex flex-col"><span className="text-[9px] text-[#2D3748]/60 font-bold uppercase">TPSA</span><span className="text-sm font-medium text-[#5D6D7E]/60">{currentCompound.tpsa} Å²</span></div>
+           <div className="flex flex-col"><span className="text-[9px] text-[#2D3748]/60 font-bold uppercase">H-Bond Donors</span><span className="text-sm font-medium text-[#5D6D7E]/60">{currentCompound.hBondDonors}</span></div>
+           <div className="flex flex-col"><span className="text-[9px] text-[#2D3748]/60 font-bold uppercase">H-Bond Acceptors</span><span className="text-sm font-medium text-[#5D6D7E]/60">{currentCompound.hBondAcceptors}</span></div>
+           <div className="flex flex-col col-span-2"><span className="text-[9px] text-[#2D3748]/60 font-bold uppercase">Rotatable Bonds</span><span className="text-sm font-medium text-[#5D6D7E]/60">{currentCompound.rotatableBonds}</span></div>
         </div>
         
         {functionalGroups.length > 0 && (
-          <div className="bg-[var(--lab-blue)]/30 dark:bg-[var(--lab-blue-dark)]/30 border border-[var(--lab-blue)]/40 dark:border-[var(--lab-blue-dark)]/40 rounded-xl p-4">
+          <div className="bg-[#2E5A88]/30 border border-[#2E5A88]/40 rounded-xl p-4">
              <div className="flex items-center gap-2 mb-3">
-              <div className="p-1 bg-[var(--lab-blue)]/30 dark:bg-[var(--lab-blue-dark)]/30 rounded-md"><Beaker size={14} className="text-[var(--lab-blue)]/60 dark:text-[var(--lab-blue-dark)]/60" /></div>
-              <h4 className="text-xs font-bold text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 uppercase tracking-wider">Functional Groups</h4>
+              <div className="p-1 bg-[#2E5A88]/30 rounded-md"><Beaker size={14} className="text-[#2E5A88]/60" /></div>
+              <h4 className="text-xs font-bold text-[#2D3748]/60 uppercase tracking-wider">Functional Groups</h4>
             </div>
             <div className="flex flex-wrap gap-2">
-              {functionalGroups.map(group => (<span key={group} className="px-2.5 py-1 bg-[var(--lab-paper)]/30 dark:bg-[var(--lab-paper-dark)]/30 border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30 rounded-md text-xs text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 shadow-sm font-medium">{group}</span>))}
+              {functionalGroups.map(group => (<span key={group} className="px-2.5 py-1 bg-[#FDF6E3]/30 border border-[#2E5A88]/30 rounded-md text-xs text-[#2D3748]/60 shadow-sm font-medium">{group}</span>))}
             </div>
-            <div className="text-[9px] text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 mt-2 italic">* Detected via SMARTS-like structural matching.</div>
+            <div className="text-[9px] text-[#2D3748]/60 mt-2 italic">* Detected via SMARTS-like structural matching.</div>
           </div>
         )}
         
         {bondData && (
-          <div className="bg-[var(--lab-blue)]/50 dark:bg-[var(--lab-blue-dark)]/50 rounded-xl border border-[var(--lab-blue)]/40 dark:border-[var(--lab-blue-dark)]/40 p-4">
+          <div className="bg-[#2E5A88]/50 rounded-xl border border-[#2E5A88]/40 p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="p-1.5 bg-[var(--lab-red)]/30 dark:bg-[var(--lab-red-dark)]/30 rounded-lg"><Activity size={14} className="text-[var(--lab-red)]/60 dark:text-[var(--lab-red-dark)]/60" /></div>
+              <div className="p-1.5 bg-[#C41E3A]/30 rounded-lg"><Activity size={14} className="text-[#C41E3A]/60" /></div>
               <div className="flex flex-col">
-                <h4 className="text-xs font-bold text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 uppercase tracking-wider">Electronegativity Approximation</h4>
-                <span className="text-[9px] text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60">*Simplified educational model.</span>
+                <h4 className="text-xs font-bold text-[#2D3748]/60 uppercase tracking-wider">Electronegativity Approximation</h4>
+                <span className="text-[9px] text-[#2D3748]/60">*Simplified educational model.</span>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3 mb-3">
-              <div className="text-center p-2 bg-[var(--lab-red)]/30 dark:bg-[var(--lab-red-dark)]/30 rounded-lg border border-[var(--lab-red)]/40 dark:border-[var(--lab-red-dark)]/40"><div className="text-lg font-bold text-[var(--lab-red)]/60 dark:text-[var(--lab-red-dark)]/60">{bondData.ionic}</div><div className="text-[10px] text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60 uppercase tracking-wide">Ionic</div></div>
-              <div className="text-center p-2 bg-[var(--lab-blue)]/30 dark:bg-[var(--lab-blue-dark)]/30 rounded-lg border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30"><div className="text-lg font-bold text-[var(--lab-blue)]/60 dark:text-[var(--lab-blue-dark)]/60">{bondData.polar}</div><div className="text-[10px] text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60 uppercase tracking-wide">Polar</div></div>
-              <div className="text-center p-2 bg-[var(--lab-green)]/30 dark:bg-[var(--lab-green-dark)]/30 rounded-lg border border-[var(--lab-green)]/30 dark:border-[var(--lab-green-dark)]/40"><div className="text-lg font-bold text-[var(--lab-green)]/60 dark:text-[var(--lab-green-dark)]/60">{bondData.nonPolar}</div><div className="text-[10px] text-[var(--lab-placeholder)]/60 dark:text-[var(--lab-placeholder-dark)]/60 uppercase tracking-wide">Non-Polar</div></div>
+              <div className="text-center p-2 bg-[#C41E3A]/30 rounded-lg border border-[#C41E3A]/40"><div className="text-lg font-bold text-[#C41E3A]/60">{bondData.ionic}</div><div className="text-[10px] text-[#5D6D7E]/60 uppercase tracking-wide">Ionic</div></div>
+              <div className="text-center p-2 bg-[#2E5A88]/30 rounded-lg border border-[#2E5A88]/40"><div className="text-lg font-bold text-[#2E5A88]/60">{bondData.polar}</div><div className="text-[10px] text-[#5D6D7E]/60 uppercase tracking-wide">Polar</div></div>
+              <div className="text-center p-2 bg-[#2E8B57]/30 rounded-lg border border-[#2E8B57]/40"><div className="text-lg font-bold text-[#2E8B57]/60">{bondData.nonPolar}</div><div className="text-[10px] text-[#5D6D7E]/60 uppercase tracking-wide">Non-Polar</div></div>
             </div>
           </div>
         )}
         
         <div>
-          <label className="text-[10px] uppercase tracking-widest text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 font-bold flex items-center justify-between">IUPAC Designation <CopyButton text={currentCompound.iupacName} /></label>
-          <div className="text-[var(--lab-text)] dark:text-[var(--lab-text-dark)] text-gray-300 text-sm mt-1 leading-relaxed">{currentCompound.iupacName}</div>
+          <label className="text-[10px] uppercase tracking-widest text-[#2D3748]/60 font-bold flex items-center justify-between">IUPAC Designation <CopyButton text={currentCompound.iupacName} /></label>
+          <div className="text-[#2D3748] text-gray-300 text-sm mt-1 leading-relaxed">{currentCompound.iupacName}</div>
         </div>
         
         <div>
-          <label className="text-[10px] uppercase tracking-widest text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 font-bold flex items-center justify-between">SMILES Notation <CopyButton text={currentCompound?.smiles} /></label>
-          <div className="mt-2 p-3 bg-[var(--lab-paper)]/30 dark:bg-[var(--lab-paper-dark)]/30 rounded-xl border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30 text-[10px] font-mono text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 break-all">
+          <label className="text-[10px] uppercase tracking-widest text-[#2D3748]/60 font-bold flex items-center justify-between">SMILES Notation <CopyButton text={currentCompound?.smiles} /></label>
+          <div className="mt-2 p-3 bg-[#FDF6E3]/30 rounded-xl border border-[#2E5A88]/30 text-[10px] font-mono text-[#2D3748]/60 break-all">
             {currentCompound?.smiles || "SMILES unavailable"}
           </div>
         </div>
@@ -817,8 +816,8 @@ const InfoPanel = () => {
         {/* NEW WIKIPEDIA LINK SECTION */}
         {currentCompound.description && (
           <div>
-            <label className="text-[10px] uppercase tracking-widest text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 font-bold">Educational Insight</label>
-            <div className="text-[var(--lab-text)]/60 dark:text-[var(--lab-text-dark)]/60 text-xs mt-2 leading-relaxed p-4 bg-[var(--lab-blue)]/40 dark:bg-[var(--lab-blue-dark)]/40 rounded-xl border border-[var(--lab-blue)]/30 dark:border-[var(--lab-blue-dark)]/30 flex flex-col gap-3">
+            <label className="text-[10px] uppercase tracking-widest text-[#2D3748]/60 font-bold">Educational Insight</label>
+            <div className="text-[#2D3748]/60 text-xs mt-2 leading-relaxed p-4 bg-[#2E5A88]/40 rounded-xl border border-[#2E5A88]/30 flex flex-col gap-3">
               <span className="italic">"{currentCompound.description}"</span>
               
               {currentCompound.name && currentCompound.name !== 'Custom Structure' && (
@@ -826,9 +825,9 @@ const InfoPanel = () => {
                   href={`https://en.wikipedia.org/wiki/${encodeURIComponent(currentCompound.name)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--lab-blue)]/60 dark:text-[var(--lab-blue-dark)]/60 hover:text-[var(--lab-blue)]/50 dark:hover:text-[var(--lab-blue-dark)]/50 transition-colors w-max not-italic"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#2E5A88]/60 hover:text-[#2E5A88]/50 transition-colors w-max not-italic"
                 >
-                  <ExternalLink size={12} className="text-[var(--lab-blue)]/60 dark:text-[var(--lab-blue-dark)]/60" />
+                  <ExternalLink size={12} className="text-[#2E5A88]/60" />
                   Read more on Wikipedia
                 </a>
               )}
@@ -842,14 +841,14 @@ const InfoPanel = () => {
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-[#FDF6E3] dark:bg-[#0F172A] text-[#2D3748] dark:text-[#F8FAFC] p-4 md:p-10 font-[IBM_Plex_Sans] selection:bg-[#2E5A88]/30 selection:text-[#FDF6E3] dark:selection:bg-[#2E5A88]/30 dark:selection:text-[#0F172A]">
+    <div className="min-h-screen bg-[#FDF6E3] text-[#2D3748] p-4 md:p-10 font-[IBM_Plex_Sans] selection:bg-[#2E5A88]/30 selection:text-[#FDF6E3]">
       <div className="max-w-7xl mx-auto flex flex-col gap-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 bg-gradient-to-br from-[#2E5A88] dark:from-[#3B82F6] to-[#C41E3A] dark:to-[#EF4444] rounded-2xl flex items-center justify-center shadow-2xl shadow-[2E5A88]/50 dark:shadow-[3B82F6]/50"><Atom size={32} className="text-[#FDF6E3] dark:text-[#0F172A]" /></div>
+            <div className="w-16 h-16 bg-gradient-to-br from-[#2E5A88] to-[#C41E3A] rounded-2xl flex items-center justify-center shadow-2xl shadow-[2E5A88]/50"><Atom size={32} className="text-[#FDF6E3]" /></div>
             <div>
-              <h1 className="text-4xl font-black tracking-tight text-[#2D3748] dark:text-[#F8FAFC] uppercase">Chemical <span className="text-[#2E5A88] dark:text-[#3B82F6]">Workstation</span></h1>
-              <p className="text-[#5D6D7E] dark:text-[#9CA3AF] font-medium">Professional Molecular Design & Cheminformatics Platform</p>
+              <h1 className="text-4xl font-black tracking-tight text-[#2D3748] uppercase">Chemical <span className="text-[#2E5A88]">Workstation</span></h1>
+              <p className="text-[#5D6D7E] font-medium">Professional Molecular Design & Cheminformatics Platform</p>
             </div>
           </div>
         </div>
@@ -865,7 +864,7 @@ export default function App() {
           </div>
         </div>
         
-        <div className="text-center text-[#5D6D7E] dark:text-[#9CA3AF] text-[10px] uppercase tracking-[0.2em] font-medium mt-4">
+        <div className="text-center text-[#5D6D7E] text-[10px] uppercase tracking-[0.2em] font-medium mt-4">
           Educational Cheminformatics Platform • Powered by PubChem & JSME Molecular Editor
         </div>
       </div>
@@ -880,19 +879,10 @@ export default function App() {
           --lab-green: #2E8B57;
         }
         
-        .dark {
-          --lab-paper: #0F172A;
-          --lab-blue: #3B82F6;
-          --lab-red: #EF4444;
-          --lab-yellow: #FBBF24;
-          --lab-gray: #9CA3AF;
-          --lab-green: #10B981;
-        }
-        
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(var(--lab-paper), 0.5); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(var(--lab-blue), 0.8); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(var(--lab-blue), 1); }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(253, 246, 227, 0.5); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(46, 90, 136, 0.8); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(46, 90, 136, 1); }
         
         /* Laboratory notebook background pattern */
         body::before {
@@ -920,22 +910,6 @@ export default function App() {
           opacity: 0.7;
         }
         
-        .dark body::before {
-          background-image: 
-            repeating-linear-gradient(
-              0deg,
-              transparent,
-              transparent 29px,
-              rgba(59, 130, 246, 0.05) 30px
-            ),
-            repeating-linear-gradient(
-              90deg,
-              transparent,
-              transparent 29px,
-              rgba(59, 130, 246, 0.05) 30px
-            );
-        }
-        
         /* Subtle molecular watermark */
         body::after {
           content: "";
@@ -949,10 +923,6 @@ export default function App() {
           pointer-events: none;
           z-index: -2;
           opacity: 0.05;
-        }
-        
-        .dark body::after {
-          background-image: url("data:image/svg+xml,%3Csvg width='200' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10,20 C10,10 40,10 40,20 Q50,25 60,20 C60,10 90,10 90,20' stroke='%233B82F6' stroke-width='2' fill='none' opacity='0.1'/%3E%3C/svg%3E");
         }
       `}} />
     </div>
