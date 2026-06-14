@@ -1,104 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { create } from 'zustand';
+import { Jsme } from 'jsme-react';
 import { 
   Search, Atom, Loader2, AlertCircle, 
   PenTool, Eraser, TestTube, Database, Info, Zap, ImageIcon, Beaker,
   Copy, Check, Activity, ExternalLink 
 } from 'lucide-react';
-
-// ============================================================
-// JSME EDITOR COMPONENT (MEMORY-LEAK PATCHED)
-// ============================================================
-const Jsme = ({ width = "100%", height = "600px", options = "query,hydrogens", onChange, onInit }) => {
-  const containerId = useRef(`jsme-${Math.random().toString(36).substring(2, 9)}`);
-  const appletRef = useRef(null);
-  const onChangeRef = useRef(onChange);
-
-  // Keep callback reference updated without triggering re-mounts
-  useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
-
-  useEffect(() => {
-    // Inject JSME script dynamically if it doesn't exist
-    if (!window.JSApplet && !document.getElementById('jsme-script')) {
-      // Add empty function to suppress JSME global warning
-      window.jsmeOnLoad = () => {}; 
-      
-      const script = document.createElement('script');
-      script.src = 'https://jsme-editor.github.io/dist/jsme/jsme.nocache.js';
-      script.id = 'jsme-script';
-      document.head.appendChild(script);
-    }
-
-    let pollTimer;
-    let structureTimer = null;
-
-    pollTimer = setInterval(() => {
-      if (window.JSApplet && window.JSApplet.JSME && document.getElementById(containerId.current)) {
-        clearInterval(pollTimer);
-        
-        if (appletRef.current) return;
-
-        const applet = new window.JSApplet.JSME(containerId.current, width, height, { options });
-        appletRef.current = applet;
-
-        const nativeReadMolFile = applet.readMolFile?.bind(applet);
-        const nativeSmiles = applet.smiles?.bind(applet);
-        const nativeNonIso = applet.nonisomericSmiles?.bind(applet);
-        const nativeReadGeneric = applet.readGenericMolecularInput?.bind(applet);
-
-        // Safe monkey-patching
-        applet.getSMILES = () => {
-          try { return nativeSmiles ? nativeSmiles() : ''; } 
-          catch { try { return nativeNonIso ? nativeNonIso() : ''; } catch { return ''; } }
-        };
-
-        applet.setSMILES = (smiles) => {
-          try { if (nativeReadGeneric) nativeReadGeneric(smiles); } 
-          catch (err) { console.error('Failed to load SMILES:', err); }
-        };
-
-        applet.readMolFileSafe = (mol) => {
-          try { if (nativeReadMolFile) nativeReadMolFile(mol); } 
-          catch (err) { console.error('Failed to read MOL file:', err); }
-        };
-        
-        applet.setEditable = () => {}; 
-
-        if (onInit) onInit(applet);
-
-        // Throttled JSME event listener for smooth drawing
-        applet.setCallBack("AfterStructureModified", (event) => {
-          if (onChangeRef.current && event.src) {
-            if (structureTimer) clearTimeout(structureTimer);
-            structureTimer = setTimeout(() => {
-              try {
-                onChangeRef.current(event.src.smiles());
-              } catch {
-                try { onChangeRef.current(event.src.nonisomericSmiles()); } 
-                catch { onChangeRef.current(''); }
-              }
-            }, 120); // 120ms throttle
-          }
-        });
-      }
-    }, 100);
-
-    return () => {
-      clearInterval(pollTimer);
-      if (structureTimer) clearTimeout(structureTimer);
-      if (appletRef.current) {
-        try {
-          appletRef.current.setCallBack("AfterStructureModified", null);
-        } catch {}
-      }
-    };
-  }, [width, height, options, onInit]);
-
-  return <div id={containerId.current} style={{ width, height }} />;
-};
 
 // ============================================================
 // ANALYSIS SERVICE
@@ -113,7 +21,6 @@ const AnalysisService = {
     if (!smiles) return [];
     const groups = [];
     
-    // Improved educational RegEx patterns to reduce false positives
     const patterns = [
       { name: 'Carboxylic Acid', regex: /C\(=O\)O(?![C,c])/i },
       { name: 'Ester', regex: /C\(=O\)O[C,c]/i },
@@ -122,7 +29,7 @@ const AnalysisService = {
       { name: 'Alcohol', regex: /(?<!C\(=O\))O(?![C,c,=O])/i }, 
       { name: 'Primary Amine', regex: /(?<!C\(=O\))N(?![C,c,=O])/i },
       { name: 'Nitrile', regex: /C#N/i },
-      { name: 'Aromatic Ring', regex: /[a-z]1/ }, // Captures lowercase ring indices (e.g. c1, n1)
+      { name: 'Aromatic Ring', regex: /[a-z]1/ }, 
       { name: 'Sulfone/Sulfate', regex: /S\(=O\)\(=O\)/i },
       { name: 'Phosphate', regex: /P\(=O\)/i },
       { name: 'Halogen', regex: /F|Cl|Br|I/ }
@@ -243,10 +150,8 @@ const AutocompleteService = {
     try {
       const response = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete/compound/${encodeURIComponent(query)}/json`);
       const data = await response.json();
-      // FIX: Increased from 5 to 10 to help catch simple compounds
       const rawSuggestions = data.dictionary_terms?.compound?.slice(0, 10) || [];
 
-      // Validate against PubChem
       const validated = [];
       for (const name of rawSuggestions) {
         try {
@@ -269,7 +174,7 @@ const AutocompleteService = {
 // ============================================================
 // PUBCHEM API SERVICE
 // ============================================================
-const smilesCache = new Map(); // Global in-memory cache to prevent PubChem overfetching
+const smilesCache = new Map(); 
 const API_PROPERTIES = 'IsomericSMILES,CanonicalSMILES,MolecularFormula,MolecularWeight,IUPACName,XLogP,TPSA,HBondDonorCount,HBondAcceptorCount,RotatableBondCount';
 
 const PubChemService = {
@@ -335,7 +240,6 @@ const PubChemService = {
     
     const normalizedSmiles = AnalysisService.normalizeSmiles(smiles);
     
-    // Memory Cache Check
     if (smilesCache.has(normalizedSmiles)) {
       return smilesCache.get(normalizedSmiles);
     }
@@ -376,10 +280,7 @@ const PubChemService = {
   },
 
   fetchMolFromSmiles: async (smiles) => {
-    if (!smiles || smiles.trim() === '') {
-      return null;
-    }
-
+    if (!smiles || smiles.trim() === '') return null;
     try {
       const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/${encodeURIComponent(smiles)}/SDF`;
       const res = await fetch(url);
@@ -445,8 +346,6 @@ const useChemicalStore = create((set, get) => ({
   loading: false,
   autoAnalyzing: false,
   error: null,
-  jsmeRef: null,
-  jsmeReady: false,
   bondData: null,
   
   setSearchQuery: (query) => set({ searchQuery: query }),
@@ -455,14 +354,7 @@ const useChemicalStore = create((set, get) => ({
   setLoading: (loading) => set({ loading: loading }),
   setAutoAnalyzing: (status) => set({ autoAnalyzing: status }),
   setError: (error) => set({ error: error }),
-  setJsmeRef: (ref) => set({ jsmeRef: ref }),
-  setJsmeReady: (ready) => set({ jsmeReady: ready }),
   setBondData: (bondData) => set({ bondData: bondData }),
-  getSmiles: () => {
-    const { jsmeRef } = get();
-    if (jsmeRef && jsmeRef.getSMILES) return jsmeRef.getSMILES();
-    return '';
-  },
 }));
 
 // ============================================================
@@ -482,8 +374,7 @@ const QUICK_TEMPLATES = [
 const SearchBar = () => {
   const { 
     searchQuery, setSearchQuery, setCurrentCompound, 
-    setSmilesString, setLoading, setError, jsmeRef, 
-    jsmeReady, setBondData
+    setSmilesString, setLoading, setError, setBondData
   } = useChemicalStore();
   
   const [suggestions, setSuggestions] = useState([]);
@@ -522,10 +413,11 @@ const SearchBar = () => {
       const compound = await PubChemService.searchCompounds(query);
       setCurrentCompound(compound);
       setSmilesString(compound.smiles);
-      if (jsmeRef && jsmeReady) {
-        const molData = await PubChemService.fetchMolFromSmiles(compound.smiles);
-        if (molData && jsmeRef.readMolFileSafe) jsmeRef.readMolFileSafe(molData);
-        else if (jsmeRef.setSMILES) jsmeRef.setSMILES(compound.smiles);
+      
+      const molData = await PubChemService.fetchMolFromSmiles(compound.smiles);
+      if (molData) {
+        const bondAnalysis = AnalysisService.analyzeBonds(molData);
+        if (bondAnalysis) { setBondData(bondAnalysis); compound.bondData = bondAnalysis; }
       }
     } catch (e) {
       setError(e.message || "Compound not found.");
@@ -574,13 +466,12 @@ const SearchBar = () => {
 const UnifiedMolecularCanvas = () => {
   const { 
     smilesString, setSmilesString, currentCompound, setCurrentCompound, 
-    setLoading, setError, autoAnalyzing, setAutoAnalyzing, 
-    jsmeRef, setJsmeRef, jsmeReady, setJsmeReady,
-    getSmiles, setBondData
+    setLoading, setError, autoAnalyzing, setAutoAnalyzing, setBondData
   } = useChemicalStore();
   
+  // Decoupled Auto-Analyzer with longer debounce (2000ms) to prevent interrupting drawing
   useEffect(() => {
-    if (!smilesString || !jsmeReady) return;
+    if (!smilesString) return;
     
     const debounceTimer = setTimeout(async () => {
       if (currentCompound?.smiles && AnalysisService.normalizeSmiles(currentCompound.smiles) === AnalysisService.normalizeSmiles(smilesString)) return;
@@ -588,69 +479,56 @@ const UnifiedMolecularCanvas = () => {
       setAutoAnalyzing(true); setError(null);
       try {
         const info = await PubChemService.searchBySmiles(smilesString);
-        if (jsmeRef && jsmeRef.molFile) {
-          try {
-            const bondAnalysis = AnalysisService.analyzeBonds(jsmeRef.molFile());
-            if (bondAnalysis) { setBondData(bondAnalysis); info.bondData = bondAnalysis; }
-          } catch (bondError) {}
+        
+        // Decoupled Bond Analysis fetching via SDF instead of JSME Applet
+        const sdfData = await PubChemService.fetchMolFromSmiles(info.smiles);
+        if (sdfData) {
+          const bondAnalysis = AnalysisService.analyzeBonds(sdfData);
+          if (bondAnalysis) { setBondData(bondAnalysis); info.bondData = bondAnalysis; }
         }
+        
         setCurrentCompound(info);
-      } catch (e) {} finally { setAutoAnalyzing(false); }
-    }, 800);
+      } catch (e) {
+          // Silent catch to not disrupt canvas drawing
+      } finally { setAutoAnalyzing(false); }
+    }, 2000); 
     
     return () => clearTimeout(debounceTimer);
-  }, [smilesString, jsmeReady, setCurrentCompound, setAutoAnalyzing, setError, jsmeRef, setBondData]);
-  
-  const handleJsmeInit = useCallback((jsmeApplet) => {
-    setJsmeRef(jsmeApplet); setJsmeReady(true);
-    try { if (jsmeApplet.setEditable) jsmeApplet.setEditable(true); jsmeApplet.options("query,hydrogens"); } catch (err) {}
-    
-    setTimeout(async () => {
-      if (smilesString && jsmeApplet) {
-        try {
-          const molData = await PubChemService.fetchMolFromSmiles(smilesString);
-          if (molData && jsmeApplet.readMolFileSafe) jsmeApplet.readMolFileSafe(molData);
-          else if (jsmeApplet.setSMILES) jsmeApplet.setSMILES(smilesString);
-        } catch (error) {}
-      }
-    }, 100);
-  }, [smilesString, setJsmeRef, setJsmeReady]);
+  }, [smilesString, setCurrentCompound, setAutoAnalyzing, setError, setBondData]);
   
   const handleStructureChange = useCallback((newSmiles) => {
     if (!newSmiles) return;
     const normalized = AnalysisService.normalizeSmiles(newSmiles);
-    if (normalized !== AnalysisService.normalizeSmiles(smilesString)) setSmilesString(normalized);
-  }, [smilesString, setSmilesString]);
+    if (normalized !== AnalysisService.normalizeSmiles(useChemicalStore.getState().smilesString)) {
+      setSmilesString(normalized);
+    }
+  }, [setSmilesString]);
   
   const handleAnalyze = async () => {
     try {
-      const smiles = getSmiles();
-      if (!smiles) { setError("Please draw a molecule first"); return; }
+      const currentSmiles = useChemicalStore.getState().smilesString;
+      if (!currentSmiles) { setError("Please draw a molecule first"); return; }
+      
       setLoading(true); setError(null);
-      const info = await PubChemService.searchBySmiles(smiles);
-      if (jsmeRef && jsmeRef.molFile) {
-        try {
-          const bondAnalysis = AnalysisService.analyzeBonds(jsmeRef.molFile());
-          if (bondAnalysis) { setBondData(bondAnalysis); info.bondData = bondAnalysis; }
-        } catch (bondError) {}
+      const info = await PubChemService.searchBySmiles(currentSmiles);
+      
+      const sdfData = await PubChemService.fetchMolFromSmiles(info.smiles);
+      if (sdfData) {
+        const bondAnalysis = AnalysisService.analyzeBonds(sdfData);
+        if (bondAnalysis) { setBondData(bondAnalysis); info.bondData = bondAnalysis; }
       }
+      
       setCurrentCompound(info);
     } catch (e) { setError("Analysis failed."); } finally { setLoading(false); }
   };
   
   const handleReset = () => {
     setSmilesString(''); setCurrentCompound(null); setBondData(null);
-    if (jsmeRef?.setSMILES) jsmeRef.setSMILES(''); // Safe reset overriding
   };
   
-  const handleTemplateClick = async (smiles) => {
+  const handleTemplateClick = (smiles) => {
     const normalized = AnalysisService.normalizeSmiles(smiles);
     setSmilesString(normalized); setBondData(null);
-    if (jsmeRef && jsmeReady) {
-      const molData = await PubChemService.fetchMolFromSmiles(normalized);
-      if (molData && jsmeRef.readMolFileSafe) jsmeRef.readMolFileSafe(molData);
-      else if (jsmeRef.setSMILES) jsmeRef.setSMILES(normalized);
-    }
   };
   
   return (
@@ -681,7 +559,13 @@ const UnifiedMolecularCanvas = () => {
         
         <div className="bg-[#FDF6E3]/90 backdrop-blur-lg w-full relative z-10 p-4" style={{ minHeight: '600px', pointerEvents: 'auto' }}>
           <ErrorBoundary>
-            <Jsme width="100%" height="600px" options="query,hydrogens" onChange={handleStructureChange} onInit={handleJsmeInit} />
+            <Jsme 
+              height="600px" 
+              width="100%" 
+              options="oldlook,star" 
+              onChange={handleStructureChange} 
+              smiles={smilesString} 
+            />
           </ErrorBoundary>
         </div>
       </div>
@@ -762,7 +646,6 @@ const InfoPanel = () => {
           </div>
         </div>
         
-        {/* Advanced Properties Grid */}
         <div className="grid grid-cols-2 gap-3 bg-[#2E5A88]/30 p-4 rounded-xl border border-[#2E5A88]/30">
            <div className="flex flex-col"><span className="text-[9px] text-[#2D3748]/60 font-bold uppercase">LogP (Lipophilicity)</span><span className="text-sm font-medium text-[#5D6D7E]/60">{currentCompound.xLogP}</span></div>
            <div className="flex flex-col"><span className="text-[9px] text-[#2D3748]/60 font-bold uppercase">TPSA</span><span className="text-sm font-medium text-[#5D6D7E]/60">{currentCompound.tpsa} Å²</span></div>
@@ -813,7 +696,6 @@ const InfoPanel = () => {
           </div>
         </div>
         
-        {/* NEW WIKIPEDIA LINK SECTION */}
         {currentCompound.description && (
           <div>
             <label className="text-[10px] uppercase tracking-widest text-[#2D3748]/60 font-bold">Educational Insight</label>
@@ -884,7 +766,6 @@ export default function App() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(46, 90, 136, 0.8); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(46, 90, 136, 1); }
         
-        /* Laboratory notebook background pattern */
         body::before {
           content: "";
           position: fixed;
@@ -910,7 +791,6 @@ export default function App() {
           opacity: 0.7;
         }
         
-        /* Subtle molecular watermark */
         body::after {
           content: "";
           position: fixed;
