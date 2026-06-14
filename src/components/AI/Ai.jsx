@@ -6,7 +6,7 @@ import { Terminal, Send, X, AlertTriangle, GripVertical, SquareTerminal, Minimiz
 // ==================== LOCAL AI CONFIGURATION ====================
 // Initialize Gemini directly in the frontend for local, standalone execution.
 // Ensure VITE_GEMINI_API_KEY is present in your .env or .env.local file.
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6JD3GOBHO4BA24V0GjbJYWlOJsHDtICJHVdvP46l3Wdkw';
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 // ==================== Markdown helper ====================
