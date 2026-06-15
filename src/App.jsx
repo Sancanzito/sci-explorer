@@ -31,7 +31,7 @@ import InvestigationPage from "./Articles/Science/SciPage";
 import SolutionsMain from './Articles/Solutions/SolutionsMain';
 import AcidsMain from './Articles/Acids/AcidsMain'
 // Import Simulations
-import EcoBalanceGame from './Simulations/EcoBalance/EcoBalance';
+import EcoBalanceGame from './Simulations/EcoBalance/Ecobalance';
 import DNAExtractionApp from './Simulations/DNAextraction/DNAextraction';
 import SolarSystemObservatory from './Simulations/SolarSystem/SolarSystem';
 import CellExplorer from "./Simulations/Cell/Cell";

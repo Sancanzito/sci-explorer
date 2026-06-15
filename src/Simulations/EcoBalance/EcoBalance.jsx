@@ -1,889 +1,384 @@
-// games/EcoBalance/EcoBalanceGame.jsx
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls, Sky, ContactShadows, Text, Sparkles } from '@react-three/drei';
 import { create } from 'zustand';
-import Phaser from 'phaser';
-import './EcoBalance.css';
+import { motion } from 'framer-motion';
+import { Activity, Droplet, Sun, Wind, CloudRain, Skull, Leaf } from 'lucide-react';
+import * as THREE from 'three';
 
-// ============================================================================
-// PART 1: CONSTANTS & ECOLOGICAL RULES (from original)
-// ============================================================================
-const PREDATION_MATRIX = {
-  rabbit: { grass: 0.00005, algae: 0.00003 },
-  deer: { grass: 0.00003, algae: 0.00002 },
-  fox: { rabbit: 0.00015, deer: 0.00005 },
-  snake: { rabbit: 0.00012, deer: 0.00003 },
-  wolf: { deer: 0.00008, rabbit: 0.00006, fox: 0.0003, snake: 0.0002 },
-  eagle: { rabbit: 0.00009, snake: 0.00025, fox: 0.00015 }
-};
+// ==========================================
+// 1. ZUSTAND ECOSYSTEM ENGINE
+// ==========================================
+const MAP_SIZE = 40;
+const RIVER_Z_BOUNDS = [-2, 2];
 
-const INITIAL_SPECIES = {
-  producers: {
-    grass: { id: 'grass', name: 'Vegetation', population: 8000, carryingCapacity: 10000, growthRate: 0.03, mortalityRate: 0.01, trophicLevel: 1, icon: '🌳', visualScale: 250 },
-    algae: { id: 'algae', name: 'River Algae', population: 1000, carryingCapacity: 8500, growthRate: 0.045, mortalityRate: 0.012, trophicLevel: 1, icon: '🟢', visualScale: 400 }
+const useStore = create((set) => ({
+  weather: 'Clear',
+  timeOfDay: 8,
+  dayCycle: 0,
+  corpses: 0,
+  entities: [
+    { id: 'wolf-1', type: 'predator', species: 'Wolf', pos: [5, 0, 5], target: [5, 0, 5], hunger: 100, thirst: 80, state: 'wandering' },
+    { id: 'rabbit-1', type: 'prey', species: 'Rabbit', pos: [-5, 0, -5], target: [-5, 0, -5], hunger: 100, thirst: 100, state: 'grazing' },
+    { id: 'rabbit-2', type: 'prey', species: 'Rabbit', pos: [-6, 0, -4], target: [-6, 0, -4], hunger: 90, thirst: 95, state: 'grazing' },
+  ],
+
+  // Main AI & Physics Loop - Runs at 60FPS
+  tick: (delta) => {
+    set((state) => {
+      let aliveEntities = [];
+      let newCorpses = state.corpses;
+      const weatherMultiplier = state.weather === 'Rain' ? 0.5 : 1;
+
+      state.entities.forEach(entity => {
+        let hunger = entity.hunger - (delta * 1.5);
+        let thirst = entity.thirst - (delta * 2.5 * weatherMultiplier);
+        let currentState = entity.state;
+        let target = [...entity.target];
+
+        // Death Check
+        if (hunger <= 0 || thirst <= 0) {
+          newCorpses++;
+          return; 
+        }
+
+        const distanceToTarget = Math.hypot(entity.pos[0] - target[0], entity.pos[2] - target[2]);
+        const isAtTarget = distanceToTarget < 1.0;
+
+        // Behavior Tree
+        if (thirst < 40) {
+          currentState = 'seeking_water';
+          if (isAtTarget || entity.pos[2] < RIVER_Z_BOUNDS[0] || entity.pos[2] > RIVER_Z_BOUNDS[1]) {
+            target = [entity.pos[0] + (Math.random() * 4 - 2), 0, 0]; 
+          }
+          if (Math.abs(entity.pos[2]) <= 2.5) thirst += delta * 40;
+        } 
+        else if (hunger < 50) {
+          currentState = entity.type === 'predator' ? 'hunting' : 'foraging';
+          if (isAtTarget) {
+             target = [
+               Math.max(-MAP_SIZE/2, Math.min(MAP_SIZE/2, entity.pos[0] + (Math.random() * 10 - 5))),
+               0,
+               Math.max(-MAP_SIZE/2, Math.min(MAP_SIZE/2, entity.pos[2] + (Math.random() * 10 - 5)))
+             ];
+          }
+          if (isAtTarget && Math.random() > 0.95) hunger += 30; 
+        } 
+        else {
+          currentState = 'wandering';
+          if (isAtTarget) {
+            target = [
+              Math.max(-MAP_SIZE/2, Math.min(MAP_SIZE/2, entity.pos[0] + (Math.random() * 6 - 3))),
+              0,
+              Math.max(-MAP_SIZE/2, Math.min(MAP_SIZE/2, entity.pos[2] + (Math.random() * 6 - 3)))
+            ];
+          }
+        }
+
+        hunger = Math.min(100, hunger);
+        thirst = Math.min(100, thirst);
+
+        // Move logical position toward target to sync physics with rendering
+        const moveSpeed = (entity.type === 'predator' && currentState === 'hunting' ? 4 : 2) * delta;
+        const dx = target[0] - entity.pos[0];
+        const dz = target[2] - entity.pos[2];
+        const dist = Math.hypot(dx, dz);
+        
+        let newPos = [...entity.pos];
+        if (dist > 0.1) {
+            newPos[0] += (dx / dist) * moveSpeed;
+            newPos[2] += (dz / dist) * moveSpeed;
+        }
+
+        aliveEntities.push({ ...entity, hunger, thirst, state: currentState, target, pos: newPos });
+      });
+
+      const newDayCycle = state.dayCycle + (delta * 0.1);
+      const timeOfDay = (8 + newDayCycle) % 24;
+
+      return { entities: aliveEntities, corpses: newCorpses, dayCycle: newDayCycle, timeOfDay };
+    });
   },
-  primaryConsumers: {
-    rabbit: { id: 'rabbit', name: 'Rabbit', population: 1200, carryingCapacity: 2000, growthRate: 0.025, mortalityRate: 0.02, trophicLevel: 2, icon: '🐇', visualScale: 80 },
-    deer: { id: 'deer', name: 'Deer', population: 400, carryingCapacity: 800, growthRate: 0.02, mortalityRate: 0.018, trophicLevel: 2, icon: '🦌', visualScale: 35 }
-  },
-  secondaryConsumers: {
-    fox: { id: 'fox', name: 'Fox', population: 200, carryingCapacity: 400, growthRate: 0.015, mortalityRate: 0.025, trophicLevel: 3, icon: '🦊', visualScale: 20 },
-    snake: { id: 'snake', name: 'Snake', population: 250, carryingCapacity: 500, growthRate: 0.018, mortalityRate: 0.022, trophicLevel: 3, icon: '🐍', visualScale: 25 }
-  },
-  apexPredators: {
-    wolf: { id: 'wolf', name: 'Wolf', population: 50, carryingCapacity: 100, growthRate: 0.01, mortalityRate: 0.03, trophicLevel: 4, icon: '🐺', visualScale: 6 },
-    eagle: { id: 'eagle', name: 'Eagle', population: 35, carryingCapacity: 70, growthRate: 0.012, mortalityRate: 0.028, trophicLevel: 4, icon: '🦅', visualScale: 5 }
-  }
-};
 
-// Painterly, muted naturalistic palette (Studio Ghibli meets Don't Starve)
-const PALETTE = {
-  skyDayTop: 0x7ec0ee, skyDayBot: 0xd6efc7,
-  skyDuskTop: 0xf6a07a, skyDuskBot: 0xfcd9a8,
-  skyNightTop: 0x0a1026, skyNightBot: 0x232a3d,
-  mountainFar: 0x6a8a78, mountainNear: 0x4a6a55,
-  groundTop: 0x7cb15a, groundBot: 0x4e8438,
-  riverHealthy: 0x4aa3d4, riverSick: 0x5a6e2e,
-  // extra painterly colors
-  grassLight: 0x9bbd6e, grassMid: 0x6b8f4a, grassDark: 0x3f5a2a,
-  soil: 0x6b4a32, stone: 0x8a8578,
-  leafLight: 0x7ea84c, leafMid: 0x4f7a35, leafDark: 0x2d4a20, leafShadow: 0x1a2f14,
-  bark: 0x5a3e28, barkDark: 0x35251a, barkHighlight: 0x7a5a3f,
-  rabbitFur: 0xc9b89c, rabbitBelly: 0xe8dcc5, rabbitShadow: 0x8a7a60,
-  deerCoat: 0xa8754a, deerBelly: 0xd9b890, deerShadow: 0x6b4a2d,
-  foxCoat: 0xc4632b, foxBelly: 0xf0e4d0, foxShadow: 0x7a3a15,
-  snakeBody: 0x4a6b3a, snakePattern: 0x2a4020, snakeShadow: 0x1a2d14,
-  wolfCoat: 0x6a6a72, wolfBelly: 0x9a9aa0, wolfShadow: 0x35353a,
-  eagleBody: 0x4a3520, eagleHead: 0xe8e4d8, eagleBeak: 0xd9a834, eagleShadow: 0x2a1d10,
-  shadowAlpha: 0x000000, highlight: 0xffffff, eye: 0x1a1410, eyeShine: 0xffffff,
-};
-
-// ============================================================================
-// PART 2: ZUSTAND UI STORE (from original)
-// ============================================================================
-const useUIStore = create((set, get) => ({
-  selectedSpecies: null,
-  activePanel: null,
-  speciesData: INITIAL_SPECIES,
-  ecosystemHealth: 100,
-  timeStep: 0,
-  events: [],
-  notifications: [],
-  isRunning: true,
-  simulationSpeed: 1,
-
-  setSelectedSpecies: (species) => set({ selectedSpecies: species }),
-  togglePanel: (panel) => set(state => ({ activePanel: state.activePanel === panel ? null : panel })),
-  clearEvents: () => set({ events: [] }),
-
-  syncSimulation: (data) => set({
-    speciesData: data.species,
-    ecosystemHealth: data.health,
-    timeStep: data.timeStep
-  }),
-
-  logEvent: (message, type) => set(state => ({
-    events: [{ id: Date.now() + Math.random(), message, type, time: new Date() }, ...state.events].slice(0, 50)
-  })),
-
-  addNotification: (message, type) => {
-    const id = Date.now() + Math.random();
-    set(state => ({ notifications: [{ id, message, type }, ...state.notifications].slice(0, 5) }));
-    setTimeout(() => set(state => ({ notifications: state.notifications.filter(n => n.id !== id) })), 4000);
+  spawnEntity: (species, type) => {
+    set((state) => ({
+      entities: [...state.entities, {
+        id: `${species}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        type,
+        species,
+        pos: [(Math.random() - 0.5) * MAP_SIZE, 0, (Math.random() - 0.5) * MAP_SIZE],
+        target: [(Math.random() - 0.5) * MAP_SIZE, 0, (Math.random() - 0.5) * MAP_SIZE],
+        hunger: 100,
+        thirst: 100,
+        state: 'wandering'
+      }]
+    }));
   },
 
-  toggleRunning: () => set(state => {
-    window.dispatchEvent(new CustomEvent('eco-toggle-pause', { detail: !state.isRunning }));
-    return { isRunning: !state.isRunning };
-  }),
-
-  setSpeed: (speed) => set(() => {
-    window.dispatchEvent(new CustomEvent('eco-set-speed', { detail: speed }));
-    return { simulationSpeed: speed };
-  }),
-
-  triggerIntervention: (actionId) => window.dispatchEvent(new CustomEvent('eco-intervention', { detail: actionId }))
+  setWeather: (weather) => set({ weather }),
 }));
 
-// ============================================================================
-// PART 3: SIMULATION MATHEMATICS CORE (from original)
-// ============================================================================
-class EcosystemSimulation {
-  constructor() {
-    this.species = JSON.parse(JSON.stringify(INITIAL_SPECIES));
-    this.health = 100;
-    this.timeStep = 0;
-    this.environment = { rainfall: 1.0, toxicity: 0 };
-  }
+// ==========================================
+// 2. TRANSIENT 3D ENTITIES
+// ==========================================
+const Animal = ({ id, type, initialPos }) => {
+  const groupRef = useRef();
+  const textRef = useRef();
+  const hungerBarRef = useRef();
+  const bodyMaterialRef = useRef();
 
-  calculatePredationPressure(preyId) {
-    let pressure = 0;
-    for (const level of ['secondaryConsumers', 'apexPredators']) {
-      for (const [predId, data] of Object.entries(this.species[level] || {})) {
-        pressure += (PREDATION_MATRIX[predId]?.[preyId] || 0) * data.population;
-      }
-    }
-    return pressure;
-  }
+  const isPredator = type === 'predator';
+  const size = isPredator ? [0.6, 0.6, 1.2] : [0.3, 0.3, 0.5];
+  
+  // Memoize colors so we don't instantiate them every frame
+  const baseColor = useMemo(() => new THREE.Color(isPredator ? '#3f3f46' : '#d4d4d8'), [isPredator]);
+  const warningColor = useMemo(() => new THREE.Color('#ef4444'), []);
+  const targetVec = useMemo(() => new THREE.Vector3(), []);
 
-  tick() {
-    this.timeStep++;
-    let endangeredCount = 0;
+  useFrame(() => {
+    // TRANSIENT STATE: Read directly from the store without triggering React re-renders!
+    const entity = useStore.getState().entities.find(e => e.id === id);
+    if (!entity || !groupRef.current) return;
 
-    for (const level of Object.keys(this.species)) {
-      for (const [id, data] of Object.entries(this.species[level])) {
-        const pressure = this.calculatePredationPressure(id);
-        const carryingFactor = Math.max(0, 1 - (data.population / data.carryingCapacity));
-        const births = data.population * data.growthRate * this.environment.rainfall * carryingFactor;
-        const deaths = (data.population * data.mortalityRate) + (data.population * pressure * 0.3) + (data.population * this.environment.toxicity);
+    // 1. Update Position
+    targetVec.set(entity.pos[0], 0, entity.pos[2]);
+    groupRef.current.position.copy(targetVec);
+    
+    const lookTarget = new THREE.Vector3(entity.target[0], 0, entity.target[2]);
+    groupRef.current.lookAt(lookTarget);
 
-        let newPop = data.population + births - deaths;
-        if (newPop < 5 && data.population > 0) newPop = 0;
+    // 2. Update UI Text
+    if (textRef.current) textRef.current.text = entity.state;
 
-        if (data.population > 0 && Math.abs((newPop - data.population) / data.population) > 0.15) {
-          const pct = Math.round(((newPop - data.population) / data.population) * 100);
-          if (pct > 0 && pct < 200) useUIStore.getState().logEvent(`${data.name} population grew by ${pct}%`, 'growth');
-          else if (pct < 0) useUIStore.getState().logEvent(`${data.name} population declined by ${Math.abs(pct)}%`, 'decline');
-        }
-
-        data.population = Math.max(0, newPop);
-        if (data.population / data.carryingCapacity < 0.15) endangeredCount++;
-      }
+    // 3. Update Health Bar Scale
+    if (hungerBarRef.current) {
+        hungerBarRef.current.scale.x = Math.max(0.01, entity.hunger / 100);
+        hungerBarRef.current.position.x = (entity.hunger / 100 - 1) / 2;
     }
 
-    this.health = Math.max(0, 100 - (endangeredCount * 15));
-    return { species: this.species, health: this.health, timeStep: this.timeStep };
-  }
-
-  applyIntervention(type) {
-    switch (type) {
-      case 'nutrients':
-        this.species.producers.grass.population *= 1.5;
-        this.species.producers.algae.population *= 2.5;
-        return "Nutrients added — algae and vegetation blooming!";
-      case 'predator':
-        this.species.apexPredators.wolf.population *= 1.5;
-        return "Wolves introduced — apex pressure increased!";
-      case 'toxins':
-        this.environment.toxicity += 0.05;
-        return "Toxins introduced — mortality rates rising!";
-      case 'disease':
-        this.species.primaryConsumers.rabbit.population *= 0.4;
-        this.species.primaryConsumers.deer.population *= 0.4;
-        return "Viral outbreak — herbivore populations plummeted!";
-      case 'rain-up':
-        this.environment.rainfall = 1.3;
-        return "Rainfall increased — carrying capacity boosted!";
-      case 'rain-down':
-        this.environment.rainfall = 0.6;
-        return "Drought — carrying capacity reduced!";
-      default: return "Intervention applied.";
+    // 4. Update Color Warning
+    if (bodyMaterialRef.current) {
+        const needsWarning = entity.hunger < 20 || entity.thirst < 20;
+        bodyMaterialRef.current.color.lerp(needsWarning ? warningColor : baseColor, 0.1);
     }
-  }
-}
+  });
 
-// ============================================================================
-// PART 4: PHASER SCENE (INTEGRATED: painterly visuals + simulation + UI events)
-// ============================================================================
-class MainEcosystemScene extends Phaser.Scene {
-  constructor() {
-    super({ key: 'MainEcosystemScene' });
-    this.simulation = new EcosystemSimulation();
-    this.entityGroups = {};
-    this.isPaused = false;
-    this.simSpeed = 1;
-    this.timeOfDay = 12;
-    this.currentAlgaeHealth = 0.1;
-    this.targetAlgaeHealth = 0.1;
-  }
+  return (
+    <group ref={groupRef} position={initialPos}>
+      <mesh castShadow receiveShadow position={[0, size[1] / 2, 0]}>
+        <boxGeometry args={size} />
+        <meshStandardMaterial ref={bodyMaterialRef} color={baseColor} roughness={0.8} />
+      </mesh>
+      
+      <Text ref={textRef} position={[0, size[1] + 0.6, 0]} fontSize={0.3} color="white" anchorX="center" outlineWidth={0.02} outlineColor="black">
+        Spawning...
+      </Text>
+      
+      <mesh position={[0, size[1] + 0.3, 0]}>
+        <planeGeometry args={[1, 0.1]} />
+        <meshBasicMaterial color="#ef4444" />
+        <mesh ref={hungerBarRef} position={[0, 0, 0.01]}>
+           <planeGeometry args={[1, 0.1]} />
+           <meshBasicMaterial color="#22c55e" />
+        </mesh>
+      </mesh>
+    </group>
+  );
+};
 
-  create() {
-    const { width, height } = this.scale;
-    this.horizon = height * 0.55;
+const Terrain = () => {
+  const trees = useMemo(() => [...Array(15)].map(() => ({
+    position: [(Math.random() - 0.5) * MAP_SIZE, 0, (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 15 + 3)]
+  })), []);
 
-    this.createProceduralTextures();
-    this.createWorld();
-    this.initializeEntityPools();
+  return (
+    <group>
+      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
+        <planeGeometry args={[MAP_SIZE + 10, MAP_SIZE + 10]} />
+        <meshStandardMaterial color="#2d5a27" roughness={1} />
+      </mesh>
+      
+      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
+        <planeGeometry args={[MAP_SIZE + 10, 4]} />
+        <meshStandardMaterial color="#3b82f6" transparent opacity={0.8} roughness={0.1} metalness={0.2} />
+      </mesh>
 
-    // --- TICK LOOP (simulation) ---
-    this.simTimer = this.time.addEvent({ delay: 1000, loop: true, callback: () => this.runSimulationTick() });
+      {trees.map((tree, i) => (
+        <group key={i} position={tree.position}>
+          <mesh position={[0, 1, 0]} castShadow>
+            <cylinderGeometry args={[0.2, 0.2, 2]} />
+            <meshStandardMaterial color="#5c4033" />
+          </mesh>
+          <mesh position={[0, 2.5, 0]} castShadow>
+             <dodecahedronGeometry args={[1.5]} />
+             <meshStandardMaterial color="#1e4620" />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+};
 
-    // --- Event listeners for UI controls ---
-    this._onPause = (e) => (this.isPaused = e.detail);
-    this._onSpeed = (e) => { this.simSpeed = e.detail; this.simTimer.delay = 1000 / this.simSpeed; };
-    this._onIntervene = (e) => {
-      const msg = this.simulation.applyIntervention(e.detail);
-      useUIStore.getState().logEvent(msg, 'intervention');
-      useUIStore.getState().addNotification(msg, 'success');
-    };
-    window.addEventListener('eco-toggle-pause', this._onPause);
-    window.addEventListener('eco-set-speed', this._onSpeed);
-    window.addEventListener('eco-intervention', this._onIntervene);
+const EnvironmentSystems = () => {
+  const weather = useStore(state => state.weather);
+  const timeRef = useRef({ angle: 0 });
+  const lightRef = useRef();
+  const skyRef = useRef();
 
-    this.events.on('shutdown', () => {
-      window.removeEventListener('eco-toggle-pause', this._onPause);
-      window.removeEventListener('eco-set-speed', this._onSpeed);
-      window.removeEventListener('eco-intervention', this._onIntervene);
+  useFrame(() => {
+     // Transient time read
+     const timeOfDay = useStore.getState().timeOfDay;
+     timeRef.current.angle = ((timeOfDay - 6) / 24) * Math.PI * 2;
+     
+     const x = Math.cos(timeRef.current.angle) * 50;
+     const y = Math.sin(timeRef.current.angle) * 50;
+
+     if (lightRef.current) {
+        lightRef.current.position.set(x, y, 0);
+        lightRef.current.intensity = Math.max(0, Math.sin(timeRef.current.angle) * 2);
+     }
+  });
+
+  return (
+    <>
+      <Sky ref={skyRef} turbidity={weather === 'Rain' ? 5 : 0.1} rayleigh={weather === 'Rain' ? 2 : 0.5} />
+      <ambientLight intensity={weather === 'Rain' ? 0.2 : 0.4} />
+      <directionalLight 
+        ref={lightRef}
+        castShadow 
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-20} shadow-camera-right={20}
+        shadow-camera-top={20} shadow-camera-bottom={-20}
+      />
+      {weather === 'Rain' && (
+        <Sparkles count={2000} scale={[MAP_SIZE, 20, MAP_SIZE]} size={2} color="#93c5fd" speed={0.8} opacity={0.6} position={[0, 10, 0]} />
+      )}
+    </>
+  );
+};
+
+const SimulationController = () => {
+  const tick = useStore(state => state.tick);
+  
+  // Only re-render when the STRING of IDs changes (prevents loop)
+  const entityIdString = useStore(state => state.entities.map(e => `${e.id}:${e.type}`).join(','));
+  const activeEntities = useMemo(() => {
+    if (!entityIdString) return [];
+    return entityIdString.split(',').map(str => {
+       const [id, type] = str.split(':');
+       return { id, type };
     });
-  }
+  }, [entityIdString]);
 
-  // ---------- PROCEDURAL TEXTURES (painterly, from new version) ----------
-  createProceduralTextures() {
-    const g = this.make.graphics({ add: false });
+  useFrame((state, delta) => tick(Math.min(delta, 0.1)));
 
-    // Shadow (soft gradient)
-    for (let i = 8; i > 0; i--) {
-      g.fillStyle(PALETTE.shadowAlpha, 0.04 * i);
-      g.fillEllipse(32, 16, 48 - i * 3, 18 - i);
-    }
-    g.generateTexture('shadow', 64, 32);
-    g.clear();
+  return (
+    <>
+      <Terrain />
+      <EnvironmentSystems />
+      {activeEntities.map(entity => (
+        <Animal key={entity.id} id={entity.id} type={entity.type} initialPos={[0,0,0]} />
+      ))}
+    </>
+  );
+};
 
-    // Ground texture (tiled later)
-    g.fillStyle(PALETTE.grassMid);
-    g.fillRect(0, 0, 128, 128);
-    g.fillStyle(PALETTE.grassDark, 0.4);
-    for (let i = 0; i < 60; i++) g.fillCircle(Phaser.Math.Between(0, 128), Phaser.Math.Between(0, 128), Phaser.Math.Between(2, 5));
-    g.fillStyle(PALETTE.grassLight, 0.35);
-    for (let i = 0; i < 80; i++) g.fillCircle(Phaser.Math.Between(0, 128), Phaser.Math.Between(0, 128), Phaser.Math.Between(1, 3));
-    g.generateTexture('ground', 128, 128);
-    g.clear();
+// ==========================================
+// 3. UI OVERLAY (DECOUPLED FROM 60FPS)
+// ==========================================
+const DashboardUI = () => {
+  const [stats, setStats] = useState({ time: 8, weather: 'Clear', herb: 0, carn: 0, dead: 0 });
 
-    // Tree (vegetation)
-    g.fillStyle(PALETTE.barkDark);
-    g.fillRoundedRect(40, 70, 16, 50, 4);
-    g.fillStyle(PALETTE.bark);
-    g.fillRoundedRect(42, 68, 12, 50, 3);
-    g.fillStyle(PALETTE.leafShadow);
-    g.fillCircle(48, 50, 32);
-    g.fillStyle(PALETTE.leafDark);
-    g.fillCircle(48, 45, 28);
-    g.fillCircle(30, 52, 18);
-    g.fillCircle(66, 52, 18);
-    g.fillStyle(PALETTE.leafMid);
-    g.fillCircle(46, 42, 24);
-    g.fillCircle(32, 48, 14);
-    g.fillCircle(62, 50, 14);
-    g.fillStyle(PALETTE.leafLight, 0.85);
-    g.fillCircle(38, 32, 10);
-    g.fillCircle(48, 28, 8);
-    g.generateTexture('tree', 96, 128);
-    g.clear();
-
-    // Rabbit (detailed)
-    g.fillStyle(PALETTE.rabbitShadow);
-    g.fillEllipse(28, 30, 30, 18);
-    g.fillStyle(PALETTE.rabbitFur);
-    g.fillEllipse(26, 28, 28, 16);
-    g.fillStyle(PALETTE.rabbitBelly);
-    g.fillEllipse(26, 32, 22, 8);
-    g.fillStyle(PALETTE.rabbitFur);
-    g.fillCircle(40, 21, 8);
-    g.fillStyle(PALETTE.rabbitBelly);
-    g.fillEllipse(45, 23, 6, 4);
-    g.fillStyle(PALETTE.rabbitShadow);
-    g.fillEllipse(37, 10, 5, 12);
-    g.fillEllipse(43, 10, 5, 12);
-    g.fillStyle(PALETTE.rabbitFur);
-    g.fillEllipse(37, 11, 3.5, 10);
-    g.fillEllipse(43, 11, 3.5, 10);
-    g.fillStyle(PALETTE.eye);
-    g.fillCircle(42, 20, 1.5);
-    g.generateTexture('rabbit', 56, 48);
-    g.clear();
-
-    // Deer
-    g.fillStyle(PALETTE.deerShadow);
-    g.fillRect(20, 38, 3, 18); g.fillRect(28, 38, 3, 18);
-    g.fillRect(44, 38, 3, 18); g.fillRect(52, 38, 3, 18);
-    g.fillStyle(PALETTE.deerCoat);
-    g.fillEllipse(36, 34, 36, 16);
-    g.fillStyle(PALETTE.deerBelly);
-    g.fillEllipse(36, 40, 28, 6);
-    g.fillStyle(PALETTE.deerCoat);
-    g.fillTriangle(53, 32, 57, 20, 51, 28);
-    g.fillEllipse(60, 17, 12, 9);
-    g.fillStyle(PALETTE.deerBelly);
-    g.fillEllipse(66, 19, 6, 4);
-    g.lineStyle(1.5, PALETTE.barkDark);
-    g.lineBetween(58, 12, 56, 4); g.lineBetween(62, 12, 64, 4);
-    g.fillStyle(PALETTE.eye);
-    g.fillCircle(62, 16, 1.2);
-    g.generateTexture('deer', 72, 64);
-    g.clear();
-
-    // Fox
-    g.fillStyle(PALETTE.foxShadow);
-    g.fillRect(18, 30, 3, 12); g.fillRect(26, 30, 3, 12);
-    g.fillRect(38, 30, 3, 12); g.fillRect(46, 30, 3, 12);
-    g.fillStyle(PALETTE.foxCoat);
-    g.fillEllipse(36, 26, 32, 16);
-    g.fillStyle(PALETTE.foxBelly);
-    g.fillEllipse(36, 32, 26, 6);
-    g.fillStyle(PALETTE.foxCoat);
-    g.fillCircle(52, 20, 8);
-    g.fillEllipse(10, 24, 12, 8);
-    g.fillStyle(PALETTE.foxBelly);
-    g.fillEllipse(6, 24, 4, 5);
-    g.fillStyle(PALETTE.eye);
-    g.fillCircle(54, 18, 1.2);
-    g.generateTexture('fox', 64, 48);
-    g.clear();
-
-    // Snake
-    g.lineStyle(5, PALETTE.snakeBody);
-    g.beginPath(); g.moveTo(2, 14); g.lineTo(8, 6); g.lineTo(15, 16); g.lineTo(22, 8); g.strokePath();
-    g.fillStyle(PALETTE.snakeBody);
-    g.fillCircle(22, 8, 3.5);
-    g.fillStyle(PALETTE.eye);
-    g.fillCircle(23, 7, 1);
-    g.generateTexture('snake', 30, 22);
-    g.clear();
-
-    // Wolf
-    g.fillStyle(PALETTE.wolfShadow);
-    g.fillRoundedRect(3, 10, 22, 12, 5);
-    g.fillStyle(PALETTE.wolfCoat);
-    g.fillRoundedRect(3, 10, 22, 12, 5);
-    g.fillStyle(PALETTE.wolfCoat);
-    g.fillCircle(25, 9, 6);
-    g.fillStyle(PALETTE.wolfBelly);
-    g.fillTriangle(8, 12, 3, 16, 8, 18);
-    g.fillStyle(PALETTE.eye);
-    g.fillCircle(27, 8, 1.3);
-    g.generateTexture('wolf', 34, 30);
-    g.clear();
-
-    // Eagle
-    g.fillStyle(PALETTE.eagleShadow);
-    g.fillEllipse(16, 12, 8, 10);
-    g.fillStyle(PALETTE.eagleBody);
-    g.fillEllipse(16, 12, 8, 10);
-    g.fillStyle(PALETTE.eagleHead);
-    g.fillCircle(16, 6, 4);
-    g.fillStyle(PALETTE.eagleBeak);
-    g.fillTriangle(16, 6, 19, 7, 16, 9);
-    g.fillStyle(PALETTE.eye);
-    g.fillCircle(17, 5, 1);
-    g.generateTexture('eagle', 32, 22);
-    g.clear();
-
-    // Cloud, grass tuft, rock, flower (decorative)
-    g.fillStyle(0xffffff, 0.95);
-    g.fillCircle(24, 26, 20); g.fillCircle(52, 22, 26); g.fillCircle(82, 28, 18);
-    g.generateTexture('cloud', 104, 56);
-    g.clear();
-    g.lineStyle(1.5, PALETTE.grassDark, 1);
-    g.lineBetween(8, 12, 6, 4); g.lineBetween(8, 12, 8, 2); g.lineBetween(8, 12, 10, 4);
-    g.generateTexture('grass_tuft', 16, 14);
-    g.clear();
-    g.fillStyle(PALETTE.shadowAlpha, 0.25);
-    g.fillEllipse(16, 22, 22, 6);
-    g.fillStyle(PALETTE.stone);
-    g.fillEllipse(16, 16, 22, 14);
-    g.fillStyle(PALETTE.leafMid, 0.7);
-    g.fillCircle(10, 14, 1.5);
-    g.generateTexture('rock', 32, 26);
-    g.clear();
-    g.fillStyle(0xf0c8d8);
-    for (let i = 0; i < 5; i++) g.fillCircle(6 + Math.cos((i/5)*Math.PI*2)*2, 5 + Math.sin((i/5)*Math.PI*2)*2, 1.5);
-    g.fillStyle(0xfae89c);
-    g.fillCircle(6, 5, 1);
-    g.generateTexture('flower', 12, 14);
-    g.destroy();
-  }
-
-  createWorld() {
-    const { width, height } = this.scale;
-    // Tiled ground
-    this.ground = this.add.tileSprite(0, this.horizon, width, height - this.horizon, 'ground')
-      .setOrigin(0, 0).setScale(2).setTileScale(2);
-    // Decorative rocks, flowers, grass tufts
-    for (let i = 0; i < 80; i++) {
-      const deco = Phaser.Utils.Array.GetRandom(['grass_tuft', 'rock', 'flower']);
-      const x = Phaser.Math.Between(0, width);
-      const y = Phaser.Math.Between(this.horizon + 5, height - 15);
-      const img = this.add.image(x, y, deco).setDepth(y).setAlpha(0.7);
-      if (deco === 'rock') img.setScale(0.6);
-      else if (deco === 'flower') img.setScale(0.8);
-    }
-    // Trees (visual only, representing vegetation)
-    for (let i = 0; i < 45; i++) {
-      const x = Phaser.Math.Between(20, width - 20);
-      const y = Phaser.Math.Between(this.horizon + 10, height - 50);
-      this.add.image(x, y, 'tree').setDepth(y).setScale(0.6);
-    }
-
-    // Sky, stars, sun/moon, clouds, mountains, river (from original)
-    this.skyGraphics = this.add.graphics();
-    this.stars = this.add.graphics();
-    for (let i = 0; i < 160; i++) this.stars.fillCircle(Phaser.Math.Between(0, width), Phaser.Math.Between(0, this.horizon), Math.random() * 1.4 + 0.3);
-    this.stars.setAlpha(0);
-    this.sunGlow = this.add.circle(0, 0, 80, 0xffe9a8, 0.25);
-    this.sun = this.add.circle(0, 0, 42, 0xffe066);
-    this.moonGlow = this.add.circle(0, 0, 60, 0xdfe7ff, 0.18);
-    this.moon = this.add.circle(0, 0, 32, 0xf4f6f0);
-    this.clouds = [];
-    for (let i = 0; i < 6; i++) {
-      let c = this.add.image(Phaser.Math.Between(0, width), Phaser.Math.Between(30, this.horizon - 70), 'cloud');
-      c.scale = Phaser.Math.FloatBetween(0.6, 1.3);
-      c.speed = Phaser.Math.FloatBetween(8, 22);
-      c.setAlpha(0.85);
-      this.clouds.push(c);
-    }
-    // Mountains
-    this.mountainsFar = this.add.graphics();
-    this.mountainsFar.fillStyle(PALETTE.mountainFar, 1);
-    this.mountainsFar.beginPath();
-    this.mountainsFar.moveTo(0, this.horizon);
-    this.mountainsFar.lineTo(width * 0.15, this.horizon - 90);
-    this.mountainsFar.lineTo(width * 0.35, this.horizon - 40);
-    this.mountainsFar.lineTo(width * 0.6, this.horizon - 110);
-    this.mountainsFar.lineTo(width * 0.85, this.horizon - 55);
-    this.mountainsFar.lineTo(width, this.horizon - 95);
-    this.mountainsFar.lineTo(width, this.horizon);
-    this.mountainsFar.fillPath();
-    this.mountains = this.add.graphics();
-    this.mountains.fillStyle(PALETTE.mountainNear, 1);
-    this.mountains.beginPath();
-    this.mountains.moveTo(0, this.horizon);
-    this.mountains.lineTo(width * 0.2, this.horizon - 130);
-    this.mountains.lineTo(width * 0.45, this.horizon - 65);
-    this.mountains.lineTo(width * 0.7, this.horizon - 160);
-    this.mountains.lineTo(width, this.horizon - 100);
-    this.mountains.lineTo(width, this.horizon);
-    this.mountains.fillPath();
-    this.riverGraphics = this.add.graphics();
-    this.nightOverlay = this.add.rectangle(0, 0, width, height, 0x0a1430).setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY).setAlpha(0);
-  }
-
-  // ---------- ENTITY MANAGEMENT (from original, adapted to new textures) ----------
-  initializeEntityPools() {
-    for (const level of Object.keys(INITIAL_SPECIES)) {
-      for (const [id, data] of Object.entries(INITIAL_SPECIES[level])) {
-        if (id === 'algae') continue;
-        this.entityGroups[id] = this.add.group();
-        const initialCount = Math.floor(data.population / data.visualScale);
-        for (let i = 0; i < initialCount; i++) {
-          const spawn = this.getSafeSpawnPoint(id === 'eagle');
-          this.spawnSprite(id, data, spawn.x, spawn.y);
-        }
-      }
-    }
-  }
-
-  getSafeSpawnPoint(isEagle) {
-    const { width, height } = this.scale;
-    let x, y, safe = false, attempts = 0;
-    while (!safe && attempts < 20) {
-      x = Phaser.Math.Between(20, width - 20);
-      y = isEagle ? Phaser.Math.Between(20, this.horizon - 40) : Phaser.Math.Between(this.horizon + 20, height - 20);
-      if (isEagle || this.isSafeFromRiver(x)) safe = true;
-      attempts++;
-    }
-    return { x, y };
-  }
-
-  isSafeFromRiver(x) {
-    const w = this.scale.width;
-    return x < w * 0.15 || x > w * 0.55;
-  }
-
-  spawnSprite(id, data, x, y) {
-    const isAir = id === 'eagle';
-    const container = this.add.container(x, y).setDepth(y).setAlpha(0);
-    if (!isAir && data.trophicLevel > 1) {
-      const shadow = this.add.image(0, 14, 'shadow').setScale(0.7, 0.6);
-      container.add(shadow);
-    }
-    const sprite = this.add.image(0, 0, id).setOrigin(0.5);
-    container.add(sprite);
-    container.sprite = sprite;
-    container.speciesId = id;
-    container.setSize(sprite.width, sprite.height);
-    container.setInteractive({ useHandCursor: true });
-    this.tweens.add({ targets: container, alpha: 1, duration: 800 });
-    container.on('pointerdown', () => {
-      const flatData = {};
-      for (const lvl of Object.keys(this.simulation.species)) Object.assign(flatData, this.simulation.species[lvl]);
-      useUIStore.getState().setSelectedSpecies(flatData[id]);
-      this.tweens.add({ targets: container, scale: 1.25, duration: 120, yoyo: true, ease: 'Quad.easeOut' });
-    });
-    if (data.trophicLevel > 1) {
-      this.tweens.add({ targets: sprite, y: -3, duration: Phaser.Math.Between(900, 1500), yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      this.assignWanderAI(container);
-    } else {
-      sprite.setOrigin(0.5, 1);
-      container.y = y; sprite.y = sprite.height / 2;
-      this.tweens.add({ targets: sprite, angle: Phaser.Math.Between(-4, 4), duration: Phaser.Math.Between(2200, 4000), yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    }
-    this.entityGroups[id].add(container);
-    return container;
-  }
-
-  assignWanderAI(container) {
-    const { width, height } = this.scale;
-    this.time.addEvent({
-      delay: Phaser.Math.Between(2000, 5000),
-      loop: true,
-      callback: () => {
-        if (this.isPaused || !container.active) return;
-        const isAir = container.speciesId === 'eagle';
-        let targetX = Phaser.Math.Clamp(container.x + Phaser.Math.Between(-70, 70), 50, width - 50);
-        let targetY = Phaser.Math.Clamp(container.y + Phaser.Math.Between(-45, 45),
-          isAir ? 20 : this.horizon + 20, isAir ? this.horizon - 40 : height - 30);
-        if (!isAir && !this.isSafeFromRiver(targetX)) targetX = container.x + (container.x > width * 0.4 ? 50 : -50);
-        if (container.sprite) container.sprite.setFlipX(targetX < container.x);
-        this.tweens.add({
-          targets: container, x: targetX, y: targetY,
-          duration: Phaser.Math.Between(2200, 3600), ease: 'Sine.easeInOut',
-          onUpdate: () => container.setDepth(container.y)
-        });
-      }
-    });
-  }
-
-  // ---------- SIMULATION TICK & VISUAL POPULATION FLOW ----------
-  runSimulationTick() {
-    if (this.isPaused) return;
-    const newState = this.simulation.tick();
-    useUIStore.getState().syncSimulation(newState);
-    this.handleOrganicPopulationFlow(newState.species);
-  }
-
-  handleOrganicPopulationFlow(speciesState) {
-    const { width, height } = this.scale;
-    const algaeData = speciesState.producers.algae;
-    this.targetAlgaeHealth = Math.min(1, algaeData.population / algaeData.carryingCapacity);
-    for (const level of Object.keys(speciesState)) {
-      for (const [id, data] of Object.entries(speciesState[level])) {
-        if (id === 'algae') continue;
-        const group = this.entityGroups[id];
-        if (!group) continue;
-        const targetVisualCount = Math.floor(data.population / data.visualScale);
-        const activeSprites = group.getChildren().filter(s => s.active);
-        const currentVisualCount = activeSprites.length;
-        if (targetVisualCount > currentVisualCount) {
-          for (let i = 0; i < targetVisualCount - currentVisualCount; i++) {
-            let spawnX, spawnY;
-            if (activeSprites.length) {
-              const p = Phaser.Utils.Array.GetRandom(activeSprites);
-              spawnX = Phaser.Math.Clamp(p.x + Phaser.Math.Between(-40, 40), 20, width - 20);
-              spawnY = Phaser.Math.Clamp(p.y + Phaser.Math.Between(-40, 40), id === 'eagle' ? 20 : this.horizon + 20, id === 'eagle' ? this.horizon - 40 : height - 20);
-              if (id !== 'eagle' && !this.isSafeFromRiver(spawnX)) spawnX = p.x;
-            } else {
-              const safe = this.getSafeSpawnPoint(id === 'eagle');
-              spawnX = safe.x; spawnY = safe.y;
-            }
-            this.spawnSprite(id, data, spawnX, spawnY);
-          }
-        } else if (targetVisualCount < currentVisualCount) {
-          const doomed = Phaser.Utils.Array.Shuffle(activeSprites).slice(0, currentVisualCount - targetVisualCount);
-          doomed.forEach(container => {
-            container.active = false;
-            this.tweens.add({ targets: container, alpha: 0, scale: 0.4, duration: 1500, ease: 'Quad.easeIn', onComplete: () => group.remove(container, true, true) });
-          });
-        }
-      }
-    }
-  }
-
-  // ---------- RIVER (with algae color) ----------
-  drawRiver() {
-    const w = this.scale.width;
-    const h = this.scale.height;
-    this.currentAlgaeHealth += (this.targetAlgaeHealth - this.currentAlgaeHealth) * 0.05;
-    const color = Phaser.Display.Color.Interpolate.ColorWithColor(
-      Phaser.Display.Color.ValueToColor(PALETTE.riverHealthy),
-      Phaser.Display.Color.ValueToColor(PALETTE.riverSick),
-      100, this.currentAlgaeHealth * 100
-    );
-    const riverColor = Phaser.Display.Color.GetColor(color.r, color.g, color.b);
-    this.riverGraphics.clear();
-    this.riverGraphics.fillStyle(0x3a5a3a, 0.5);
-    this._riverPath(w, h, 6);
-    this.riverGraphics.fillPath();
-    this.riverGraphics.fillStyle(riverColor, 1);
-    this._riverPath(w, h, 0);
-    this.riverGraphics.fillPath();
-  }
-
-  _riverPath(w, h, pad) {
-    this.riverGraphics.beginPath();
-    this.riverGraphics.moveTo(w * 0.44 - pad, this.horizon);
-    const leftCurve = new Phaser.Curves.QuadraticBezier(
-      new Phaser.Math.Vector2(w * 0.44 - pad, this.horizon),
-      new Phaser.Math.Vector2(w * 0.35 - pad, h * 0.75),
-      new Phaser.Math.Vector2(w * 0.15 - pad, h)
-    );
-    leftCurve.getPoints(24).forEach(p => this.riverGraphics.lineTo(p.x, p.y));
-    this.riverGraphics.lineTo(w * 0.35 + pad, h);
-    const rightCurve = new Phaser.Curves.QuadraticBezier(
-      new Phaser.Math.Vector2(w * 0.35 + pad, h),
-      new Phaser.Math.Vector2(w * 0.45 + pad, h * 0.75),
-      new Phaser.Math.Vector2(w * 0.46 + pad, this.horizon)
-    );
-    rightCurve.getPoints(24).forEach(p => this.riverGraphics.lineTo(p.x, p.y));
-  }
-
-  // ---------- UPDATE (sky, day/night, clouds, river) ----------
-  update(time, delta) {
-    if (this.isPaused) return;
-    const { width, height } = this.scale;
-    this.timeOfDay = (this.timeOfDay + (delta * 0.0005 * this.simSpeed)) % 24;
-    const isDay = this.timeOfDay >= 6 && this.timeOfDay <= 18;
-    const isDusk = (this.timeOfDay > 17 && this.timeOfDay <= 18) || (this.timeOfDay >= 6 && this.timeOfDay < 7);
-    this.drawRiver();
-    this.clouds.forEach(c => {
-      c.x += (c.speed * delta * 0.001 * this.simSpeed);
-      if (c.x > width + 120) { c.x = -120; c.y = Phaser.Math.Between(30, this.horizon - 70); }
-    });
-    this.skyGraphics.clear();
-    let top, bot;
-    if (isDusk) { top = PALETTE.skyDuskTop; bot = PALETTE.skyDuskBot; }
-    else if (isDay) { top = PALETTE.skyDayTop; bot = PALETTE.skyDayBot; }
-    else { top = PALETTE.skyNightTop; bot = PALETTE.skyNightBot; }
-    this.skyGraphics.fillGradientStyle(top, top, bot, bot, 1);
-    this.skyGraphics.fillRect(0, 0, width, this.horizon);
-    if (isDay) {
-      const dayProgress = (this.timeOfDay - 6) / 12;
-      const sx = width * dayProgress;
-      const sy = this.horizon - Math.sin(dayProgress * Math.PI) * (this.horizon * 0.8);
-      this.sun.setPosition(sx, sy).setVisible(true);
-      this.sunGlow.setPosition(sx, sy).setVisible(true);
-      this.moon.setVisible(false); this.moonGlow.setVisible(false);
-      this.stars.setAlpha(0);
-    } else {
-      const nightProgress = (this.timeOfDay >= 18 ? this.timeOfDay - 18 : this.timeOfDay + 6) / 12;
-      const mx = width * nightProgress;
-      const my = this.horizon - Math.sin(nightProgress * Math.PI) * (this.horizon * 0.8);
-      this.moon.setPosition(mx, my).setVisible(true);
-      this.moonGlow.setPosition(mx, my).setVisible(true);
-      this.sun.setVisible(false); this.sunGlow.setVisible(false);
-      this.stars.setAlpha(Math.sin(nightProgress * Math.PI));
-    }
-    this.nightOverlay.setAlpha(Phaser.Math.Linear(this.nightOverlay.alpha, isDay ? 0 : 0.5, 0.05));
-  }
-}
-
-// ============================================================================
-// PART 5: REACT-PHASER MOUNTING BRIDGE
-// ============================================================================
-const PhaserGameContainer = () => {
   useEffect(() => {
-    const config = {
-      type: Phaser.AUTO,
-      parent: 'phaser-root',
-      width: window.innerWidth,
-      height: window.innerHeight,
-      scene: [MainEcosystemScene],
-      backgroundColor: '#0e1a14',
-      scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH }
-    };
-    const game = new Phaser.Game(config);
-    return () => game.destroy(true);
+    // Update the UI HTML only 4 times a second, not 60!
+    const interval = setInterval(() => {
+      const state = useStore.getState();
+      setStats({
+        time: Math.floor(state.timeOfDay),
+        weather: state.weather,
+        herb: state.entities.filter(e => e.type === 'prey').length,
+        carn: state.entities.filter(e => e.type === 'predator').length,
+        dead: state.corpses
+      });
+    }, 250);
+    return () => clearInterval(interval);
   }, []);
-  return <div id="phaser-root" className="absolute inset-0 z-0" />;
+
+  return (
+    <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute top-0 left-0 right-0 p-4 z-10 flex flex-wrap justify-between items-start pointer-events-none gap-4">
+      <div className="bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 flex items-center gap-3 w-40">
+        {stats.weather === 'Clear' ? <Sun className="text-yellow-400" size={20} /> : <CloudRain className="text-blue-400" size={20} />}
+        <div>
+          <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Time & Weather</p>
+          <p className="font-semibold text-sm">{stats.time}:00 • {stats.weather}</p>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex flex-col items-center">
+          <p className="text-[10px] text-gray-400 uppercase font-bold">Herbivores</p>
+          <p className="font-mono text-green-400 font-bold text-lg">{stats.herb}</p>
+        </div>
+        <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex flex-col items-center">
+          <p className="text-[10px] text-gray-400 uppercase font-bold">Carnivores</p>
+          <p className="font-mono text-red-400 font-bold text-lg">{stats.carn}</p>
+        </div>
+        <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex flex-col items-center">
+           <p className="text-[10px] text-gray-400 uppercase font-bold">Deceased</p>
+           <p className="font-mono text-gray-500 font-bold text-lg flex items-center gap-1"><Skull size={14}/> {stats.dead}</p>
+        </div>
+      </div>
+    </motion.div>
+  );
 };
 
-// ============================================================================
-// PART 6: REACT UI OVERLAYS (from original, unchanged)
-// ============================================================================
-const ControlBar = () => {
-  const { isRunning, simulationSpeed, toggleRunning, setSpeed, ecosystemHealth, togglePanel, timeStep, activePanel } = useUIStore();
-  const healthColor = ecosystemHealth > 60 ? 'from-emerald-400 to-green-500' : ecosystemHealth > 30 ? 'from-amber-400 to-yellow-500' : 'from-rose-500 to-red-600';
-  const Tab = ({ id, label, icon }) => (
-    <button onClick={() => togglePanel(id)} className={`eco-btn flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-semibold text-sm border transition ${activePanel === id ? 'bg-white/15 border-white/30 text-white' : 'bg-white/5 border-white/10 text-emerald-100/80 hover:bg-white/10'}`}>
-      <span>{icon}</span><span className="hidden sm:inline">{label}</span>
-    </button>
-  );
+const ControlsUI = () => {
+  // Read static functions, no reactive subscriptions here
+  const { spawnEntity, setWeather } = useStore.getState();
+  const weather = useStore(state => state.weather); // Weather is slow-changing, okay to subscribe
+
   return (
-    <div className="absolute bottom-0 w-full eco-glass border-t border-white/10 z-20">
-      <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <button onClick={toggleRunning} className="eco-btn flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-white bg-gradient-to-br from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 shadow-lg shadow-emerald-900/40">
-            {isRunning ? '❚❚ Pause' : '► Play'}
+    <motion.div initial={{ x: 100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="absolute bottom-8 right-8 z-10 flex flex-col gap-3 w-72 pointer-events-auto">
+      <div className="bg-black/70 backdrop-blur-xl p-5 rounded-2xl border border-white/10 shadow-2xl">
+        <h3 className="text-xs font-bold mb-4 uppercase tracking-widest text-gray-400 flex items-center gap-2">
+          <Activity size={14} /> God Controls
+        </h3>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => spawnEntity('Rabbit', 'prey')} className="bg-green-900/50 hover:bg-green-700/80 border border-green-500/30 transition-all py-3 rounded-xl text-sm font-semibold flex flex-col items-center gap-1 cursor-pointer">
+              <Leaf size={16} className="text-green-400" /> + Rabbit
+            </button>
+            <button onClick={() => spawnEntity('Wolf', 'predator')} className="bg-red-900/50 hover:bg-red-700/80 border border-red-500/30 transition-all py-3 rounded-xl text-sm font-semibold flex flex-col items-center gap-1 cursor-pointer">
+              <Skull size={16} className="text-red-400" /> + Wolf
+            </button>
+          </div>
+          <div className="h-px bg-white/10 w-full my-2"></div>
+          <button onClick={() => setWeather(weather === 'Clear' ? 'Rain' : 'Clear')} className={`w-full transition-all py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 border cursor-pointer ${weather === 'Clear' ? 'bg-blue-900/30 hover:bg-blue-800/50 border-blue-500/30 text-blue-200' : 'bg-yellow-900/30 hover:bg-yellow-800/50 border-yellow-500/30 text-yellow-200'}`}>
+            {weather === 'Clear' ? <CloudRain size={16} /> : <Sun size={16} />} 
+            {weather === 'Clear' ? 'Trigger Storm' : 'Clear Skies'}
           </button>
-          <div className="flex items-center bg-white/5 border border-white/10 rounded-lg overflow-hidden">
-            {[0.5, 1, 2, 5].map(s => (
-              <button key={s} onClick={() => setSpeed(s)} className={`px-3 py-2 text-sm font-bold transition ${simulationSpeed === s ? 'bg-emerald-500/80 text-white' : 'text-emerald-100/70 hover:bg-white/10'}`}>
-                {s}×
-              </button>
-            ))}
-          </div>
         </div>
-        <div className="flex items-center gap-3 text-white font-semibold">
-          <span className="text-emerald-100/70 text-sm hidden lg:inline">Day {Math.floor(timeStep)}</span>
-          <span className="text-sm hidden md:inline">Health</span>
-          <div className="w-40 md:w-48 h-3 bg-black/40 rounded-full overflow-hidden border border-white/10">
-            <div className={`h-full bg-gradient-to-r ${healthColor} eco-shimmer transition-all duration-500`} style={{ width: `${ecosystemHealth}%` }} />
-          </div>
-          <span className="text-sm tabular-nums w-10 text-right">{Math.round(ecosystemHealth)}%</span>
-        </div>
-        <div className="flex gap-2">
-          <Tab id="events" label="Log" icon="📋" />
-          <Tab id="dashboard" label="Stats" icon="📊" />
-          <Tab id="interventions" label="Tools" icon="🧪" />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const EventFeed = () => {
-  const { events, clearEvents, togglePanel } = useUIStore();
-  const styleFor = (type) => {
-    if (type === 'growth') return 'border-emerald-400 bg-emerald-950/40';
-    if (type === 'decline') return 'border-rose-400 bg-rose-950/40';
-    if (type === 'intervention') return 'border-violet-400 bg-violet-950/40';
-    return 'border-slate-500 bg-slate-900/40';
-  };
-  return (
-    <motion.div initial={{ y: 420, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 420, opacity: 0 }} transition={{ type: 'spring', damping: 24, stiffness: 260 }} className="absolute bottom-24 left-1/2 -translate-x-1/2 w-[520px] max-w-[92vw] eco-glass rounded-2xl z-20 overflow-hidden">
-      <div className="p-3.5 border-b border-white/10 flex justify-between items-center">
-        <h2 className="font-bold text-emerald-50 flex items-center gap-2">📋 Event Log</h2>
-        <div className="flex gap-3 items-center">
-          <button onClick={clearEvents} className="text-xs text-emerald-200/60 hover:text-white transition">Clear</button>
-          <button onClick={() => togglePanel('events')} className="text-emerald-200/60 hover:text-white text-lg leading-none">✕</button>
-        </div>
-      </div>
-      <div className="h-64 overflow-y-auto p-2.5 space-y-1.5 custom-scrollbar">
-        {events.length === 0 ? (
-          <div className="text-center text-emerald-100/40 p-10"><div className="text-4xl mb-2">🌱</div><p>The ecosystem is calm. No events yet.</p></div>
-        ) : (
-          events.map(event => (
-            <div key={event.id} className={`text-xs p-2.5 rounded-lg border-l-4 text-emerald-50 ${styleFor(event.type)}`}>
-              <p className="leading-snug">{event.message}</p>
-              <p className="text-[10px] text-emerald-100/40 mt-0.5">{event.time.toLocaleTimeString()}</p>
-            </div>
-          ))
-        )}
       </div>
     </motion.div>
   );
 };
 
-const InterventionsPanel = () => {
-  const trigger = useUIStore(state => state.triggerIntervention);
-  const tools = [
-    { id: 'nutrients', icon: '🌱', title: 'Add Fertilizer', desc: 'Boosts plant & algae growth (risk: eutrophication)', accent: 'emerald' },
-    { id: 'predator', icon: '🐺', title: 'Introduce Wolves', desc: 'Adds apex predators to curb overpopulation', accent: 'sky' },
-    { id: 'disease', icon: '🦠', title: 'Release Virus', desc: 'Culls the herbivore population sharply', accent: 'rose' },
-    { id: 'toxins', icon: '☠️', title: 'Add Toxins', desc: 'Raises mortality across all species', accent: 'amber' },
-    { id: 'rain-up', icon: '💧', title: 'Increase Rainfall', desc: 'Expands plant carrying capacity', accent: 'cyan' },
-    { id: 'rain-down', icon: '🌵', title: 'Trigger Drought', desc: 'Shrinks plant carrying capacity', accent: 'orange' },
-  ];
-  const accents = { emerald: 'hover:border-emerald-400/60 hover:bg-emerald-500/10', sky: 'hover:border-sky-400/60 hover:bg-sky-500/10', rose: 'hover:border-rose-400/60 hover:bg-rose-500/10', amber: 'hover:border-amber-400/60 hover:bg-amber-500/10', cyan: 'hover:border-cyan-400/60 hover:bg-cyan-500/10', orange: 'hover:border-orange-400/60 hover:bg-orange-500/10' };
-  return (
-    <motion.div initial={{ x: 400, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 400, opacity: 0 }} transition={{ type: 'spring', damping: 26, stiffness: 260 }} className="absolute right-4 top-4 bottom-24 w-80 eco-glass rounded-2xl p-4 z-20 overflow-y-auto custom-scrollbar">
-      <h2 className="text-emerald-300 font-bold mb-1 flex items-center gap-2 eco-title">🧪 Intervention Tools</h2>
-      <p className="text-emerald-100/40 text-xs mb-4">Shape the ecosystem and watch it respond.</p>
-      <div className="space-y-2.5">
-        {tools.map(t => (
-          <button key={t.id} onClick={() => trigger(t.id)} className={`eco-btn w-full text-left p-3 rounded-xl bg-white/5 border border-white/10 transition ${accents[t.accent]}`}>
-            <div className="text-white font-bold text-sm flex items-center gap-2"><span className="text-lg">{t.icon}</span>{t.title}</div>
-            <div className="text-emerald-100/50 text-xs mt-1 leading-snug">{t.desc}</div>
-          </button>
-        ))}
-      </div>
-    </motion.div>
-  );
-};
-
-const StatsDashboard = () => {
-  const speciesData = useUIStore(state => state.speciesData);
-  const sum = (obj) => Object.values(obj).reduce((a, b) => a + b.population, 0);
-  const tiers = [
-    { label: 'Producers', val: sum(speciesData.producers), max: 20000, color: 'from-green-400 to-emerald-500', text: 'text-emerald-300' },
-    { label: 'Herbivores', val: sum(speciesData.primaryConsumers), max: 5000, color: 'from-lime-400 to-yellow-500', text: 'text-lime-300' },
-    { label: 'Carnivores', val: sum(speciesData.secondaryConsumers), max: 1000, color: 'from-amber-400 to-orange-500', text: 'text-amber-300' },
-    { label: 'Apex Predators', val: sum(speciesData.apexPredators), max: 200, color: 'from-rose-400 to-red-500', text: 'text-rose-300' },
-  ];
-  return (
-    <motion.div initial={{ x: -400, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -400, opacity: 0 }} transition={{ type: 'spring', damping: 26, stiffness: 260 }} className="absolute left-4 top-4 w-72 eco-glass rounded-2xl p-4 z-20">
-      <h2 className="text-emerald-300 font-bold mb-1 eco-title">📊 Food Web</h2>
-      <p className="text-emerald-100/40 text-xs mb-4">Population by trophic tier</p>
-      <div className="space-y-4">
-        {tiers.map(t => (
-          <div key={t.label}>
-            <div className={`flex justify-between text-xs font-bold mb-1.5 ${t.text}`}><span>{t.label}</span><span className="tabular-nums text-white">{Math.round(t.val).toLocaleString()}</span></div>
-            <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/10">
-              <div className={`h-full bg-gradient-to-r ${t.color} transition-all duration-500`} style={{ width: `${Math.min(100, t.val / t.max * 100)}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
-};
-
-const SpeciesModal = () => {
-  const { selectedSpecies, setSelectedSpecies } = useUIStore();
-  if (!selectedSpecies) return null;
-  const ratio = selectedSpecies.population / selectedSpecies.carryingCapacity;
-  const status = ratio < 0.15 ? { t: 'Endangered', c: 'text-rose-400' } : ratio > 0.85 ? { t: 'Overpopulated', c: 'text-amber-400' } : { t: 'Stable', c: 'text-emerald-400' };
-  return (
-    <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setSelectedSpecies(null)}>
-      <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} transition={{ type: 'spring', damping: 22, stiffness: 300 }} onClick={e => e.stopPropagation()} className="rounded-3xl w-full max-w-sm overflow-hidden border border-white/15 shadow-2xl">
-        <div className="bg-gradient-to-br from-emerald-600 to-green-800 p-6 text-center text-white relative">
-          <div className="text-7xl mb-2 animate-float drop-shadow-lg">{selectedSpecies.icon}</div>
-          <h2 className="text-3xl font-extrabold tracking-tight">{selectedSpecies.name}</h2>
-          <span className={`text-sm font-bold ${status.c} bg-black/30 px-3 py-0.5 rounded-full inline-block mt-2`}>{status.t}</span>
-          <button onClick={() => setSelectedSpecies(null)} className="absolute top-3 right-4 text-white/60 hover:text-white text-xl">✕</button>
-        </div>
-        <div className="p-6 space-y-4 bg-slate-900">
-          <div className="flex justify-between items-center border-b border-white/10 pb-2.5 text-slate-300"><span>Population</span><span className="text-white font-bold text-lg tabular-nums">{Math.round(selectedSpecies.population).toLocaleString()}</span></div>
-          <div className="flex justify-between items-center border-b border-white/10 pb-2.5 text-slate-300"><span>Carrying Capacity</span><span className="text-white font-bold text-lg tabular-nums">{selectedSpecies.carryingCapacity.toLocaleString()}</span></div>
-          <div><div className="flex justify-between text-slate-300 mb-1.5"><span>Capacity Used</span><span className="text-white font-bold">{Math.round(ratio * 100)}%</span></div><div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/10"><div className="h-full bg-gradient-to-r from-emerald-400 to-green-500" style={{ width: `${Math.min(100, ratio * 100)}%` }} /></div></div>
-          <div className="flex justify-between items-center text-slate-300 pt-1"><span>Trophic Level</span><span className="text-white font-bold bg-white/10 px-3 py-0.5 rounded-full">Tier {selectedSpecies.trophicLevel}</span></div>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
-
-const ToastNotifications = () => {
-  const notifications = useUIStore(state => state.notifications);
-  return (
-    <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 space-y-2 pointer-events-none">
-      <AnimatePresence>
-        {notifications.map(n => (
-          <motion.div key={n.id} initial={{ y: -20, opacity: 0, scale: 0.9 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: -20, opacity: 0, scale: 0.9 }} className="eco-glass text-white px-6 py-3 rounded-full shadow-2xl border border-emerald-400/40 font-semibold text-sm tracking-wide flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-slow" />{n.message}
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-const TitleBadge = () => (
-  <div className="absolute top-5 left-1/2 -translate-x-1/2 z-20 pointer-events-none text-center">
-    <h1 className="eco-title text-white/90 font-extrabold text-lg md:text-xl tracking-wide">🌍 EcoBalance</h1>
-    <p className="text-emerald-100/40 text-[11px] -mt-0.5">Tap any creature to inspect it</p>
-  </div>
-);
-
-// ============================================================================
-// PART 7: ROOT COMPONENT
-// ============================================================================
+// ==========================================
+// 4. MAIN EXPORT (CLEAN SHELL)
+// ==========================================
 export default function EcoBalanceGame() {
-  const activePanel = useUIStore(state => state.activePanel);
   return (
-    <div className="eco-game-root relative w-screen h-screen overflow-hidden bg-black select-none">
-      <PhaserGameContainer />
-      <div className="absolute inset-0 pointer-events-none z-10">
-        <div className="pointer-events-auto h-full w-full">
-          <TitleBadge />
-          <ToastNotifications />
-          <AnimatePresence>
-            {activePanel === 'interventions' && <InterventionsPanel />}
-            {activePanel === 'dashboard' && <StatsDashboard />}
-            {activePanel === 'events' && <EventFeed />}
-          </AnimatePresence>
-          <SpeciesModal />
-          <ControlBar />
-        </div>
+    <div className="relative w-full h-screen bg-gray-950 text-white overflow-hidden font-sans select-none">
+      <div className="absolute inset-0 z-0">
+        <Canvas shadows camera={{ position: [15, 20, 15], fov: 45 }}>
+          <SimulationController />
+          <ContactShadows resolution={1024} scale={50} blur={2} opacity={0.4} far={10} color="#000000" />
+          <OrbitControls makeDefault maxPolarAngle={Math.PI / 2.1} minDistance={5} maxDistance={40} />
+        </Canvas>
+      </div>
+      <DashboardUI />
+      <ControlsUI />
+      <div className="absolute bottom-6 left-6 pointer-events-none text-white/40 text-xs font-mono">
+        Left Click + Drag: Rotate | Scroll: Zoom | Right Click + Drag: Pan
       </div>
     </div>
   );
