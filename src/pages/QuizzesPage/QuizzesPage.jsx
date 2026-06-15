@@ -188,9 +188,9 @@ const QuizzesPage = () => {
       <div className="max-w-7xl mx-auto px-6 pt-32 pb-24 relative z-10">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
           <h1 className="text-5xl md:text-6xl font-black text-slate-900 dark:text-white mb-6 tracking-tight drop-shadow-lg">
-            Knowledge <span className="bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">Protocols</span>
+            Knowledge <span className="bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">Games</span>
           </h1>
-          <p className="text-slate-600 dark:text-slate-400 text-lg md:text-xl font-light">Select a discipline to initialize your testing parameters.</p>
+          <p className="text-slate-600 dark:text-slate-400 text-lg md:text-xl font-light">Select a game to check your knowledge.</p>
         </motion.div>
 
         {/* Search & Filter Bar */}
