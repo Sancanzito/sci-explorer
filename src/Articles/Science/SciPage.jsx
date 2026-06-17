@@ -4,6 +4,13 @@ import { motion } from 'framer-motion';
 import SciSkillsScrollSpy from './ScientificScrollSpy';
 import SciSkillsFooter from './Scientificfooter';
 
+import observation from "../../assets/Science/observation.jpg";
+import galileo from "../../assets/Science/galileo.jpg";
+import plantheight from "../../assets/Science/plantheight.jpg";
+import modernlab from "../../assets/Science/laboratory.jpg";
+import sunlight from "../../assets/Science/sunlight.jpg";
+import miniscus from "../../assets/Science/miniscus.jpg";
+import graph from "../../assets/Science/graph.png";
 const sections = [
   { id: 'intro', title: '1. Introduction to Investigation' },
   { id: 'nature', title: '2. Nature of Science' },
@@ -57,6 +64,7 @@ const FloatingParticles = () => {
 // No more ScienceBackgroundPattern – removed to fix 400 error
 
 // Enhanced Image Component with real Wikipedia images
+// Find this component in SciPage.jsx and update the img className
 const SciImage = ({ src, alt, caption, align = "center" }) => {
   const alignmentClass = {
     left: "md:float-left md:mr-6 md:mb-4",
@@ -73,7 +81,9 @@ const SciImage = ({ src, alt, caption, align = "center" }) => {
         <img 
           src={src} 
           alt={alt}
-          className="w-full h-auto max-h-64 object-cover"
+          /* CHANGED: Replaced object-cover with object-contain. 
+             Added a subtle background color in case the image doesn't fill the full width/height */
+          className="w-full h-auto max-h-64 object-contain bg-gray-50 dark:bg-gray-900/20"
           loading="lazy"
           onError={(e) => { e.target.src = fallbackImage; }}
         />
@@ -168,7 +178,7 @@ const InvestigationPage = () => {
               1. What is Scientific Investigation?
             </h2>
             <SciImage 
-              src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Starr_070730-7919_Salvia_coccinea.jpg/800px-Starr_070730-7919_Salvia_coccinea.jpg"
+              src={observation}
               alt="Scientific observation in nature"
               caption="Observation is the first step of any scientific investigation."
               align="right"
@@ -185,7 +195,7 @@ const InvestigationPage = () => {
               2. Nature of Science
             </h2>
             <SciImage 
-              src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Portrait_of_Galileo_Galilei_%28scientist%29.jpg/800px-Portrait_of_Galileo_Galilei_%28scientist%29.jpg"
+              src={galileo}
               alt="Galileo Galilei portrait"
               caption="Galileo Galilei, a pioneer of the scientific method."
               align="left"
@@ -259,7 +269,7 @@ const InvestigationPage = () => {
               </div>
             </div>
             <SciImage 
-              src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Plant_growth_measurement.jpg/800px-Plant_growth_measurement.jpg"
+              src={plantheight}
               alt="Measuring plant growth"
               caption="Quantitative observation: measuring plant height with a ruler."
               align="center"
@@ -284,7 +294,7 @@ const InvestigationPage = () => {
               7. Scientific Research
             </h2>
             <SciImage 
-              src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Research_laboratory.jpg/800px-Research_laboratory.jpg"
+              src={modernlab}
               alt="Scientific research lab"
               caption="Modern research laboratory where experiments are conducted."
               align="right"
@@ -322,7 +332,7 @@ const InvestigationPage = () => {
               <span className="text-purple-400 font-bold">because</span> sunlight provides the energy needed for photosynthesis.
             </div>
             <SciImage 
-              src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Sunlight_plants.jpg/800px-Sunlight_plants.jpg"
+              src={sunlight}
               alt="Sunlight and plant growth"
               caption="Testing the hypothesis: more sunlight leads to taller plants."
               align="center"
@@ -381,7 +391,7 @@ const InvestigationPage = () => {
               11. Measurement and Accuracy
             </h2>
             <SciImage 
-              src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Graduated_cylinder_meniscus.svg/800px-Graduated_cylinder_meniscus.svg.png"
+              src={miniscus}
               alt="Graduated cylinder meniscus"
               caption="Reading the meniscus at eye level ensures accurate volume measurement."
               align="left"
@@ -409,7 +419,7 @@ const InvestigationPage = () => {
               <li><strong>Outliers:</strong> Are there data points that deviate drastically from the norm?</li>
             </ul>
             <SciImage 
-              src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Scatter_plot.svg/800px-Scatter_plot.svg.png"
+              src={graph}
               alt="Example scatter plot"
               caption="Graphs help identify correlations and outliers in data."
               align="center"
