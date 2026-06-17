@@ -1,12 +1,40 @@
-// vite.config.js
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import cesium from 'vite-plugin-cesium' // <-- 1. Import Cesium plugin
+import cesium from 'vite-plugin-cesium'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
     react(),
-    cesium() // <-- 2. Add it to the plugins array
+    cesium(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', '**/*.wasm'],
+      manifest: {
+        name: 'Sci-Explorer',
+        short_name: 'SciExplorer',
+        description: 'Interactive Science Learning Platform',
+        theme_color: '#121a24',
+        background_color: '#121a24',
+        display: 'standalone',
+        icons: [
+          {
+            src: 'favicon.ico',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'favicon.ico',
+            sizes: '512x512',
+            type: 'image/png'
+          }
+        ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,wasm,gltf,b3dm,glb}'],
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+      }
+    })
   ],
   define: {
     global: 'globalThis',
@@ -38,8 +66,6 @@ export default defineConfig({
           if (id.includes('plotly.js-dist-min')) {
             return 'plotly';
           }
-          // The cesium plugin automatically handles its own heavy assets,
-          // so this general vendor chunking remains safe to use.
           if (id.includes('node_modules')) {
             return 'vendor';
           }
