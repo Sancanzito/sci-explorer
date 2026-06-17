@@ -490,7 +490,7 @@ const ROCCurvePlot = ({ rocData, auc, customTitle }: { rocData: any[], auc: numb
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="fpr" type="number" domain={[0, 1]} label={{ value: 'False Positive Rate (1 - Specificity)', position: 'bottom', offset: -5 }} />
         <YAxis dataKey="tpr" type="number" domain={[0, 1]} label={{ value: 'True Positive Rate (Sensitivity)', angle: -90, position: 'insideLeft' }} />
-        <Tooltip formatter={(value: number) => value.toFixed(3)} />
+        <Tooltip formatter={(value: any) => typeof value === 'number' ? value.toFixed(3) : value} />
         <Legend verticalAlign="top" height={36} />
         <Line type="monotone" dataKey="tpr" name={`ROC Curve (AUC = ${auc.toFixed(3)})`} stroke="#3b82f6" strokeWidth={3} dot={false} isAnimationActive={false} />
         <Line type="monotone" dataKey="fpr" name="Random Guess" stroke="#ef4444" strokeDasharray="5 5" dot={false} isAnimationActive={false} />
@@ -696,7 +696,7 @@ const getColumnData = (univer: any, workbookId: string, worksheetId: string, ski
         const cell = cellMatrix.getValue(row, col);
         if (cell && cell.v !== undefined && cell.v !== null && cell.v !== '') {
           if (typeof cell.v === 'string' && cell.v.includes(',')) {
-            cell.v.split(',').forEach(v => {
+            cell.v.split(',').forEach((v: string) => {
               const num = Number(v.trim());
               if (!isNaN(num) && v.trim() !== '') colData.push(num);
               else if (v.trim() !== '') colData.push(v.trim());
