@@ -32,7 +32,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,wasm,gltf,b3dm,glb}'],
-        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+        // Increased limit to 25 MB to safely cover animalcell.glb (17MB) & vendor.js (15.8MB)
+        maximumFileSizeToCacheInBytes: 25 * 1024 * 1024,
       }
     })
   ],
