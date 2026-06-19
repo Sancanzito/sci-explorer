@@ -169,7 +169,7 @@ export const ArticlesPage = () => {
                     ? 'bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 border border-purple-500/20'
                     : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
                 }`}>
-                  <BookOpen size={16} /> Open Science Quest
+                  <BookOpen size={16} /> Open The 4W's of science
                </Link>
             </div>
           </div>
@@ -223,7 +223,7 @@ export const ArticlesPage = () => {
                         </p>
 
                         <div className="mt-auto relative z-10 flex items-center justify-between font-bold text-sm transition-colors">
-                           <span className={isDarkMode ? 'text-slate-500 group-hover:text-white transition-colors' : 'text-slate-400 group-hover:text-gray-900 transition-colors'}>Initialize Read</span>
+                           <span className={isDarkMode ? 'text-slate-500 group-hover:text-white transition-colors' : 'text-slate-400 group-hover:text-gray-900 transition-colors'}>Start Reading</span>
                            <ChevronRight size={18} className={`transform group-hover:translate-x-1 transition-transform ${isDarkMode ? 'text-cyan-500' : 'text-cyan-600'}`} />
                         </div>
                       </m.div>
@@ -338,7 +338,7 @@ export const ArticleReader = () => {
                   : 'text-cyan-700 bg-white/80 border-gray-200 hover:border-cyan-300'
               }`}
             >
-              <ArrowLeft size={16} /> Return to Archive
+              <ArrowLeft size={16} /> Return to Article Page
             </Link>
           </m.div>
 

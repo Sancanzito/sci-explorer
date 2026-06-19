@@ -129,7 +129,7 @@ const DesktopNav = ({ isDarkMode, toggleTheme }) => {
   return (
     <div className="hidden lg:flex items-center space-x-6 h-full">
       <Link to="/articles" className={getLinkClass('/articles')}>
-        Archives
+        Articles
       </Link>
       
       <Link to="/simulations" className={getLinkClass('/simulations')}>

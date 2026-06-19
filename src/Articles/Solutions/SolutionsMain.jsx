@@ -13,7 +13,15 @@ import {
   Beaker,
 } from "lucide-react";
 import "katex/dist/katex.min.css";
-
+//images
+import concentrated from "../../assets/solubility/conentrated.jpg";
+import hot from "../../assets/solubility/hot coffee.jpg";
+import pressure from "../../assets/solubility/pressure.jpg";
+import saturated from "../../assets/solubility/saturated.jpg";
+import sugar from "../../assets/solubility/sugar.jpg";
+import supersaturated from "../../assets/solubility/supersaturated.jpg";
+import threesat from "../../assets/solubility/threesat.jpg";
+import unsaturated from "../../assets/solubility/unsaturated.jpg";
 const SolutionsMain = () => {
   const sections = [
     { id: "chapter-overview", title: "Chapter Overview" },
@@ -208,7 +216,7 @@ const SolutionsMain = () => {
             <div className="clearfix my-10">
               <figure className="float-right w-full sm:w-[40%] ml-0 sm:ml-6 mb-4">
                 <img
-                  src="https://placehold.co/400x300/e2e8f0/475569?text=Sugar+Dissolving"
+                  src={sugar}
                   alt="Molecular diagram showing sugar particles dispersing among water molecules"
                   className="w-full rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 m-0"
                 />
@@ -269,7 +277,7 @@ const SolutionsMain = () => {
             <div className="clearfix mb-8">
               <figure className="float-left w-full sm:w-[45%] mr-0 sm:mr-6 mb-4">
                 <img
-                  src="https://placehold.co/400x350/e2e8f0/475569?text=Dilute+vs+Concentrated"
+                  src={concentrated}
                   alt="Two beakers side by side, one lightly colored and one darkly colored"
                   className="w-full rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 m-0"
                 />
@@ -568,7 +576,7 @@ Calculate concentration: $\\frac{2\\ \\text{mg}}{10^6\\ \\text{mg}} \\times 10^6
 
             <figure className="mb-8 text-center block w-full">
               <img
-                src="https://placehold.co/800x300/e2e8f0/475569?text=Unsaturated+|+Saturated+|+Supersaturated"
+                src={threesat}
                 alt="Three beakers labeled Unsaturated, Saturated, and Supersaturated"
                 className="w-[80%] mx-auto block rounded-2xl shadow-sm m-0"
               />
@@ -586,7 +594,7 @@ Calculate concentration: $\\frac{2\\ \\text{mg}}{10^6\\ \\text{mg}} \\times 10^6
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-8">
               <div className="border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm flex flex-col h-full">
                 <img
-                  src="https://placehold.co/400x200/cbd5e1/1e293b?text=Unsaturated"
+                  src={unsaturated}
                   alt="Unsaturated solution placeholder"
                   className="w-full h-32 object-cover"
                 />
@@ -607,7 +615,7 @@ Calculate concentration: $\\frac{2\\ \\text{mg}}{10^6\\ \\text{mg}} \\times 10^6
 
               <div className="border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm flex flex-col h-full">
                 <img
-                  src="https://placehold.co/400x200/cbd5e1/1e293b?text=Saturated"
+                  src={saturated}
                   alt="Saturated solution placeholder"
                   className="w-full h-32 object-cover"
                 />
@@ -628,7 +636,7 @@ Calculate concentration: $\\frac{2\\ \\text{mg}}{10^6\\ \\text{mg}} \\times 10^6
 
               <div className="border border-red-200 dark:border-red-900/50 rounded-xl bg-red-50 dark:bg-red-900/10 overflow-hidden shadow-sm flex flex-col h-full">
                 <img
-                  src="https://placehold.co/400x200/fecaca/7f1d1d?text=Supersaturated"
+                  src={supersaturated}
                   alt="Supersaturated solution placeholder"
                   className="w-full h-32 object-cover"
                 />
@@ -675,7 +683,7 @@ Calculate concentration: $\\frac{2\\ \\text{mg}}{10^6\\ \\text{mg}} \\times 10^6
               <div className="clearfix">
                 <figure className="float-left w-full sm:w-[45%] mr-0 sm:mr-6 mb-4">
                   <img
-                    src="https://placehold.co/400x300/e2e8f0/475569?text=Temperature+Effect"
+                    src={hot}
                     alt="Hot water and cold water dissolving sugar at different rates"
                     className="w-full rounded-xl shadow-md border border-gray-200 dark:border-gray-700 m-0"
                   />
@@ -698,7 +706,7 @@ Calculate concentration: $\\frac{2\\ \\text{mg}}{10^6\\ \\text{mg}} \\times 10^6
               <div className="clearfix">
                 <figure className="float-right w-full sm:w-[40%] ml-0 sm:ml-6 mb-4">
                   <img
-                    src="https://placehold.co/400x300/e2e8f0/475569?text=Pressure+Effect"
+                    src={pressure}
                     alt="Carbon dioxide bubbles escaping from an opened soda bottle"
                     className="w-full rounded-xl shadow-md border border-gray-200 dark:border-gray-700 m-0"
                   />
