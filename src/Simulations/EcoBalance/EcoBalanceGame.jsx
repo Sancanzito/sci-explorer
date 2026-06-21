@@ -1,16 +1,17 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Sky, ContactShadows, Text, Sparkles } from '@react-three/drei';
+import { OrbitControls, Sky, ContactShadows, Text, Sparkles, Stars, Instances, Instance } from '@react-three/drei';
 import { create } from 'zustand';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Droplet, Sun, CloudRain, Skull, Leaf, RefreshCw, Zap, Flame, Bug, Thermometer, Waves, Sprout, Trees } from 'lucide-react';
+import { Activity, Droplet, Sun, CloudRain, Skull, Leaf, RefreshCw, Zap, Flame, Bug, Thermometer, Waves, Sprout, Trees, ChartLine } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 import * as THREE from 'three';
 
 // ==========================================
 // 1. ZUSTAND ECOSYSTEM ENGINE (ORIGINAL LOGIC)
 // ==========================================
-const MAP_SIZE = 50; 
-const RIVER_Z_BOUNDS = [-3, 3];
+const MAP_SIZE = 300;
+const RIVER_Z_BOUNDS = [-8, 8]; // Widened the river for the larger map
 const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
 const BIOMES = {
   FOREST: 'forest',
@@ -56,14 +57,58 @@ const SPECIES_DATA = {
   },
 };
 
-const getBiome = (x, z) => {
-  const distFromRiver = Math.abs(z);
-  if (distFromRiver < 5) return BIOMES.WETLAND;
-  if (x < -8 && distFromRiver > 5) return BIOMES.FOREST;
-  if (x > 8 && distFromRiver > 5) return BIOMES.ROCKY;
-  return BIOMES.GRASSLAND;
+// ==========================================
+// PROCEDURAL NOISE ENGINE (MINECRAFT STYLE)
+// ==========================================
+const pseudoRandom = (x, z) => {
+  const dot = x * 12.9898 + z * 78.233;
+  return (Math.sin(dot) * 43758.5453) - Math.floor(Math.sin(dot) * 43758.5453);
+};
+const getRiverCurveZ = (x) => {
+  // Overlapping sine waves create a natural meandering path
+  return Math.sin(x * 0.03) * 15 + Math.cos(x * 0.015) * 10;
+};
+const smoothNoise = (x, z) => {
+  const ix = Math.floor(x), iz = Math.floor(z);
+  const fx = x - ix, fz = z - iz;
+  const ux = fx * fx * (3 - 2 * fx); // Smoothstep interpolation
+  const uz = fz * fz * (3 - 2 * fz);
+
+  const v00 = pseudoRandom(ix, iz);
+  const v10 = pseudoRandom(ix + 1, iz);
+  const v01 = pseudoRandom(ix, iz + 1);
+  const v11 = pseudoRandom(ix + 1, iz + 1);
+
+  const i1 = v00 * (1 - ux) + v10 * ux;
+  const i2 = v01 * (1 - ux) + v11 * ux;
+  return i1 * (1 - uz) + i2 * uz;
 };
 
+// Fractional Brownian Motion (fBm)
+const fbm = (x, z, octaves = 4) => {
+  let total = 0, amplitude = 1, frequency = 1, maxValue = 0;
+  for (let i = 0; i < octaves; i++) {
+    total += smoothNoise(x * frequency, z * frequency) * amplitude;
+    maxValue += amplitude;
+    amplitude *= 0.5;
+    frequency *= 2;
+  }
+  return total / maxValue;
+};
+
+const getBiome = (x, z) => {
+  const distFromRiver = Math.abs(z);
+  // Keep the river exactly in the middle so the animal AI doesn't break
+  if (distFromRiver < 5) return BIOMES.WETLAND;
+  
+  // Generate a smooth noise value between 0 and 1 for this specific coordinate
+  // The 0.04 multiplier controls the "scale" or "zoom level" of the biomes
+  const biomeNoise = fbm(x * 0.04, z * 0.04); 
+  
+  if (biomeNoise > 0.55) return BIOMES.FOREST;     // High noise = Forest patches
+  if (biomeNoise < 0.45) return BIOMES.ROCKY;      // Low noise = Rocky patches
+  return BIOMES.GRASSLAND;                         // Middle noise = Grassland
+};
 const useStore = create((set) => ({
   weather: 'Clear',
   timeOfDay: 8,
@@ -72,22 +117,38 @@ const useStore = create((set) => ({
   seasonProgress: 0,
   corpses: [],
   food: [],
-  entities: [
-    { id: 'wolf-1', type: 'predator', species: 'Wolf', gender: 'male', age: 2.5, pos: [5, 0, 5], target: [5, 0, 5], hunger: 100, thirst: 80, state: 'wandering', fertility: 0, traits: { size: 1.0, speed: 1.0 } },
-    { id: 'rabbit-1', type: 'prey', species: 'Rabbit', gender: 'female', age: 1.5, pos: [-5, 0, -5], target: [-5, 0, -5], hunger: 100, thirst: 100, state: 'grazing', fertility: 0, traits: { size: 0.8, speed: 0.8 } },
-    { id: 'rabbit-2', type: 'prey', species: 'Rabbit', gender: 'male', age: 1.2, pos: [-6, 0, -4], target: [-6, 0, -4], hunger: 90, thirst: 95, state: 'grazing', fertility: 0, traits: { size: 0.9, speed: 0.9 } },
-    { id: 'fish-1', type: 'prey', species: 'Fish', gender: 'female', age: 0.8, pos: [8, -0.5, 0], target: [8, -0.5, 0], hunger: 100, thirst: 100, state: 'swimming', fertility: 0, traits: { size: 1.0, speed: 1.0 } },
-    { id: 'fish-2', type: 'prey', species: 'Fish', gender: 'male', age: 0.5, pos: [-8, -0.5, 1], target: [-8, -0.5, 1], hunger: 100, thirst: 100, state: 'swimming', fertility: 0, traits: { size: 1.0, speed: 1.0 } },
-    { id: 'deer-1', type: 'prey', species: 'Deer', gender: 'female', age: 3, pos: [-12, 0, 8], target: [-12, 0, 8], hunger: 100, thirst: 100, state: 'grazing', fertility: 0, traits: { size: 1.2, speed: 0.7 } },
-    { id: 'fox-1', type: 'predator', species: 'Fox', gender: 'male', age: 2, pos: [12, 0, -8], target: [12, 0, -8], hunger: 100, thirst: 90, state: 'wandering', fertility: 0, traits: { size: 0.8, speed: 1.2 } },
+ entities: [
+    // Predators
+    { id: 'wolf-1', type: 'predator', species: 'Wolf', gender: 'male', age: 2.5, pos: [30, 0, 30], target: [30, 0, 30], hunger: 100, thirst: 80, state: 'wandering', fertility: 0, traits: { size: 1.0, speed: 1.0 } },
+    { id: 'wolf-2', type: 'predator', species: 'Wolf', gender: 'female', age: 2.0, pos: [35, 0, 32], target: [35, 0, 32], hunger: 90, thirst: 90, state: 'wandering', fertility: 0, traits: { size: 0.9, speed: 1.1 } },
+    { id: 'fox-1', type: 'predator', species: 'Fox', gender: 'male', age: 2, pos: [60, 0, -40], target: [60, 0, -40], hunger: 100, thirst: 90, state: 'wandering', fertility: 0, traits: { size: 0.8, speed: 1.2 } },
+    { id: 'fox-2', type: 'predator', species: 'Fox', gender: 'female', age: 1.5, pos: [62, 0, -38], target: [62, 0, -38], hunger: 95, thirst: 85, state: 'wandering', fertility: 0, traits: { size: 0.8, speed: 1.1 } },
+    { id: 'eagle-1', type: 'predator', species: 'Eagle', gender: 'female', age: 3, pos: [-40, 5, -80], target: [-40, 5, -80], hunger: 100, thirst: 100, state: 'wandering', fertility: 0, traits: { size: 1.1, speed: 1.5 } }, 
+    { id: 'eagle-2', type: 'predator', species: 'Eagle', gender: 'male', age: 2, pos: [80, 5, 80], target: [80, 5, 80], hunger: 90, thirst: 100, state: 'wandering', fertility: 0, traits: { size: 1.0, speed: 1.6 } }, 
+    
+    // Prey (Herds)
+    ...Array.from({ length: 8 }).map((_, i) => ({ id: `rabbit-${i}`, type: 'prey', species: 'Rabbit', gender: i % 2 === 0 ? 'male' : 'female', age: 1.5, pos: [-20 + (Math.random()*10), 0, -20 + (Math.random()*10)], target: [-20, 0, -20], hunger: 100, thirst: 100, state: 'grazing', fertility: 0, traits: { size: 0.8, speed: 0.8 } })),
+    ...Array.from({ length: 6 }).map((_, i) => ({ id: `deer-${i}`, type: 'prey', species: 'Deer', gender: i % 2 === 0 ? 'male' : 'female', age: 3, pos: [-50 + (Math.random()*15), 0, 40 + (Math.random()*15)], target: [-50, 0, 40], hunger: 100, thirst: 100, state: 'grazing', fertility: 0, traits: { size: 1.2, speed: 0.7 } })),
+    ...Array.from({ length: 10 }).map((_, i) => ({ id: `fish-${i}`, type: 'prey', species: 'Fish', gender: i % 2 === 0 ? 'male' : 'female', age: 0.8, pos: [(Math.random()-0.5)*100, -0.5, (Math.random()-0.5)*4], target: [0, -0.5, 0], hunger: 100, thirst: 100, state: 'swimming', fertility: 0, traits: { size: 1.0, speed: 1.0 } })),
   ],
   disasterEvent: null,
   riverLevel: 0.5,
   waterQuality: 0.8,
   carbonStorage: 0,
 
+  // ADDED UI STATE
+  simSpeed: 1,
+  isPaused: false,
+  simTick: 0,
+  populationHistory: [],
+  selectedEntityId: null,
+
   simulate: (delta) => {
     set((state) => {
+      // ADDED SIM SPEED LOGIC
+      if (state.simSpeed === 0) return state;
+      delta *= state.simSpeed;
+
       let newSeasonProgress = state.seasonProgress + delta * 0.005;
       let newSeason = state.season;
       if (newSeasonProgress >= 1) {
@@ -310,10 +371,32 @@ const useStore = create((set) => ({
       const newDayCycle = state.dayCycle + (delta * 0.1);
       const timeOfDay = (8 + newDayCycle) % 24;
 
+      // ADDED HISTORY TRACKING
+      const newTick = state.simTick + 1;
+      const recordInterval = Math.max(1, Math.ceil(10 / (state.simSpeed || 1)));
+      let newHistory = state.populationHistory;
+      if (newTick % recordInterval === 0) {
+        const counts = {};
+        processedEntities.forEach(e => { counts[e.species] = (counts[e.species] || 0) + 1; });
+        const herbCnt = processedEntities.filter(e => e.type === 'prey').length;
+        const carnCnt = processedEntities.filter(e => e.type === 'predator').length;
+        const totalFoodSize = newFood.reduce((s, f) => s + f.size, 0);
+        const biomass = Math.min(100, totalFoodSize * 20);
+        const speciesSet = new Set(processedEntities.map(e => e.species));
+        const biodiversity = Math.min(100, speciesSet.size * 15);
+        const balance = (herbCnt + carnCnt) > 0 ? Math.min(100, Math.abs(herbCnt - carnCnt) < 5 ? 100 : 40) : 0;
+        const health = Math.min(100, biomass * 0.35 + biodiversity * 0.35 + balance * 0.3);
+        
+        const snapshot = { tick: newTick, health: Math.round(health) };
+        Object.keys(counts).forEach(species => { snapshot[species] = counts[species]; });
+        newHistory = [...state.populationHistory.slice(-150), snapshot]; // Cap at 150 points for memory safety
+      }
+
       return {
         entities: processedEntities, corpses: newCorpses, food: newFood,
         dayCycle: newDayCycle, timeOfDay, season: newSeason, seasonProgress: newSeasonProgress,
         riverLevel: newRiverLevel, waterQuality: newWaterQuality, carbonStorage: carbonBonus,
+        simTick: newTick, populationHistory: newHistory
       };
     });
   },
@@ -332,9 +415,23 @@ const useStore = create((set) => ({
     }),
   setWeather: (weather) => set({ weather }),
   setDisaster: (event) => set({ disasterEvent: event }),
+  
+  // ADDED UI ACTIONS
+  setSimSpeed: (speed) => set({ simSpeed: speed, isPaused: speed === 0 }),
+  togglePause: () => set((s) => ({ isPaused: !s.isPaused, simSpeed: s.isPaused ? 1 : 0 })),
+  selectEntity: (id) => set({ selectedEntityId: id }),
+  clearSelection: () => set({ selectedEntityId: null }),
 }));
 
-function randomMapPosition() { return [(Math.random() - 0.5) * MAP_SIZE, 0, (Math.random() - 0.5) * MAP_SIZE]; }
+function randomMapPosition() { 
+  let x, z;
+  do {
+    x = (Math.random() - 0.5) * MAP_SIZE;
+    z = (Math.random() - 0.5) * MAP_SIZE;
+  } while (Math.abs(z) < 6); // Prevents spawning in the river
+  return [x, 0, z]; 
+}
+
 function randomNearbyPosition(pos, range, species) {
   let newX = pos[0] + (Math.random() - 0.5) * range;
   let newZ = pos[2] + (Math.random() - 0.5) * range;
@@ -359,6 +456,9 @@ const Animal = ({ id, type, species, gender, initialPos }) => {
   const hungerBarRef = useRef();
   const bodyMaterialRef = useRef();
 
+  // ADDED SELECTION LOGIC
+  const selectEntity = useStore(s => s.selectEntity);
+
   const baseColor = useMemo(() => {
     switch (species) {
       case 'Wolf': return new THREE.Color('#3f3f46');
@@ -376,9 +476,13 @@ const Animal = ({ id, type, species, gender, initialPos }) => {
   useFrame(() => {
     const entity = useStore.getState().entities.find(e => e.id === id);
     if (!entity || !groupRef.current) return;
-    groupRef.current.position.set(entity.pos[0], entity.pos[1] || 0, entity.pos[2]);
-    const lookTarget = new THREE.Vector3(entity.target[0], 0, entity.target[2]);
+    
+    // Eagles fly higher
+    const yOffset = species === 'Eagle' ? 5 : (species === 'Fish' ? -0.5 : 0);
+    groupRef.current.position.set(entity.pos[0], yOffset, entity.pos[2]);
+    const lookTarget = new THREE.Vector3(entity.target[0], yOffset, entity.target[2]);
     groupRef.current.lookAt(lookTarget);
+    
     if (textRef.current) textRef.current.text = entity.state;
     if (hungerBarRef.current) {
       hungerBarRef.current.scale.x = Math.max(0.01, entity.hunger / 100);
@@ -494,7 +598,8 @@ const Animal = ({ id, type, species, gender, initialPos }) => {
   };
 
   return (
-    <group ref={groupRef} position={initialPos}>
+    // ADDED CLICK HANDLER HERE
+    <group ref={groupRef} position={initialPos} onClick={(e) => { e.stopPropagation(); selectEntity(id); }}>
       {renderModel()}
       <Text ref={textRef} position={[0, 2.2, 0]} fontSize={0.3} color="white" anchorX="center" outlineWidth={0.02} outlineColor="black">
         Spawning...
@@ -553,144 +658,260 @@ const Terrain = () => {
   
   const biomeColors = useMemo(() => {
     const canvas = document.createElement('canvas');
-    canvas.width = 512; canvas.height = 512;
+    // Bumped to 1024 for higher resolution on the massive 300-size map
+    canvas.width = 1024; canvas.height = 1024;
     const ctx = canvas.getContext('2d');
-    for (let y = 0; y < 512; y++) {
-      for (let x = 0; x < 512; x++) {
-        const worldX = (x / 512 - 0.5) * MAP_SIZE;
-        const worldZ = (y / 512 - 0.5) * MAP_SIZE;
+    
+    for (let y = 0; y < 1024; y++) {
+      for (let x = 0; x < 1024; x++) {
+        const worldX = (x / 1024 - 0.5) * MAP_SIZE;
+        const worldZ = (y / 1024 - 0.5) * MAP_SIZE;
         const biome = getBiome(worldX, worldZ);
-        let color;
-        switch (biome) {
-          case BIOMES.FOREST: color = '#1b4d1b'; break;
-          case BIOMES.GRASSLAND: color = '#4caf50'; break;
-          case BIOMES.WETLAND: color = '#2e7d32'; break;
-          case BIOMES.ROCKY: color = '#757575'; break;
-          default: color = '#4caf50';
-        }
-        ctx.fillStyle = color;
+        
+        let r, g, b;
+        if (biome === BIOMES.FOREST) { r=34; g=90; b=39; }
+        else if (biome === BIOMES.GRASSLAND) { r=92; g=184; b=92; }
+        else if (biome === BIOMES.WETLAND) { r=56; g=142; b=60; }
+        else { r=110; g=110; b=115; } 
+
+        const detailNoise = fbm(worldX * 0.5, worldZ * 0.5, 2) * 30 - 15;
+        ctx.fillStyle = `rgb(${Math.max(0, r + detailNoise)}, ${Math.max(0, g + detailNoise)}, ${Math.max(0, b + detailNoise)})`;
         ctx.fillRect(x, y, 1, 1);
       }
     }
     return new THREE.CanvasTexture(canvas);
   }, []);
 
+  useEffect(() => {
+    return () => { biomeColors.dispose(); };
+  }, [biomeColors]);
+
   const trees = useMemo(() => {
     const arr = [];
-    for (let i = 0; i < 40; i++) {
+    // Massively increased tree count for the bigger map
+    for (let i = 0; i < 1200; i++) { 
       const x = (Math.random() - 0.5) * MAP_SIZE;
       const z = (Math.random() - 0.5) * MAP_SIZE;
+      if (Math.abs(z) < 10) continue; // Avoid the wider river
+      
       const biome = getBiome(x, z);
-      if (biome === BIOMES.FOREST || biome === BIOMES.WETLAND) {
+      if (biome === BIOMES.FOREST) {
         arr.push({ position: [x, 0, z] });
-      } else if (Math.random() > 0.7) arr.push({ position: [x, 0, z] });
+      } else if (biome === BIOMES.WETLAND && Math.random() > 0.5) {
+        arr.push({ position: [x, 0, z] });
+      } else if (biome === BIOMES.GRASSLAND && Math.random() > 0.8) {
+         arr.push({ position: [x, 0, z] });
+      }
     }
     return arr;
   }, []);
 
   const mountains = useMemo(() => {
     const m = [];
-    const radius = MAP_SIZE / 2 + 2; 
-    for (let i = 0; i < 40; i++) {
-      const angle = (i / 40) * Math.PI * 2;
-      const dist = radius + Math.random() * 5;
+    // Mountain Wall Logic
+    const radius = MAP_SIZE / 2 - 10; 
+    
+    // Create a dense ring around the edge
+    for (let i = 0; i < 300; i++) {
+      const angle = (i / 300) * Math.PI * 2;
+      // Add heavy jitter so it looks like a natural, jagged mountain range, not a perfect circle
+      const dist = radius + (Math.random() * 20 - 10);
+      const height = 15 + Math.random() * 35;
+      
       m.push({
         pos: [Math.cos(angle) * dist, 0, Math.sin(angle) * dist],
-        height: 10 + Math.random() * 15,
-        radius: 8 + Math.random() * 6,
-        color: Math.random() > 0.5 ? '#3f3f46' : '#27272a'
+        height: height,
+        radius: 12 + Math.random() * 12,
+        color: Math.random() > 0.5 ? '#3f3f46' : '#27272a',
+        hasSnow: height > 35 // Only tall mountains get snow
       });
     }
     return m;
   }, []);
 
+  const scenery = useMemo(() => {
+    const rocks = [];
+    const grassPatches = [];
+    // Scaled up to 2000 for the massive map
+    for (let i = 0; i < 2000; i++) {
+      const x = (Math.random() - 0.5) * MAP_SIZE;
+      const z = (Math.random() - 0.5) * MAP_SIZE;
+      if (Math.abs(z) < 10) continue;
+      
+      const biome = getBiome(x, z);
+      if (biome === BIOMES.ROCKY || (biome === BIOMES.GRASSLAND && Math.random() > 0.8)) {
+        rocks.push({ pos: [x, 0, z], scale: 0.5 + Math.random() * 2 });
+      }
+      if (biome === BIOMES.GRASSLAND || biome === BIOMES.FOREST) {
+        grassPatches.push({ pos: [x, 0, z], scale: 0.5 + Math.random() });
+      }
+    }
+    return { rocks, grassPatches };
+  }, []);
+  
   return (
     <group>
+      {/* Main Terrain Floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} ref={meshRef}>
         <planeGeometry args={[MAP_SIZE + 10, MAP_SIZE + 10]} />
-        <meshStandardMaterial map={biomeColors} roughness={1} />
+        <meshStandardMaterial map={biomeColors} roughness={0.9} />
       </mesh>
-      {/* River */}
+      
+      {/* Widened Physical River */}
       <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
-        <planeGeometry args={[MAP_SIZE + 10, 6]} />
-        <meshStandardMaterial color="#3b82f6" transparent opacity={0.6} roughness={0.1} metalness={0.2} />
+        {/* Width expanded to 14 to fit the new map scale */}
+        <planeGeometry args={[MAP_SIZE + 10, 14]} />
+        <meshPhysicalMaterial 
+          color="#0ea5e9" 
+          transmission={0.6} 
+          opacity={1} 
+          roughness={0.1} 
+          ior={1.5} 
+          thickness={2} 
+        />
       </mesh>
+      
       {trees.map((tree, i) => (
-        <group key={i} position={tree.position}>
-          <mesh position={[0, 1, 0]} castShadow><cylinderGeometry args={[0.2, 0.2, 2]} /><meshStandardMaterial color="#5c4033" /></mesh>
-          <mesh position={[0, 2.5, 0]} castShadow><dodecahedronGeometry args={[1.5]} /><meshStandardMaterial color="#1e4620" /></mesh>
+        <group key={`tree-${i}`} position={tree.position}>
+          <mesh position={[0, 1, 0]} castShadow><cylinderGeometry args={[0.3, 0.3, 2]} /><meshStandardMaterial color="#3e2723" /></mesh>
+          <mesh position={[0, 2.5, 0]} castShadow><dodecahedronGeometry args={[1.8]} /><meshStandardMaterial color="#1b5e20" /></mesh>
         </group>
       ))}
-      {/* Surrounding Mountains */}
+      
       {mountains.map((mtn, i) => (
-        <mesh key={`mtn-${i}`} position={[mtn.pos[0], mtn.height / 2, mtn.pos[2]]} castShadow receiveShadow>
-          <coneGeometry args={[mtn.radius, mtn.height, 5]} />
-          <meshStandardMaterial color={mtn.color} roughness={0.9} />
+        <group key={`mtn-${i}`} position={[mtn.pos[0], 0, mtn.pos[2]]}>
+          {/* Base Mountain */}
+          <mesh position={[0, mtn.height / 2, 0]} castShadow receiveShadow>
+            <coneGeometry args={[mtn.radius, mtn.height, 6]} />
+            <meshStandardMaterial color={mtn.color} roughness={0.9} />
+          </mesh>
+          {/* Snow Cap Visual Upgrade */}
+          {mtn.hasSnow && (
+            <mesh position={[0, mtn.height - (mtn.height * 0.15), 0]}>
+              <coneGeometry args={[mtn.radius * 0.35, mtn.height * 0.3, 6]} />
+              <meshStandardMaterial color="#ffffff" roughness={0.5} />
+            </mesh>
+          )}
+        </group>
+      ))}
+      
+      {scenery.rocks.map((rock, i) => (
+        <mesh key={`rock-${i}`} position={[rock.pos[0], rock.scale/4, rock.pos[2]]} castShadow>
+          <dodecahedronGeometry args={[rock.scale / 2]} />
+          <meshStandardMaterial color="#71717a" roughness={0.8} />
+        </mesh>
+      ))}
+      
+      {scenery.grassPatches.map((patch, i) => (
+        <mesh key={`patch-${i}`} position={[patch.pos[0], 0.1, patch.pos[2]]}>
+          <coneGeometry args={[0.2 * patch.scale, 0.4 * patch.scale, 3]} />
+          <meshStandardMaterial color="#4ade80" roughness={1} />
         </mesh>
       ))}
     </group>
   );
 };
 
-// FIXED: Sun, Moon, Fog, and Lighting bound safely to Canvas
 const EnvironmentSystems = () => {
   const { scene } = useThree();
   const weather = useStore(state => state.weather);
   const sunRef = useRef();
   const moonRef = useRef();
   const ambientRef = useRef();
+  const starsRef = useRef();
+
+  // We'll store the sun position so we can pass it to the Sky component
+  const [sunPosition, setSunPosition] = useState([0, 1, 0]);
 
   useFrame(() => {
     const timeOfDay = useStore.getState().timeOfDay;
+    // 6 AM = angle 0. 12 PM = angle PI/2. 6 PM = angle PI.
     const angle = ((timeOfDay - 6) / 24) * Math.PI * 2;
-    const x = Math.cos(angle) * 50;
-    const y = Math.sin(angle) * 50;
     
+    // Calculate sun vector
+    const x = Math.cos(angle) * 100;
+    const y = Math.sin(angle) * 100;
+    const z = 0; // Sun moves along the X/Y axis
+    
+    setSunPosition([x, y, z]);
+
+    // Sun Logic (Day)
     if (sunRef.current) { 
-      sunRef.current.position.set(x, y, 0); 
-      sunRef.current.intensity = Math.max(0, Math.sin(angle) * 2.5); 
+      sunRef.current.position.set(x, y, z); 
+      sunRef.current.intensity = Math.max(0, Math.sin(angle) * 3.0); 
     }
+    
+    // Moon Logic (Night)
     if (moonRef.current) { 
-      moonRef.current.position.set(-x, -y, 0); 
-      moonRef.current.intensity = Math.max(0, -Math.sin(angle) * 0.5); 
+      moonRef.current.position.set(-x, -y, -z); 
+      moonRef.current.intensity = Math.max(0, -Math.sin(angle) * 0.8); 
     }
+    
+    // Ambient light depends on sun height and weather
     if (ambientRef.current) {
-       ambientRef.current.intensity = y > 0 ? (weather === 'Rain' ? 0.3 : 0.6) : 0.1;
+       ambientRef.current.intensity = y > 0 ? (weather === 'Rain' ? 0.4 : 0.7) : 0.15;
     }
 
-    // Colors transition based on sun height
-    let skyColor, fogColor;
-    if (y > 20) { 
-      skyColor = new THREE.Color(weather === 'Rain' ? '#6b7280' : '#87CEEB');
-      fogColor = skyColor;
-    } else if (y > 0) { 
-      skyColor = new THREE.Color('#fdba74');
-      fogColor = new THREE.Color('#ea580c');
-    } else { 
-      skyColor = new THREE.Color('#0f172a');
-      fogColor = new THREE.Color('#020617');
+    // Smoothly fade stars in at night
+    if (starsRef.current) {
+        starsRef.current.material.opacity = Math.max(0, -Math.sin(angle));
+        starsRef.current.material.transparent = true;
     }
 
-    scene.background = skyColor;
-    scene.fog = new THREE.Fog(fogColor, 25, MAP_SIZE + 15);
+    // Dynamic Fog Colors based on sun height
+    let fogTarget = new THREE.Color('#87CEEB');
+    if (weather === 'Rain') {
+        fogTarget.set('#6b7280');
+    } else if (y < 20 && y > 0) { 
+        // Sunset/Sunrise
+        fogTarget.set('#fb923c');
+    } else if (y <= 0) { 
+        // Night
+        fogTarget.set('#020617');
+    }
+
+    // Smoothly lerp the scene background and fog to avoid harsh jumps
+    scene.background = scene.background || new THREE.Color();
+    scene.background.lerp(fogTarget, 0.05);
+    if (scene.fog) {
+        scene.fog.color.lerp(fogTarget, 0.05);
+    }
   });
 
   return (
     <>
       <ambientLight ref={ambientRef} />
-      <directionalLight ref={sunRef} castShadow shadow-mapSize={[2048, 2048]} color="#ffeedd">
-        <mesh><sphereGeometry args={[2]} /><meshBasicMaterial color="#fbbf24" /></mesh>
+      
+      {/* The Sun Light */}
+      <directionalLight ref={sunRef} castShadow shadow-mapSize={[2048, 2048]} color="#fffaed">
+        <mesh><sphereGeometry args={[2]} /><meshBasicMaterial color="#fef08a" /></mesh>
       </directionalLight>
+      
+      {/* The Moon Light */}
       <directionalLight ref={moonRef} color="#bae6fd" castShadow shadow-mapSize={[1024, 1024]}>
         <mesh><sphereGeometry args={[1.5]} /><meshBasicMaterial color="#e0f2fe" /></mesh>
       </directionalLight>
-      <Sky turbidity={weather === 'Rain' ? 5 : 0.1} rayleigh={weather === 'Rain' ? 2 : 0.5} />
-      {weather === 'Rain' && <Sparkles count={2000} scale={[MAP_SIZE, 20, MAP_SIZE]} size={2} color="#93c5fd" speed={0.8} opacity={0.6} position={[0, 10, 0]} />}
+      
+      {/* Drei's Sky perfectly synced to our sunPosition vector */}
+      <Sky 
+        sunPosition={sunPosition} 
+        turbidity={weather === 'Rain' ? 5 : 0.3} 
+        rayleigh={weather === 'Rain' ? 2 : 0.8} 
+        mieCoefficient={0.005} 
+        mieDirectionalG={0.8} 
+      />
+      
+      <Stars ref={starsRef} radius={100} depth={50} count={3000} factor={4} saturation={0} fade speed={1} />
+      
+      <fog attach="fog" args={['#87CEEB', 25, MAP_SIZE + 15]} />
+      
+      {weather === 'Rain' && (
+        <Sparkles count={2000} scale={[MAP_SIZE, 20, MAP_SIZE]} size={2} color="#93c5fd" speed={1.5} opacity={0.6} position={[0, 10, 0]} />
+      )}
     </>
   );
 };
 
-// FIXED: The game loop running safely inside the Canvas
 const SimulationController = () => {
   const simulate = useStore(state => state.simulate);
   const entityIdString = useStore(state => state.entities.map(e => `${e.id}:${e.type}:${e.species}:${e.gender}`).join(','));
@@ -767,15 +988,81 @@ const DashboardUI = () => {
   );
 };
 
+// ADDED TRANSPORT UI COMPONENT
+const TransportUI = () => {
+  const simSpeed = useStore(s => s.simSpeed);
+  const isPaused = useStore(s => s.isPaused);
+  const togglePause = useStore(s => s.togglePause);
+  const setSimSpeed = useStore(s => s.setSimSpeed);
+
+  return (
+    <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
+      <div className="bg-black/60 backdrop-blur-md px-3 py-2 rounded-xl border border-white/10 flex items-center gap-2">
+        <button onClick={togglePause}
+          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+          {isPaused ? <Zap size={16} className="text-red-400" /> : <Zap size={16} className="text-green-400" />}
+        </button>
+        <span className="text-[10px] text-gray-500 font-mono w-8 text-center">{isPaused ? 'PAUSED' : `${simSpeed}x`}</span>
+        {[1, 2, 4].map(speed => (
+          <button key={speed} onClick={() => setSimSpeed(speed)}
+            className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${simSpeed === speed && !isPaused ? 'bg-green-700/50 text-green-200' : 'text-gray-400 hover:text-white'}`}>
+            {speed}x
+          </button>
+        ))}
+      </div>
+    </motion.div>
+  );
+};
+
+// ADDED POPULATION CHART COMPONENT
+const PopulationChart = () => {
+  const [showChart, setShowChart] = useState(false);
+  const populationHistory = useStore(s => s.populationHistory);
+
+  const species = ['Wolf', 'Fox', 'Eagle', 'Rabbit', 'Deer', 'Fish', 'Rat'];
+  const colors = ['#a78bfa', '#d97a3e', '#5c4033', '#d4d4d8', '#c19a6b', '#a5b4fc', '#a8a29e'];
+
+  return (
+    <>
+      <button onClick={() => setShowChart(!showChart)}
+        className="absolute top-20 right-4 z-10 bg-black/60 backdrop-blur-md p-2 rounded-xl border border-white/10 hover:bg-white/10 transition-all cursor-pointer pointer-events-auto">
+        <ChartLine size={18} className={showChart ? 'text-green-400' : 'text-gray-400'} />
+      </button>
+      <AnimatePresence>
+        {showChart && (
+          <motion.div initial={{ y: 200, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 200, opacity: 0 }}
+            className="absolute bottom-40 left-1/2 -translate-x-1/2 z-10 pointer-events-auto bg-black/70 backdrop-blur-xl p-4 rounded-2xl border border-white/10 shadow-2xl"
+            style={{ width: 500, height: 220 }}>
+            <p className="text-[10px] text-gray-400 uppercase font-bold mb-2 tracking-wider">Population Over Time</p>
+            <ResponsiveContainer width="100%" height="85%">
+              <LineChart data={populationHistory}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                <XAxis dataKey="tick" hide />
+                <YAxis hide domain={[0, 'auto']} />
+                <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+                {species.filter(s => populationHistory.some(h => h[s] !== undefined)).map((s, i) => (
+                  <Line key={s} type="monotone" dataKey={s} stroke={colors[i]} strokeWidth={1.5} dot={false} connectNulls />
+                ))}
+                <Line type="monotone" dataKey="health" stroke="#22c55e" strokeWidth={2} dot={false} strokeDasharray="4 2" />
+              </LineChart>
+            </ResponsiveContainer>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
 const EntityInfoModal = ({ entity, onClose }) => {
   if (!entity) return null;
   const data = SPECIES_DATA[entity.species] || { role: 'Unknown', diet: 'Unknown', predators: 'None', status: 'Unknown', trophicLevel: 'Unknown' };
   const population = useStore.getState().entities.filter(e => e.species === entity.species).length;
   return (
     <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}
-      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/80 backdrop-blur-xl p-6 rounded-2xl border border-white/20 z-50 w-80 text-white shadow-2xl"
+      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/80 backdrop-blur-xl p-6 rounded-2xl border border-white/20 z-50 w-80 text-white shadow-2xl pointer-events-auto"
       onClick={e => e.stopPropagation()}>
-      <button onClick={onClose} className="absolute top-2 right-3 text-gray-400 hover:text-white text-xl">&times;</button>
+      <button onClick={onClose} className="absolute top-2 right-3 text-gray-400 hover:text-white text-xl cursor-pointer">&times;</button>
       <h3 className="text-xl font-bold mb-2">{entity.species} ({entity.gender})</h3>
       <p className="text-sm"><span className="text-gray-500">Age:</span> {entity.age.toFixed(1)} yrs</p>
       <p className="text-sm"><span className="text-gray-500">State:</span> {entity.state}</p>
@@ -797,11 +1084,15 @@ const ControlsUI = () => {
   const setWeather = useStore(s => s.setWeather);
   const setDisaster = useStore(s => s.setDisaster);
   const weather = useStore(s => s.weather);
-  const [selectedEntity, setSelectedEntity] = useState(null);
+  
+  // FIXED SELECTION LOGIC
+  const selectEntity = useStore(s => s.selectEntity);
+  const clearSelection = useStore(s => s.clearSelection);
+  const selectedEntity = useStore(s => s.entities.find(e => e.id === s.selectedEntityId));
 
   const inspectRandomEntity = () => {
     const entities = useStore.getState().entities;
-    if (entities.length > 0) setSelectedEntity(entities[Math.floor(Math.random() * entities.length)]);
+    if (entities.length > 0) selectEntity(entities[Math.floor(Math.random() * entities.length)].id);
   };
 
   return (
@@ -844,7 +1135,7 @@ const ControlsUI = () => {
           <button onClick={inspectRandomEntity} className="w-full bg-gray-800/50 hover:bg-gray-700/80 border border-gray-600/30 transition-all py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer"><Zap size={14} className="text-gray-300" /> Inspect Animal</button>
         </div>
       </div>
-      {selectedEntity && <EntityInfoModal entity={selectedEntity} onClose={() => setSelectedEntity(null)} />}
+      {selectedEntity && <EntityInfoModal entity={selectedEntity} onClose={clearSelection} />}
     </motion.div>
   );
 };
@@ -856,24 +1147,34 @@ export default function EcoBalanceGame() {
   return (
     <div className="relative w-full h-screen bg-gray-950 text-white overflow-hidden font-sans select-none">
       <div className="absolute inset-0 z-0">
-        <Canvas shadows camera={{ position: [20, 25, 20], fov: 45 }}>
+        <Canvas 
+          shadows 
+          camera={{ position: [20, 25, 20], fov: 45 }}
+          dpr={[1, 1.5]} 
+          gl={{ powerPreference: "high-performance", antialias: false }} 
+          onPointerMissed={() => useStore.getState().clearSelection()} // ADDED CLEAR SELECTION
+        >
           
           <SimulationController />
-          <ContactShadows resolution={1024} scale={50} blur={2} opacity={0.4} far={10} color="#000000" />
+          <ContactShadows frames={1} resolution={1024} scale={50} blur={2} opacity={0.4} far={10} color="#000000" />
           
-          {/* Locked Camera - prevents clipping under ground or going past mountains */}
           <OrbitControls 
             makeDefault 
-            maxPolarAngle={Math.PI / 2 - 0.05} // Stops exactly above the ground
+            maxPolarAngle={Math.PI / 2 - 0.05}
             minDistance={5} 
-            maxDistance={MAP_SIZE / 1.5} // Keeps you inside the mountain ring
+            maxDistance={MAP_SIZE / 1.5}
           />
         </Canvas>
       </div>
       <DashboardUI />
       <ControlsUI />
+      
+      {/* ADDED NEW OVERLAYS */}
+      <TransportUI />
+      <PopulationChart />
+      
       <div className="absolute bottom-6 left-6 pointer-events-none text-white/40 text-xs font-mono">
-        Left Click + Drag: Rotate | Scroll: Zoom | Right Click + Drag: Pan
+        Left Click + Drag: Rotate | Scroll: Zoom | Right Click + Drag: Pan | Click Animal: Inspect
       </div>
     </div>
   );
